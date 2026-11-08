@@ -1,0 +1,17 @@
+{
+  "name": "@aloha/plan-engine",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "node --test --experimental-strip-types src/*.test.ts"
+  },
+  "devDependencies": {
+    "@aloha/config": "workspace:*",
+    "typescript": "^5"
+  }
+}

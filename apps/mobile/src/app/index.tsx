@@ -1,9 +1,11 @@
 import { Redirect } from 'expo-router';
 
-import { useAuth } from '@/providers/auth-provider';
+import { useAuth, useOnboarded } from '@/providers/auth-provider';
 
-/** Wejście do aplikacji: z sesją → ekran główny, bez sesji → ekran startowy. */
+/** Wejście do aplikacji: bez sesji → ekran startowy, bez ankiety → ankieta, w pozostałych → ekran główny. */
 export default function Index() {
   const { session } = useAuth();
-  return <Redirect href={session ? '/home' : '/welcome'} />;
+  const onboarded = useOnboarded();
+  if (!session) return <Redirect href="/welcome" />;
+  return <Redirect href={onboarded ? '/home' : '/goal'} />;
 }

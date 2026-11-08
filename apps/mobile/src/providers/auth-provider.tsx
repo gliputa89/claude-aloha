@@ -1,28 +1,54 @@
 import type { Session } from '@supabase/supabase-js';
-import { createContext, use, useEffect, useState, type PropsWithChildren } from 'react';
+import { createContext, use, useCallback, useEffect, useState, type PropsWithChildren } from 'react';
 
 import { supabase } from '@/lib/supabase';
 
-type AuthState = {
-  session: Session | null;
-  /** false, dopóki nie odczytamy zapisanej sesji (splash zostaje). */
-  ready: boolean;
+export type Profile = {
+  display_name: string | null;
+  onboarding_completed_at: string | null;
 };
 
-const AuthContext = createContext<AuthState>({ session: null, ready: false });
+type AuthState = {
+  session: Session | null;
+  /** Profil zalogowanego użytkownika (null bez sesji albo gdy nie udało się go pobrać). */
+  profile: Profile | null;
+  /** false, dopóki nie odczytamy sesji i (przy sesji) profilu – splash zostaje. */
+  ready: boolean;
+  /** Ponowne pobranie profilu, np. po ukończeniu ankiety. */
+  refreshProfile: () => Promise<void>;
+};
+
+const AuthContext = createContext<AuthState>({
+  session: null,
+  profile: null,
+  ready: false,
+  refreshProfile: async () => {},
+});
+
+async function fetchProfile(userId: string): Promise<Profile | null> {
+  const { data } = await supabase
+    .from('profiles')
+    .select('display_name, onboarding_completed_at')
+    .eq('id', userId)
+    .maybeSingle();
+  return data ?? null;
+}
 
 export function AuthProvider({ children }: PropsWithChildren) {
-  const [state, setState] = useState<AuthState>({ session: null, ready: false });
+  const [session, setSession] = useState<Session | null>(null);
+  const [sessionReady, setSessionReady] = useState(false);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [profileFor, setProfileFor] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
     supabase.auth
       .getSession()
-      .then(({ data }) => active && setState({ session: data.session, ready: true }))
-      .catch(() => active && setState({ session: null, ready: true }));
+      .then(({ data }) => active && setSession(data.session))
+      .finally(() => active && setSessionReady(true));
 
-    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (active) setState({ session, ready: true });
+    const { data } = supabase.auth.onAuthStateChange((_event, next) => {
+      if (active) setSession(next);
     });
     return () => {
       active = false;
@@ -30,9 +56,49 @@ export function AuthProvider({ children }: PropsWithChildren) {
     };
   }, []);
 
+  const userId = session?.user.id ?? null;
+
+  useEffect(() => {
+    if (!userId) return;
+    let active = true;
+    fetchProfile(userId)
+      .catch(() => null)
+      .then((p) => {
+        if (!active) return;
+        setProfile(p);
+        setProfileFor(userId);
+      });
+    return () => {
+      active = false;
+    };
+  }, [userId]);
+
+  const refreshProfile = useCallback(async () => {
+    if (!userId) return;
+    setProfile(await fetchProfile(userId));
+    setProfileFor(userId);
+  }, [userId]);
+
+  const state: AuthState = {
+    session,
+    profile: userId && profileFor === userId ? profile : null,
+    ready: sessionReady && (!userId || profileFor === userId),
+    refreshProfile,
+  };
+
   return <AuthContext value={state}>{children}</AuthContext>;
 }
 
 export function useAuth() {
   return use(AuthContext);
+}
+
+/**
+ * Czy zalogowany użytkownik ukończył ankietę startową.
+ * Brak profilu (np. błąd sieci – każde konto ma profil z triggera) traktujemy jak „ukończona”,
+ * żeby nie wpychać w ankietę kogoś, kto ją już przeszedł.
+ */
+export function useOnboarded() {
+  const { profile } = useAuth();
+  return profile === null ? true : !!profile.onboarding_completed_at;
 }
