@@ -1,0 +1,49 @@
+{
+  "$description": "Typografia, odstępy, promienie, ruch (z makiet MVP). Wartości liczbowe w px.",
+  "font": {
+    "family": {
+      "display": { "$value": "Space Grotesk" },
+      "body":    { "$value": "Inter" }
+    },
+    "size": {
+      "xs":   { "$value": 12 },
+      "sm":   { "$value": 14 },
+      "md":   { "$value": 15 },
+      "lg":   { "$value": 16 },
+      "xl":   { "$value": 22 },
+      "2xl":  { "$value": 26 },
+      "3xl":  { "$value": 28 },
+      "4xl":  { "$value": 32 }
+    },
+    "weight": {
+      "regular":  { "$value": 400 },
+      "medium":   { "$value": 500 },
+      "semibold": { "$value": 600 },
+      "bold":     { "$value": 700 }
+    }
+  },
+  "space": {
+    "1": { "$value": 4 },
+    "2": { "$value": 8 },
+    "3": { "$value": 12 },
+    "4": { "$value": 16 },
+    "5": { "$value": 20 },
+    "6": { "$value": 24 },
+    "8": { "$value": 32 },
+    "12": { "$value": 48 }
+  },
+  "radius": {
+    "sm":     { "$value": 8 },
+    "button": { "$value": 14 },
+    "md":     { "$value": 16 },
+    "card":   { "$value": 24 },
+    "pill":   { "$value": 999 }
+  },
+  "motion": {
+    "duration": {
+      "fast":   { "$value": 150 },
+      "normal": { "$value": 250 },
+      "slow":   { "$value": 400 }
+    }
+  }
+}

@@ -195,10 +195,10 @@ Jedno źródło prawdy: **tokeny w `packages/design-system/tokens/`**, z któryc
 design/brand/  (ludzie: logo, paleta, typografia – wynik wątku o identyfikacji wizualnej)
       │  decyzje przepisane do tokenów
       ▼
-packages/design-system/tokens/*.json   ← jedyne źródło prawdy (format W3C Design Tokens)
-      │  build (Style Dictionary)
-      ├──► build/web/tokens.css     → CSS variables + motyw Tailwind  → apps/web, apps/admin
-      ├──► build/native/tokens.ts   → obiekt TS (kolory, fonty, spacing) → apps/mobile
+packages/design-system/tokens/*.json   ← jedyne źródło prawdy (format zbliżony do W3C Design Tokens)
+      │  build: scripts/build.mjs (`pnpm tokens`)
+      ├──► build/theme.css   → CSS variables (light/dark) + motyw Tailwind v4 → apps/web, apps/admin
+      ├──► build/tokens.ts   → obiekt TS (kolory, fonty, spacing)             → apps/mobile
       └──► assets/                  → logo, ikony, fonty, ikona aplikacji, splash, favicon, OG image
 ```
 
@@ -240,10 +240,10 @@ Sekrety (klucz `service_role`, klucz Claude API) tylko w zmiennych środowiskowy
 
 | Temat | Propozycja | Kiedy |
 |---|---|---|
-| Monorepo | pnpm + Turborepo, jedno repo | teraz |
+| Monorepo | pnpm + Turborepo, jedno repo | ✅ wdrożone |
 | Baza | jeden projekt Supabase na środowisko (local / staging / prod), podział na schematy | teraz |
 | Panel | osobna aplikacja Next.js pod `admin.<domena>` | teraz |
-| Design | tokeny JSON → Style Dictionary → CSS/Tailwind + TS | teraz |
+| Design | tokeny JSON → własny skrypt (bez zależności) → CSS/Tailwind + TS; pliki w `build/` commitowane, żeby Expo/EAS i Vercel nie wymagały dodatkowego kroku | ✅ wdrożone |
 | Logika AI | Supabase Edge Functions (zgodnie z `PROJECT.md`); `plan-engine` importowany z monorepo. **Do sprawdzenia przy szkielecie:** import pakietu workspace w Deno. Plan B: endpointy AI jako funkcje Next.js na Vercel (`fra1`) | szkielet |
 | Styling mobile | NativeWind albo `StyleSheet` + motyw | szkielet aplikacji |
 | E-maile (potwierdzenie zapisu, zaproszenia do bety) | dostawca z wysyłką z UE (np. Resend – do weryfikacji regionu) | strona z listą |
@@ -252,9 +252,9 @@ Sekrety (klucz `service_role`, klucz Claude API) tylko w zmiennych środowiskowy
 
 ## 7. Kolejność budowy
 
-1. **Szkielet monorepo** – `package.json`, `pnpm-workspace.yaml`, `turbo.json`, `packages/config`.
-2. **`packages/design-system`** – tokeny z obecnych makiet + build do CSS i TS.
-3. **`supabase/`** – lokalne środowisko, pierwsza migracja: schemat `marketing` (lista oczekujących).
+1. ✅ **Szkielet monorepo** – pnpm + Turborepo, `packages/config`; zainstalowane `apps/web`, `apps/admin` (Next.js 16), `apps/mobile` (Expo SDK 58).
+2. ✅ **`packages/design-system`** – tokeny z obecnych makiet + build do CSS i TS, podpięte we wszystkich trzech aplikacjach.
+3. **`supabase/`** – ✅ `config.toml`; do zrobienia: pierwsza migracja – schematy i `marketing` (lista oczekujących).
 4. **`apps/web`** – landing z listą oczekujących, polityka prywatności → Vercel (pierwsze zadanie z planu marketingowego; cel: przed Nowym Rokiem).
 5. **`apps/admin`** – logowanie admina + widok listy oczekujących i podstawowe liczby.
 6. **`packages/plan-engine`** – silnik reguł z testami.

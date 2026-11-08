@@ -26,3 +26,17 @@ supabase/       baza (migracje, RLS) i Edge Functions
 design/         makiety, identyfikacja, grafiki marketingowe i do sklepów
 docs/           dokumentacja
 ```
+
+## Uruchomienie
+
+Wymagania: Node 22+, pnpm 10 (`corepack enable`), do lokalnej bazy – Docker.
+
+```bash
+pnpm install
+pnpm dev:web       # strona      → http://localhost:3000
+pnpm dev:admin     # panel       → http://localhost:3001
+pnpm dev:mobile    # aplikacja   → Expo Go (QR)
+pnpm db:start      # lokalny Supabase (Docker)
+pnpm tokens        # przebudowanie tokenów designu po zmianie packages/design-system/tokens
+pnpm lint && pnpm typecheck && pnpm build
+```

@@ -28,6 +28,12 @@ Prototyp online: https://claude.ai/artifact/9fNTK4T8hFSpaJyb1RdYCB
 - Baza: jeden projekt Supabase na środowisko (local / staging / prod) dla wszystkich aplikacji; podział na schematy `public` / `marketing` / `ops` / `analytics`.
 - Design: tokeny w `packages/design-system` → CSS/Tailwind (web, admin) + TS (mobile).
 
+## Stan kodu
+
+- Zainstalowane: `apps/web` i `apps/admin` (Next.js 16, Tailwind v4), `apps/mobile` (Expo SDK 58, Expo Router), `packages/design-system` (tokeny z makiet → CSS + TS), `packages/config`, `supabase/config.toml`.
+- `pnpm lint`, `pnpm typecheck`, `pnpm build` przechodzą; bundle Androida (Metro) buduje się z tokenami ze wspólnego pakietu.
+- Do zrobienia ręcznie: projekty w Vercel (Root Directory `apps/web` i `apps/admin`), `eas init` w `apps/mobile`, projekty Supabase `aloha-staging` / `aloha-prod` (UE).
+
 ## Otwarte tematy
 
 1. Sekcja 5 w `BUSINESS.md`: ryzyka i ich ograniczanie.
@@ -38,10 +44,9 @@ Prototyp online: https://claude.ai/artifact/9fNTK4T8hFSpaJyb1RdYCB
 
 ## Proponowane kolejne kroki
 
-1. Szkielet monorepo + `packages/design-system` (tokeny z makiet) – wg `ARCHITECTURE.md`, sekcja 7.
-2. Strona z listą oczekujących (`apps/web` + schemat `marketing`) – pierwsze zadanie z planu marketingowego.
-3. Panel: logowanie admina + widok listy oczekujących.
-4. Scenariusz rozmowy z użytkownikiem do testu makiety.
-5. Zasady planowania (silnik reguł) + przykładowy plan dla jednego celu.
-6. Makiety ankiety startowej i widoku tygodnia.
-7. Szkielet aplikacji (Expo + Supabase).
+1. Strona z listą oczekujących (`apps/web` + schemat `marketing`) – pierwsze zadanie z planu marketingowego.
+2. Panel: logowanie admina + widok listy oczekujących.
+3. Scenariusz rozmowy z użytkownikiem do testu makiety.
+4. Zasady planowania (silnik reguł) + przykładowy plan dla jednego celu.
+5. Makiety ankiety startowej i widoku tygodnia.
+6. Aplikacja: ekrany z makiet zamiast demo Expo, połączenie z Supabase.

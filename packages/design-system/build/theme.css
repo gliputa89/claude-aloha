@@ -1,0 +1,104 @@
+/* WYGENEROWANE z packages/design-system/tokens – nie edytuj ręcznie. Zmień tokeny i uruchom `pnpm tokens`. */
+
+:root {
+  --aloha-color-background: #F5F6F2;
+  --aloha-color-surface: #FFFFFF;
+  --aloha-color-surface-brand: #0E6E66;
+  --aloha-color-surface-brand-soft: #DCEFEA;
+  --aloha-color-surface-accent-soft: #FFE7C2;
+  --aloha-color-text: #16211F;
+  --aloha-color-text-muted: #5A6662;
+  --aloha-color-text-on-brand: #FFFFFF;
+  --aloha-color-text-on-brand-muted: #E6F4F1;
+  --aloha-color-text-brand: #0B5A53;
+  --aloha-color-text-on-accent: #16211F;
+  --aloha-color-text-accent-strong: #6B4300;
+  --aloha-color-border: #E3E6E0;
+  --aloha-color-border-strong: #C9CFC8;
+  --aloha-color-action: #0E6E66;
+  --aloha-color-action-hover: #0A524C;
+  --aloha-color-accent: #FFB547;
+  --aloha-font-display: var(--font-display-loaded, "Space Grotesk"), ui-sans-serif, system-ui, sans-serif;
+  --aloha-font-body: var(--font-body-loaded, "Inter"), ui-sans-serif, system-ui, sans-serif;
+  --aloha-radius-sm: 8px;
+  --aloha-radius-button: 14px;
+  --aloha-radius-md: 16px;
+  --aloha-radius-card: 24px;
+  --aloha-radius-pill: 999px;
+  --aloha-duration-fast: 150ms;
+  --aloha-duration-normal: 250ms;
+  --aloha-duration-slow: 400ms;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --aloha-color-background: #0C1312;
+    --aloha-color-surface: #16211F;
+    --aloha-color-surface-brand: #0B5A53;
+    --aloha-color-surface-brand-soft: #0A524C;
+    --aloha-color-surface-accent-soft: #6B4300;
+    --aloha-color-text: #F5F6F2;
+    --aloha-color-text-muted: #C9CFC8;
+    --aloha-color-text-on-brand: #FFFFFF;
+    --aloha-color-text-on-brand-muted: #DCEFEA;
+    --aloha-color-text-brand: #CDEBE5;
+    --aloha-color-text-on-accent: #16211F;
+    --aloha-color-text-accent-strong: #FFE7C2;
+    --aloha-color-border: #3D4845;
+    --aloha-color-border-strong: #5A6662;
+    --aloha-color-action: #CDEBE5;
+    --aloha-color-action-hover: #DCEFEA;
+    --aloha-color-accent: #FFB547;
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  --aloha-color-background: #0C1312;
+  --aloha-color-surface: #16211F;
+  --aloha-color-surface-brand: #0B5A53;
+  --aloha-color-surface-brand-soft: #0A524C;
+  --aloha-color-surface-accent-soft: #6B4300;
+  --aloha-color-text: #F5F6F2;
+  --aloha-color-text-muted: #C9CFC8;
+  --aloha-color-text-on-brand: #FFFFFF;
+  --aloha-color-text-on-brand-muted: #DCEFEA;
+  --aloha-color-text-brand: #CDEBE5;
+  --aloha-color-text-on-accent: #16211F;
+  --aloha-color-text-accent-strong: #FFE7C2;
+  --aloha-color-border: #3D4845;
+  --aloha-color-border-strong: #5A6662;
+  --aloha-color-action: #CDEBE5;
+  --aloha-color-action-hover: #DCEFEA;
+  --aloha-color-accent: #FFB547;
+  color-scheme: dark;
+}
+
+/* Motyw Tailwind v4: klasy bg-surface, text-text-muted, rounded-card, font-display itd. */
+@theme inline {
+  --color-background: var(--aloha-color-background);
+  --color-surface: var(--aloha-color-surface);
+  --color-surface-brand: var(--aloha-color-surface-brand);
+  --color-surface-brand-soft: var(--aloha-color-surface-brand-soft);
+  --color-surface-accent-soft: var(--aloha-color-surface-accent-soft);
+  --color-text: var(--aloha-color-text);
+  --color-text-muted: var(--aloha-color-text-muted);
+  --color-text-on-brand: var(--aloha-color-text-on-brand);
+  --color-text-on-brand-muted: var(--aloha-color-text-on-brand-muted);
+  --color-text-brand: var(--aloha-color-text-brand);
+  --color-text-on-accent: var(--aloha-color-text-on-accent);
+  --color-text-accent-strong: var(--aloha-color-text-accent-strong);
+  --color-border: var(--aloha-color-border);
+  --color-border-strong: var(--aloha-color-border-strong);
+  --color-action: var(--aloha-color-action);
+  --color-action-hover: var(--aloha-color-action-hover);
+  --color-accent: var(--aloha-color-accent);
+  --font-display: var(--aloha-font-display);
+  --font-sans: var(--aloha-font-body);
+  --radius-sm: var(--aloha-radius-sm);
+  --radius-button: var(--aloha-radius-button);
+  --radius-md: var(--aloha-radius-md);
+  --radius-card: var(--aloha-radius-card);
+  --radius-pill: var(--aloha-radius-pill);
+}

@@ -1,0 +1,41 @@
+{
+  "$description": "Role kolorów używane w kodzie. Wartość {palette.x.y} to odwołanie do color.json. Każda rola ma wariant light i dark.",
+  "light": {
+    "background":       { "$value": "{palette.neutral.50}" },
+    "surface":          { "$value": "{palette.neutral.0}" },
+    "surfaceBrand":     { "$value": "{palette.teal.600}" },
+    "surfaceBrandSoft": { "$value": "{palette.teal.100}" },
+    "surfaceAccentSoft":{ "$value": "{palette.amber.100}" },
+    "text":             { "$value": "{palette.neutral.900}" },
+    "textMuted":        { "$value": "{palette.neutral.600}" },
+    "textOnBrand":      { "$value": "{palette.neutral.0}" },
+    "textOnBrandMuted": { "$value": "{palette.teal.50}" },
+    "textBrand":        { "$value": "{palette.teal.700}" },
+    "textOnAccent":     { "$value": "{palette.neutral.900}" },
+    "textAccentStrong": { "$value": "{palette.amber.900}" },
+    "border":           { "$value": "{palette.neutral.200}" },
+    "borderStrong":     { "$value": "{palette.neutral.300}" },
+    "action":           { "$value": "{palette.teal.600}" },
+    "actionHover":      { "$value": "{palette.teal.800}" },
+    "accent":           { "$value": "{palette.amber.400}" }
+  },
+  "dark": {
+    "background":       { "$value": "{palette.neutral.950}" },
+    "surface":          { "$value": "{palette.neutral.900}" },
+    "surfaceBrand":     { "$value": "{palette.teal.700}" },
+    "surfaceBrandSoft": { "$value": "{palette.teal.800}" },
+    "surfaceAccentSoft":{ "$value": "{palette.amber.900}" },
+    "text":             { "$value": "{palette.neutral.50}" },
+    "textMuted":        { "$value": "{palette.neutral.300}" },
+    "textOnBrand":      { "$value": "{palette.neutral.0}" },
+    "textOnBrandMuted": { "$value": "{palette.teal.100}" },
+    "textBrand":        { "$value": "{palette.teal.200}" },
+    "textOnAccent":     { "$value": "{palette.neutral.900}" },
+    "textAccentStrong": { "$value": "{palette.amber.100}" },
+    "border":           { "$value": "{palette.neutral.700}" },
+    "borderStrong":     { "$value": "{palette.neutral.600}" },
+    "action":           { "$value": "{palette.teal.200}" },
+    "actionHover":      { "$value": "{palette.teal.100}" },
+    "accent":           { "$value": "{palette.amber.400}" }
+  }
+}

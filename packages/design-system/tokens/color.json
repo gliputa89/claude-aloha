@@ -1,0 +1,28 @@
+{
+  "$description": "Paleta bazowa (tymczasowa – z makiet MVP). Aplikacje NIE używają jej bezpośrednio, tylko ról z semantic.json.",
+  "palette": {
+    "teal": {
+      "50":  { "$value": "#E6F4F1" },
+      "100": { "$value": "#DCEFEA" },
+      "200": { "$value": "#CDEBE5" },
+      "600": { "$value": "#0E6E66" },
+      "700": { "$value": "#0B5A53" },
+      "800": { "$value": "#0A524C" }
+    },
+    "amber": {
+      "100": { "$value": "#FFE7C2" },
+      "400": { "$value": "#FFB547" },
+      "900": { "$value": "#6B4300" }
+    },
+    "neutral": {
+      "0":   { "$value": "#FFFFFF" },
+      "50":  { "$value": "#F5F6F2" },
+      "200": { "$value": "#E3E6E0" },
+      "300": { "$value": "#C9CFC8" },
+      "600": { "$value": "#5A6662" },
+      "700": { "$value": "#3D4845" },
+      "900": { "$value": "#16211F" },
+      "950": { "$value": "#0C1312" }
+    }
+  }
+}
