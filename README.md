@@ -9,7 +9,20 @@ a plan na bieżąco reaguje na zmęczenie, brak snu, chore dziecko czy nadgodzin
 - 📄 Opis produktu (MVP): [`docs/PROJECT.md`](docs/PROJECT.md)
 - 💼 Opis biznesowy: [`docs/BUSINESS.md`](docs/BUSINESS.md)
 - 📣 Plan marketingowy: [`docs/MARKETING.md`](docs/MARKETING.md)
+- 🏗️ Architektura i struktura repo: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
 - 🎨 Makiety MVP: [`design/mockups/`](design/mockups/)
 - 📌 Stan prac i kolejne kroki: [`docs/STATUS.md`](docs/STATUS.md)
 - Status: faza koncepcji (MVP)
 - Nazwa robocza: **Aloha Training**
+
+## Struktura repozytorium
+
+```
+apps/web        strona www – Next.js → Vercel
+apps/mobile     aplikacja – Expo / React Native → EAS
+apps/admin      panel zarządzania – Next.js → Vercel
+packages/       wspólne: design-system, plan-engine, db, i18n, config
+supabase/       baza (migracje, RLS) i Edge Functions
+design/         makiety, identyfikacja, grafiki marketingowe i do sklepów
+docs/           dokumentacja
+```
