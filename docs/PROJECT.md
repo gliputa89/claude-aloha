@@ -129,7 +129,7 @@ Krótka, ok. 1–2 minuty, maksymalnie kilka ekranów:
 - Szczegóły (dostępny czas, sen, stres, ból) **wyciąga AI z tekstu i podpowiedzi** – użytkownik nie wypełnia formularza.
 - Jeśli jest „Mało czasu” bez konkretnej liczby minut – propozycja skraca trening do bezpiecznego minimum (np. 20–25 min), a użytkownik może to zmienić na ekranie propozycji.
 - Sam suwak bez tekstu: 4–5 → zwykle bez zmian; 1–2 → propozycja łagodniejszej wersji treningu.
-- Przycisk „Nie dziś, odpuszczam” – szybkie odwołanie treningu bez tłumaczenia się (plan przelicza się automatycznie).
+- **Pomiń** (oraz ✕ w rogu) – zamyka check-in bez odpowiedzi; trening zostaje według planu. Check-in nie oferuje „odpuszczenia” treningu – to ekran o samopoczuciu, nie o rezygnacji. Niewykonany trening użytkownik oznacza później przy realizacji, a plan przelicza się automatycznie.
 
 ### 4.5 Adaptacja planu – skala zmian
 System ocenia **wielkość potrzebnej zmiany** i dobiera reakcję proporcjonalną:
