@@ -2,68 +2,95 @@
 
 export const palette = {
   "teal": {
-    "50": "#E6F4F1",
-    "100": "#DCEFEA",
-    "200": "#CDEBE5",
+    "50": "#EAF5F3",
+    "100": "#DDEFEC",
+    "200": "#7ED8CE",
+    "400": "#3FB8AC",
     "600": "#0E6E66",
     "700": "#0B5A53",
-    "800": "#0A524C"
+    "800": "#0A524C",
+    "900": "#173A36",
+    "950": "#04211E"
   },
   "amber": {
     "100": "#FFE7C2",
     "400": "#FFB547",
-    "900": "#6B4300"
+    "900": "#6B4300",
+    "950": "#3A2600"
   },
   "neutral": {
     "0": "#FFFFFF",
-    "50": "#F5F6F2",
-    "200": "#E3E6E0",
-    "300": "#C9CFC8",
-    "600": "#5A6662",
-    "700": "#3D4845",
-    "900": "#16211F",
-    "950": "#0C1312"
+    "50": "#F3F7F6",
+    "100": "#E8F1EF",
+    "200": "#DCE6E4",
+    "300": "#C5D2D0",
+    "400": "#93A6A3",
+    "600": "#5B6B69",
+    "700": "#253533",
+    "800": "#152120",
+    "900": "#10201E",
+    "950": "#0C1514"
+  },
+  "workout": {
+    "easy": "#3FA796",
+    "long": "#2D7FB8",
+    "intervals": "#F08A3C",
+    "tempo": "#D9534F",
+    "walkRun": "#8E7CC3",
+    "rest": "#C5D2D0"
   }
 } as const;
 
 export const colors = {
   "light": {
-    "background": "#F5F6F2",
+    "background": "#F3F7F6",
     "surface": "#FFFFFF",
     "surfaceBrand": "#0E6E66",
-    "surfaceBrandSoft": "#DCEFEA",
+    "surfaceBrandSoft": "#DDEFEC",
     "surfaceAccentSoft": "#FFE7C2",
-    "text": "#16211F",
-    "textMuted": "#5A6662",
+    "text": "#10201E",
+    "textMuted": "#5B6B69",
     "textOnBrand": "#FFFFFF",
-    "textOnBrandMuted": "#E6F4F1",
-    "textBrand": "#0B5A53",
-    "textOnAccent": "#16211F",
+    "textOnBrandMuted": "#EAF5F3",
+    "textBrand": "#0E6E66",
+    "textOnAccent": "#3A2600",
     "textAccentStrong": "#6B4300",
-    "border": "#E3E6E0",
-    "borderStrong": "#C9CFC8",
+    "border": "#DCE6E4",
+    "borderStrong": "#C5D2D0",
     "action": "#0E6E66",
     "actionHover": "#0A524C",
-    "accent": "#FFB547"
+    "accent": "#FFB547",
+    "workoutEasy": "#3FA796",
+    "workoutLong": "#2D7FB8",
+    "workoutIntervals": "#F08A3C",
+    "workoutTempo": "#D9534F",
+    "workoutWalkRun": "#8E7CC3",
+    "workoutRest": "#C5D2D0"
   },
   "dark": {
-    "background": "#0C1312",
-    "surface": "#16211F",
-    "surfaceBrand": "#0B5A53",
-    "surfaceBrandSoft": "#0A524C",
+    "background": "#0C1514",
+    "surface": "#152120",
+    "surfaceBrand": "#3FB8AC",
+    "surfaceBrandSoft": "#173A36",
     "surfaceAccentSoft": "#6B4300",
-    "text": "#F5F6F2",
-    "textMuted": "#C9CFC8",
-    "textOnBrand": "#FFFFFF",
-    "textOnBrandMuted": "#DCEFEA",
-    "textBrand": "#CDEBE5",
-    "textOnAccent": "#16211F",
+    "text": "#E8F1EF",
+    "textMuted": "#93A6A3",
+    "textOnBrand": "#04211E",
+    "textOnBrandMuted": "#173A36",
+    "textBrand": "#7ED8CE",
+    "textOnAccent": "#3A2600",
     "textAccentStrong": "#FFE7C2",
-    "border": "#3D4845",
-    "borderStrong": "#5A6662",
-    "action": "#CDEBE5",
-    "actionHover": "#DCEFEA",
-    "accent": "#FFB547"
+    "border": "#253533",
+    "borderStrong": "#5B6B69",
+    "action": "#3FB8AC",
+    "actionHover": "#7ED8CE",
+    "accent": "#FFB547",
+    "workoutEasy": "#3FA796",
+    "workoutLong": "#2D7FB8",
+    "workoutIntervals": "#F08A3C",
+    "workoutTempo": "#D9534F",
+    "workoutWalkRun": "#8E7CC3",
+    "workoutRest": "#5B6B69"
   }
 } as const;
 
@@ -72,8 +99,8 @@ export type ColorRole = keyof typeof colors.light;
 
 export const font = {
   "family": {
-    "display": "Space Grotesk",
-    "body": "Inter"
+    "display": "Plus Jakarta Sans",
+    "body": "Plus Jakarta Sans"
   },
   "size": {
     "xs": 12,
@@ -89,7 +116,8 @@ export const font = {
     "regular": 400,
     "medium": 500,
     "semibold": 600,
-    "bold": 700
+    "bold": 700,
+    "extrabold": 800
   }
 } as const;
 
@@ -106,9 +134,9 @@ export const space = {
 
 export const radius = {
   "sm": 8,
-  "button": 14,
-  "md": 16,
-  "card": 24,
+  "button": 10,
+  "md": 12,
+  "card": 14,
   "pill": 999
 } as const;
 

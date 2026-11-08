@@ -12,4 +12,4 @@ Kopia źródeł klikalnego prototypu (4 ekrany, 390×844):
 
 - Podgląd online (prywatny link, udostępnianie przez menu Share): https://claude.ai/artifact/9fNTK4T8hFSpaJyb1RdYCB
 - Format: pliki Design Component (`.dc.html`) edytora Design w claude.ai – otwierane w tym edytorze, nie bezpośrednio w przeglądarce.
-- Kolory i fonty (turkus #0E6E66, akcent #FFB547, Space Grotesk + Inter) są tymczasowe – identyfikacja wizualna powstaje w osobnym wątku.
+- Makiety używają jeszcze Space Grotesk + Inter. Zatwierdzony kierunek (Laguna, Plus Jakarta Sans, karta 14px) jest w [`design/brand`](../brand/README.md) i w tokenach.

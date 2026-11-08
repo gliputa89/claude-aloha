@@ -45,8 +45,11 @@ const header = "/* WYGENEROWANE z packages/design-system/tokens – nie edytuj r
 // ---------- CSS ----------
 const colorVars = (c, indent) =>
   Object.entries(c).map(([k, v]) => `${indent}--aloha-color-${kebab(k)}: ${v};`).join("\n");
-const fontStack = (name, fallback) =>
-  `var(--font-${name}-loaded, "${font.family[name]}"), ${fallback}`;
+// Gdy display i body to ten sam krój, display korzysta ze zmiennej body (jedno ładowanie fontu).
+const fontStack = (name, fallback) => {
+  const loaded = name === "display" && font.family.display === font.family.body ? "body" : name;
+  return `var(--font-${loaded}-loaded, "${font.family[name]}"), ${fallback}`;
+};
 
 const css = `${header}
 :root {

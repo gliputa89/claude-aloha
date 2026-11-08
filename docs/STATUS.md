@@ -23,7 +23,7 @@ Prototyp online: https://claude.ai/artifact/9fNTK4T8hFSpaJyb1RdYCB
 - Zmiany planu: propozycja z uzasadnieniem + akceptacja jednym tapnięciem; skala 0–4.
 - AI hybrydowo: silnik reguł + Claude API z backendu; model wybierany na podstawie testu jakości.
 - MVP w pełni darmowe; paywall po MVP. PL + EN. Logowanie e-mail. React Native (Expo) + Supabase. Integracje po MVP.
-- Ton: trener, ale kumpel. Identyfikacja wizualna – osobny wątek.
+- Ton: trener, ale kumpel. Nazwa: **Aloha App**. Kierunek wizualny „Laguna” (turkus + bursztyn, Plus Jakarta Sans, karta 14px), znak „Słońce nad falą”, motyw hawajski z umiarem (wzór plumerii, powitanie „Aloha”), ikony Phosphor Bold – zatwierdzone 8.11.2026, w tokenach i `packages/design-system/assets` ([`design/brand`](../design/brand/README.md)).
 - Monorepo (pnpm + Turborepo): `apps/web` (Next.js, Vercel), `apps/mobile` (Expo), `apps/admin` (Next.js, Vercel), `packages/` (design-system, plan-engine, db, i18n, config), `supabase/`.
 - Baza: jeden projekt Supabase na środowisko (local / staging / prod) dla wszystkich aplikacji; podział na schematy `public` / `marketing` / `ops` / `analytics`.
 - Design: tokeny w `packages/design-system` → CSS/Tailwind (web, admin) + TS (mobile).
@@ -37,6 +37,7 @@ Prototyp online: https://claude.ai/artifact/9fNTK4T8hFSpaJyb1RdYCB
 - **Baza**: 5 migracji w `supabase/migrations` (schematy `marketing` / `ops` / `analytics`, tabele aplikacji z RLS, zgoda `health_data` wymagana do check-inu, widoki KPI) – wgrane na staging i prod (`npx supabase db push --db-url …`), sprawdzone testem RLS.
 - **Do decyzji przy liście oczekujących**: schematy `marketing` / `ops` / `analytics` nie są wystawione w API Supabase, więc `supabase-js` ich nie widzi. Albo serwer łączy się bezpośrednio z Postgresem (`POSTGRES_URL`), albo wystawiamy je w API (uprawnienia i tak ma tylko `service_role`).
 - Do zrobienia ręcznie: `eas init` w `apps/mobile`.
+- Mobile nie ładuje jeszcze fontu ani nowej ikony – przy pierwszych ekranach: `@expo-google-fonts/plus-jakarta-sans`, `phosphor-react-native`, PNG ikon z `assets/logo/app-icon.svg`.
 
 ## Otwarte tematy
 

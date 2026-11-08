@@ -1,28 +1,45 @@
 {
-  "$description": "Paleta bazowa (tymczasowa – z makiet MVP). Aplikacje NIE używają jej bezpośrednio, tylko ról z semantic.json.",
+  "$description": "Paleta bazowa – kierunek „Laguna” (zatwierdzony 8.11.2026, runda 1). Aplikacje NIE używają jej bezpośrednio, tylko ról z semantic.json.",
   "palette": {
     "teal": {
-      "50":  { "$value": "#E6F4F1" },
-      "100": { "$value": "#DCEFEA" },
-      "200": { "$value": "#CDEBE5" },
+      "50":  { "$value": "#EAF5F3" },
+      "100": { "$value": "#DDEFEC" },
+      "200": { "$value": "#7ED8CE" },
+      "400": { "$value": "#3FB8AC" },
       "600": { "$value": "#0E6E66" },
       "700": { "$value": "#0B5A53" },
-      "800": { "$value": "#0A524C" }
+      "800": { "$value": "#0A524C" },
+      "900": { "$value": "#173A36" },
+      "950": { "$value": "#04211E" }
     },
     "amber": {
       "100": { "$value": "#FFE7C2" },
       "400": { "$value": "#FFB547" },
-      "900": { "$value": "#6B4300" }
+      "900": { "$value": "#6B4300" },
+      "950": { "$value": "#3A2600" }
     },
     "neutral": {
+      "$description": "Szarości lekko podbite turkusem.",
       "0":   { "$value": "#FFFFFF" },
-      "50":  { "$value": "#F5F6F2" },
-      "200": { "$value": "#E3E6E0" },
-      "300": { "$value": "#C9CFC8" },
-      "600": { "$value": "#5A6662" },
-      "700": { "$value": "#3D4845" },
-      "900": { "$value": "#16211F" },
-      "950": { "$value": "#0C1312" }
+      "50":  { "$value": "#F3F7F6" },
+      "100": { "$value": "#E8F1EF" },
+      "200": { "$value": "#DCE6E4" },
+      "300": { "$value": "#C5D2D0" },
+      "400": { "$value": "#93A6A3" },
+      "600": { "$value": "#5B6B69" },
+      "700": { "$value": "#253533" },
+      "800": { "$value": "#152120" },
+      "900": { "$value": "#10201E" },
+      "950": { "$value": "#0C1514" }
+    },
+    "workout": {
+      "$description": "Kolory typów treningu – kropki w tygodniu, znaczniki na kartach. Te same w trybie jasnym i ciemnym.",
+      "easy":      { "$value": "#3FA796" },
+      "long":      { "$value": "#2D7FB8" },
+      "intervals": { "$value": "#F08A3C" },
+      "tempo":     { "$value": "#D9534F" },
+      "walkRun":   { "$value": "#8E7CC3" },
+      "rest":      { "$value": "#C5D2D0" }
     }
   }
 }

@@ -1,9 +1,9 @@
 {
-  "$description": "Typografia, odstępy, promienie, ruch (z makiet MVP). Wartości liczbowe w px.",
+  "$description": "Typografia, odstępy, promienie, ruch. Kierunek „Laguna”: jeden krój Plus Jakarta Sans, średnie zaokrąglenia (karta 14px). Wartości liczbowe w px.",
   "font": {
     "family": {
-      "display": { "$value": "Space Grotesk" },
-      "body":    { "$value": "Inter" }
+      "display": { "$value": "Plus Jakarta Sans" },
+      "body":    { "$value": "Plus Jakarta Sans" }
     },
     "size": {
       "xs":   { "$value": 12 },
@@ -19,7 +19,8 @@
       "regular":  { "$value": 400 },
       "medium":   { "$value": 500 },
       "semibold": { "$value": 600 },
-      "bold":     { "$value": 700 }
+      "bold":     { "$value": 700 },
+      "extrabold": { "$value": 800 }
     }
   },
   "space": {
@@ -34,9 +35,9 @@
   },
   "radius": {
     "sm":     { "$value": 8 },
-    "button": { "$value": 14 },
-    "md":     { "$value": 16 },
-    "card":   { "$value": 24 },
+    "button": { "$value": 10 },
+    "md":     { "$value": 12 },
+    "card":   { "$value": 14 },
     "pill":   { "$value": 999 }
   },
   "motion": {
