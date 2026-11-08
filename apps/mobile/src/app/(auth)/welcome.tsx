@@ -1,30 +1,41 @@
 import { router } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
+import type { ReactNode } from 'react';
 import { StyleSheet, useWindowDimensions, View } from 'react-native';
+import Animated, { useReducedMotion } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Svg, { Path } from 'react-native-svg';
 
-import { Mark } from '@/components/brand/mark';
 import { PlumeriaPattern } from '@/components/brand/plumeria-pattern';
+import { SunriseMark } from '@/components/brand/sunrise-mark';
+import { WaveBand } from '@/components/brand/wave-band';
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
-import { space } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { EASE_OUT } from '@/constants/easing';
+import { motion, space } from '@/constants/theme';
 import { useColors } from '@/hooks/use-colors';
 import { useT } from '@/hooks/use-t';
 
-/** Fala oddzielająca turkusowe „niebo” od tła – nawiązanie do znaku „Słońce nad falą”. */
-function WaveEdge({ color, width }: { color: string; width: number }) {
+/** Rozmiar kafelka wzoru plumerii – przesunięcie o tyle daje bezszwową pętlę. */
+const PATTERN_TILE = 56;
+
+/** Wejście elementu: lekkie uniesienie i pojawienie się (przy „Ogranicz ruch” samo pojawienie). */
+function FadeUp({ delay, children }: { delay: number; children: ReactNode }) {
+  const reduced = useReducedMotion();
   return (
-    <Svg
-      width={width}
-      height={40}
-      viewBox="0 0 390 40"
-      preserveAspectRatio="none"
-      style={styles.wave}
-      accessible={false}>
-      <Path d="M0 18c48 0 72-14 130-14s82 22 130 22 82-18 130-18v32H0z" fill={color} />
-    </Svg>
+    <Animated.View
+      style={{
+        animationName: reduced
+          ? { from: { opacity: 0 }, to: { opacity: 1 } }
+          : {
+              from: { opacity: 0, transform: [{ translateY: 14 }] },
+              to: { opacity: 1, transform: [{ translateY: 0 }] },
+            },
+        animationDuration: motion.duration.slow + 200,
+        animationDelay: delay,
+        animationTimingFunction: EASE_OUT,
+        animationFillMode: 'both',
+      }}>
+      {children}
+    </Animated.View>
   );
 }
 
@@ -33,33 +44,59 @@ export default function WelcomeScreen() {
   const t = useT();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
-  // Tekst na turkusie ma kolor textOnBrand: jasny w trybie jasnym, ciemny w ciemnym – pasek statusu tak samo.
-  const statusBarStyle = useColorScheme() === 'dark' ? 'dark' : 'light';
+  const reduced = useReducedMotion();
 
   return (
     <View style={[styles.flex, { backgroundColor: c.background }]}>
-      <StatusBar style={statusBarStyle} />
-      <View
-        style={[
-          styles.hero,
-          { backgroundColor: c.surfaceBrand, paddingTop: insets.top + space[8] },
-        ]}>
-        <PlumeriaPattern />
+      <View style={[styles.hero, { backgroundColor: c.surfaceBrand, paddingTop: insets.top + space[8] }]}>
+        {/* Wzór bardzo powoli dryfuje po skosie. */}
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            styles.pattern,
+            !reduced && {
+              animationName: {
+                from: { transform: [{ translateX: 0 }, { translateY: 0 }] },
+                to: { transform: [{ translateX: PATTERN_TILE }, { translateY: PATTERN_TILE }] },
+              },
+              animationDuration: 28000,
+              animationTimingFunction: 'linear',
+              animationIterationCount: 'infinite',
+            },
+          ]}>
+          <PlumeriaPattern />
+        </Animated.View>
+
         <View style={styles.heroContent}>
-          <Mark size={112} wave="textOnBrand" />
-          <Text variant="display" color="textOnBrand" align="center" accessibilityRole="header" style={styles.greeting}>
-            {t('welcome.greeting')}
-          </Text>
-          <Text color="textOnBrandMuted" align="center" weight="medium" style={styles.tagline}>
-            {t('welcome.tagline')}
-          </Text>
+          <SunriseMark size={128} />
+          <FadeUp delay={650}>
+            <Text variant="display" color="textOnBrand" align="center" accessibilityRole="header" style={styles.greeting}>
+              {t('welcome.greeting')}
+            </Text>
+          </FadeUp>
+          <FadeUp delay={780}>
+            <Text color="textOnBrandMuted" align="center" weight="medium" style={styles.tagline}>
+              {t('welcome.tagline')}
+            </Text>
+          </FadeUp>
         </View>
-        <WaveEdge color={c.background} width={width} />
+
+        <WaveBand
+          width={width}
+          layers={[
+            { color: c.background, opacity: 0.35, mid: 22, amp: 12, durationMs: 16000, reverse: true },
+            { color: c.background, mid: 34, amp: 11, durationMs: 11000 },
+          ]}
+        />
       </View>
 
       <View style={[styles.actions, { paddingBottom: insets.bottom + space[4] }]}>
-        <Button label={t('welcome.createAccount')} onPress={() => router.push('/sign-up')} />
-        <Button variant="secondary" label={t('welcome.haveAccount')} onPress={() => router.push('/sign-in')} />
+        <FadeUp delay={900}>
+          <Button label={t('welcome.createAccount')} onPress={() => router.push('/sign-up')} />
+        </FadeUp>
+        <FadeUp delay={980}>
+          <Button variant="secondary" label={t('welcome.haveAccount')} onPress={() => router.push('/sign-in')} />
+        </FadeUp>
       </View>
     </View>
   );
@@ -74,10 +111,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: space[5],
     paddingBottom: space[12],
   },
+  pattern: {
+    position: 'absolute',
+    top: -PATTERN_TILE,
+    left: -PATTERN_TILE,
+    right: 0,
+    bottom: 0,
+  },
   heroContent: { alignItems: 'center', gap: space[3] },
-  greeting: { marginTop: space[4] },
+  greeting: { marginTop: space[6] },
   tagline: { maxWidth: 300 },
-  wave: { position: 'absolute', left: 0, right: 0, bottom: -1 },
   actions: {
     paddingHorizontal: space[5],
     paddingTop: space[6],

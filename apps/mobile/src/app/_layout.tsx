@@ -8,14 +8,13 @@ import {
 } from '@expo-google-fonts/plus-jakarta-sans';
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 
 import { fontFamily } from '@/components/ui/text';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useColors } from '@/hooks/use-colors';
 import { useT } from '@/hooks/use-t';
-import { AuthProvider, useAuth } from '@/providers/auth-provider';
+import { AuthProvider, useAuth, useOnboarded } from '@/providers/auth-provider';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -40,6 +39,7 @@ function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
   const c = useColors();
   const t = useT();
   const { session, ready } = useAuth();
+  const onboarded = useOnboarded();
 
   useEffect(() => {
     if (fontsReady && ready) SplashScreen.hideAsync();
@@ -62,7 +62,6 @@ function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
 
   return (
     <ThemeProvider value={navTheme}>
-      <StatusBar style="auto" />
       <Stack
         screenOptions={{
           headerShadowVisible: false,
@@ -75,8 +74,12 @@ function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
           contentStyle: { backgroundColor: c.background },
         }}>
         <Stack.Screen name="index" options={{ headerShown: false }} />
-        <Stack.Protected guard={!!session}>
+        <Stack.Protected guard={!!session && onboarded}>
           <Stack.Screen name="(app)" options={{ headerShown: false }} />
+        </Stack.Protected>
+        {/* Ankieta startowa przy pierwszym wejściu – dopóki nie zostanie ukończona. */}
+        <Stack.Protected guard={!!session && !onboarded}>
+          <Stack.Screen name="(onboarding)" options={{ headerShown: false, gestureEnabled: false }} />
         </Stack.Protected>
         <Stack.Protected guard={!session}>
           <Stack.Screen name="(auth)" options={{ headerShown: false }} />

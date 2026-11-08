@@ -63,6 +63,9 @@ importers:
       '@aloha/i18n':
         specifier: workspace:*
         version: link:../../packages/i18n
+      '@aloha/plan-engine':
+        specifier: workspace:*
+        version: link:../../packages/plan-engine
       '@expo-google-fonts/plus-jakarta-sans':
         specifier: ^0.4.2
         version: 0.4.2
@@ -219,6 +222,15 @@ importers:
         version: 5.9.3
 
   packages/i18n:
+    devDependencies:
+      '@aloha/config':
+        specifier: workspace:*
+        version: link:../config
+      typescript:
+        specifier: ^5
+        version: 5.9.3
+
+  packages/plan-engine:
     devDependencies:
       '@aloha/config':
         specifier: workspace:*

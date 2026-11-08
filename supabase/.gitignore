@@ -6,3 +6,6 @@
 .env.keys
 .env.local
 .env.*.local
+
+# Kopia packages/plan-engine dla Edge Functions (scripts/sync-plan-engine.sh)
+functions/_shared/plan-engine/

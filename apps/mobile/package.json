@@ -5,6 +5,7 @@
   "dependencies": {
     "@aloha/design-system": "workspace:*",
     "@aloha/i18n": "workspace:*",
+    "@aloha/plan-engine": "workspace:*",
     "@expo-google-fonts/plus-jakarta-sans": "^0.4.2",
     "@expo/ui": "~58.0.27",
     "@supabase/supabase-js": "^2.119.0",
