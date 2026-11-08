@@ -1,6 +1,6 @@
 # Aloha Training – opis projektu (MVP)
 
-*Wersja 0.3 · listopad 2026 · dokument roboczy*
+*Wersja 0.4 · listopad 2026 · dokument roboczy*
 
 ---
 
@@ -71,7 +71,7 @@ Ankieta startowa ──► Generowanie planu (1–2 tyg. do przodu, cel w tle)
             │  Push: „Jak się dzisiaj czujesz?” │
             │            │                       │
             │            ▼                       │
-            │  Check-in (≤10 s)                  │
+            │  Check-in: suwak + opcj. tekst     │
             │            │                       │
             │            ▼                       │
             │  Ocena wielkości zmiany            │
@@ -122,14 +122,14 @@ Krótka, ok. 1–2 minuty, maksymalnie kilka ekranów:
 ### 4.4 Check-in „Jak się dzisiaj czujesz?” ❤️ (rdzeń aplikacji)
 - Pojawia się **w dni treningowe** jako push o **porze ustawionej przez użytkownika** (domyślnie np. 7:00, zmiana w ustawieniach) oraz po otwarciu aplikacji.
 - **Brak check-inu = trening według planu**, bez zmian i bez upominania.
-- Pytania (każde jednym tapnięciem, skala 1–5 lub emoji):
-  - ⚡ energia,
-  - 😴 sen,
-  - 🤯 stres / zmęczenie,
-  - 🦵 ból mięśni,
-  - ⏱️ **ile masz dziś czasu?** – 0 / 20 / 45 / 60+ min (najważniejsze pytanie).
-- Opcjonalnie: krótka notatka tekstowa (np. „dziecko chore, nie spałem”, „lekki ból kolana”).
-- Przycisk „Nie dziś” – szybkie odwołanie treningu bez tłumaczenia się.
+- **Maksymalnie prosty ekran** – jedno pytanie, kilka sekund:
+  1. **Suwak „Jak się dzisiaj czujesz?”** (1–5: Słabo · Tak sobie · W porządku · Dobrze · Świetnie) – jedyny element wymagany.
+  2. **Pole otwarte „Co u Ciebie?”** (opcjonalne) – tekst albo dyktowanie głosowe, np. „mam tylko 20 minut”, „dziecko chore, nie spałem”, „lekko boli kolano”.
+  3. **Szybkie podpowiedzi** (opcjonalne, jedno tapnięcie): *Mało czasu*, *Mało snu*, *Stres*, *Coś boli*, *Mam energię* – dla tych, którym nie chce się pisać.
+- Szczegóły (dostępny czas, sen, stres, ból) **wyciąga AI z tekstu i podpowiedzi** – użytkownik nie wypełnia formularza.
+- Jeśli jest „Mało czasu” bez konkretnej liczby minut – propozycja skraca trening do bezpiecznego minimum (np. 20–25 min), a użytkownik może to zmienić na ekranie propozycji.
+- Sam suwak bez tekstu: 4–5 → zwykle bez zmian; 1–2 → propozycja łagodniejszej wersji treningu.
+- Przycisk „Nie dziś, odpuszczam” – szybkie odwołanie treningu bez tłumaczenia się (plan przelicza się automatycznie).
 
 ### 4.5 Adaptacja planu – skala zmian
 System ocenia **wielkość potrzebnej zmiany** i dobiera reakcję proporcjonalną:
@@ -197,7 +197,7 @@ Ankieta zmiany jest skrócona – pyta tylko o to, co się zmienia.
 - **walidacja każdej propozycji AI** – propozycja łamiąca reguły jest odrzucana lub korygowana.
 
 **Claude (Claude API, wywoływane z backendu)** – odpowiada za „ludzką” warstwę:
-- interpretacja check-inu, w tym notatki tekstowej,
+- interpretacja check-inu: suwak + notatka tekstowa + podpowiedzi → ustrukturyzowane dane (czas, sen, stres, ból, czerwone flagi),
 - dobór poziomu zmiany (0–4) i konkretnej modyfikacji planu,
 - cotygodniowe generowanie kolejnego tygodnia z uwzględnieniem realizacji,
 - krótkie, wspierające uzasadnienia w języku użytkownika.
@@ -205,7 +205,7 @@ Ankieta zmiany jest skrócona – pyta tylko o to, co się zmienia.
 Zasady techniczne:
 - AI zwraca **ustrukturyzowany wynik (JSON: lista zmian w planie + uzasadnienie)**, nie wolny tekst.
 - Klucz API wyłącznie po stronie backendu – nigdy w aplikacji mobilnej.
-- Tryb awaryjny: gdy API nie odpowiada, działa prostsza adaptacja regułowa.
+- Tryb awaryjny: gdy API nie odpowiada, działa prostsza adaptacja regułowa (suwak + podpowiedzi, bez interpretacji tekstu).
 - Czerwone flagi (ból w klatce piersiowej, zawroty głowy, ostry ból stawu) → brak treningu + sugestia konsultacji lekarskiej. Aplikacja **nie udziela porad medycznych**.
 - Wybór konkretnego modelu Claude (koszt vs. jakość) – w fazie technicznej.
 
@@ -290,7 +290,7 @@ Pomysł na później: **14-dniowy darmowy okres Premium** po rejestracji – uż
 - **Goal** – typ (ogólny / zawody), dystans, data, docelowy czas
 - **Availability** – preferowane dni, max czas (dzień powszedni / weekend), liczba treningów
 - **Plan** → **Week** → **Session** – typ, czas/dystans, intensywność, status
-- **CheckIn** – data, energia, sen, stres, ból, dostępny czas, notatka
+- **CheckIn** – data, samopoczucie (1–5), notatka (tekst), podpowiedzi (tagi); pola wyciągnięte przez AI: dostępny czas, sen, stres, ból
 - **Adjustment** – poziom zmiany (0–4), diff planu, uzasadnienie, źródło (AI / reguły), zaakceptowano: tak/nie
 
 ### Ekrany MVP
@@ -349,7 +349,7 @@ Pomysł na później: **14-dniowy darmowy okres Premium** po rejestracji – uż
 | Dyscyplina | tylko bieganie |
 | Grupa docelowa | 30–40 lat, od początkujących do ~36–37 min / 10 km |
 | Moduł regeneracji | nie w MVP |
-| Check-in | w dni treningowe, o porze ustawionej przez użytkownika |
+| Check-in | w dni treningowe, o porze ustawionej przez użytkownika; jeden suwak + opcjonalny tekst i podpowiedzi |
 | Brak check-inu | trening według planu, bez zmian |
 | Zmiany planu | propozycja z uzasadnieniem + akceptacja; skala 0–4 |
 | AI | hybryda: reguły + Claude API z backendu |
