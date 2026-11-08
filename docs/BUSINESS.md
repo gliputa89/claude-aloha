@@ -1,15 +1,15 @@
 # Aloha Training – opis biznesowy
 
-*Wersja 0.1 · listopad 2026 · dokument roboczy*
+*Wersja 0.2 · listopad 2026 · dokument roboczy*
 
 Uzupełnienie [`PROJECT.md`](PROJECT.md) (produkt i MVP) o część biznesową.
 
 | Sekcja | Status |
 |---|---|
 | 1. Analiza konkurencji | ✅ wersja 1 |
-| 2. Propozycja wartości i pozycjonowanie | ⏳ następna |
-| 3. Koszty (AI + infrastruktura na użytkownika) | ⏳ |
-| 4. Wejście na rynek (PL → EN) | ⏳ |
+| 2. Propozycja wartości i pozycjonowanie | ✅ wersja 1 |
+| 3. Koszty (AI + infrastruktura na użytkownika) | ✅ wersja 1 |
+| 4. Wejście na rynek (PL → EN) | ⏳ następna |
 | 5. Ryzyka i ich ograniczanie | ⏳ |
 
 ---
@@ -72,7 +72,115 @@ Uzupełnienie [`PROJECT.md`](PROJECT.md) (produkt i MVP) o część biznesową.
 2. Sprawdzić u źródła: aktualne ceny Runna w PL, czy Runna i Daptiv są po polsku, ofertę chceByc.fit.
 3. Wnioski przenieść do sekcji 2 (propozycja wartości).
 
+---
+
+## 2. Propozycja wartości i pozycjonowanie
+
+### 2.1 Jednym zdaniem
+
+> 🇵🇱 **Plan biegowy, który pyta, jak się czujesz – i dopasowuje trening do Twojego dnia, a nie odwrotnie.**
+>
+> 🇬🇧 **The running plan that asks how you feel – and fits your day, not the other way around.**
+
+### 2.2 Pozycjonowanie
+
+**Dla** biegaczy-amatorów w wieku 30–40 lat, którzy łączą bieganie z pracą i rodziną,
+**Aloha Training** to aplikacja treningowa, która **przed każdym treningiem pyta o samopoczucie
+i w kilka sekund proponuje rozsądną zmianę planu**.
+**W przeciwieństwie do** aplikacji reagujących na dane z zegarka albo wymagających ręcznego przesuwania treningów,
+**Aloha reaguje na życie** – bez zegarka, bez poczucia winy, z ludzkim uzasadnieniem każdej zmiany.
+
+### 2.3 Filary wartości
+
+| Filar | Co to znaczy dla użytkownika | Jak to dowodzimy |
+|---|---|---|
+| **Szybko** | check-in w kilka sekund, zmiana jednym tapnięciem | mierzony czas check-inu (cel: mediana < 10 s) |
+| **Po ludzku** | „trener, ale kumpel”: rozumie zmęczenie, dzieci, nadgodziny; nie zawstydza | % zaakceptowanych propozycji, opinie z bety |
+| **Bezpiecznie** | AI nie zaplanuje niczego ryzykownego – pilnują tego zasady treningowe | silnik reguł waliduje każdą zmianę |
+| **Bez sprzętu** | wystarczy telefon; zegarek opcjonalny (integracje po MVP) | działa od pierwszego dnia bez parowania |
+
+### 2.4 Zadania, które użytkownik „wynajmuje” aplikacji (jobs to be done)
+
+1. *„Chcę biegać regularnie, mimo że mój tydzień jest nieprzewidywalny.”*
+2. *„Chcę wiedzieć, co zrobić **dziś**, kiedy mam mniej czasu albo sił – bez szukania w internecie.”*
+3. *„Chcę dobiec do celu (5 km, półmaraton) bez kontuzji i bez poczucia, że ciągle zawalam plan.”*
+
+### 2.5 Kluczowe komunikaty (do testów w kampaniach)
+
+- „Gorszy dzień to nie porażka. To zmiana planu.”
+- „Masz dziś 20 minut? Wystarczy.”
+- „Plan, który wie, że masz życie.”
+- „Jedno pytanie rano. Reszta po naszej stronie.”
+- EN: *„Bad day? Your plan gets it.”* · *„20 minutes? That counts.”*
+
+### 2.6 Czym NIE jesteśmy (antypozycjonowanie)
+
+- Nie jesteśmy aplikacją dla zaawansowanych (szybciej niż ~36–37 min / 10 km) ani dla danych-maniaków.
+- Nie konkurujemy liczbą wykresów i metryk – konkurujemy tym, jak mało wysiłku wymaga trzymanie się planu.
+- Nie zastępujemy lekarza ani fizjoterapeuty.
+
+---
+
+## 3. Koszty
+
+> **Zastrzeżenie:** szacunki na podstawie cennika Claude API (stan: październik 2026) i założeń o długości zapytań. Rzeczywiste koszty zmierzymy w becie. Ceny infrastruktury podane orientacyjnie – do potwierdzenia u dostawców.
+
+### 3.1 Cennik Claude API (USD za 1 mln tokenów)
+
+| Model | Wejście | Wyjście | Uwagi |
+|---|---|---|---|
+| Claude Haiku 5.5 | 0,10 | 0,50 | najtańszy, szybki |
+| Claude Sonnet 5.5 | 2,00 | 10,00 | odczyt z cache 0,20 |
+| Claude Opus 5.5 | 4,00 | 20,00 | odczyt z cache 0,20; najwyższa jakość |
+
+Dodatkowe oszczędności:
+- **Prompt caching** – stała część zapytania (zasady treningowe, instrukcje, ton) jest cache'owana i rozliczana po stawce odczytu z cache.
+- **Batch API (−50%)** – dla zadań bez pośpiechu, np. nocne generowanie kolejnego tygodnia.
+- **Reguły przed AI** – check-in „czuję się dobrze, bez notatki” (poziom 0) obsługuje silnik reguł bez wywołania AI.
+
+### 3.2 Założenia dla aktywnego użytkownika (miesiąc)
+
+| Wywołanie | Liczba / mies. | Wejście (tokeny) | Wyjście (tokeny, z „myśleniem”) |
+|---|---|---|---|
+| Check-in → propozycja zmiany | ~17 (4 treningi/tydz.; założenie pesymistyczne – każdy check-in idzie do AI) | ~3 000 (w tym ~2 000 z cache) | ~1 500 |
+| Generowanie kolejnego tygodnia | ~4,3 | ~5 000 (w tym ~2 000 z cache) | ~3 000 |
+
+### 3.3 Koszt AI na aktywnego użytkownika miesięcznie
+
+| Model (ten sam do obu zadań) | Check-iny | Plan tygodniowy | **Razem / mies.** | Z buforem ×2 |
+|---|---|---|---|---|
+| Haiku 5.5 | ~0,02 USD | ~0,01 USD | **~0,03 USD** | < 0,10 USD |
+| Sonnet 5.5 | ~0,30 USD | ~0,16 USD | **~0,45 USD** | ~1 USD |
+| Opus 5.5 | ~0,59 USD | ~0,31 USD | **~0,90 USD** | ~2 USD |
+
+Wnioski:
+- **Koszt AI jest niski w stosunku do ceny subskrypcji** (konkurencja: 10–20 USD/mies.). Nawet przy najdroższym modelu to kilka–kilkanaście procent przychodu z płacącego użytkownika.
+- Decyzję o modelu podejmiemy **na podstawie jakości, nie ceny**: przygotujemy zestaw 20–30 realistycznych scenariuszy check-inu („mało snu + 20 min”, „boli kolano”, „chore dziecko, 3 dni przerwy”) i porównamy odpowiedzi modeli. Możliwy wariant mieszany: tańszy model do interpretacji check-inu, mocniejszy do przeliczania planu.
+- **MVP jest darmowe**, więc koszt AI ponosimy w całości. Przykład: 1 000 aktywnych użytkowników × Sonnet 5.5 ≈ **450 USD/mies.** (Haiku ≈ 30 USD, Opus ≈ 900 USD). Zabezpieczenia: reguły przed AI, miesięczny limit wywołań AI na użytkownika, Batch API dla planów tygodniowych, alert kosztowy.
+
+### 3.4 Koszty stałe (orientacyjnie)
+
+| Pozycja | Koszt | Uwagi |
+|---|---|---|
+| Apple Developer Program | 99 USD / rok | wymagane do App Store |
+| Google Play Console | 25 USD jednorazowo | wymagane do Google Play |
+| Supabase (baza, auth, funkcje) | od 0 (plan darmowy) do ok. 25 USD / mies. (plan płatny) | na start wystarczy darmowy; płatny przed publikacją – do potwierdzenia |
+| Expo / EAS (budowanie aplikacji) | plan darmowy na start | płatny plan przy częstych buildach – do potwierdzenia |
+| Powiadomienia push (Expo) | 0 | |
+| Domena, e-mail, strona | ~20–50 USD / rok | |
+| Prawnik (polityka prywatności, regulamin) | jednorazowo, do wyceny | przed publikacją |
+
+**Szacunek na start (beta, do ~100 użytkowników): poniżej 100 USD miesięcznie** + jednorazowe opłaty sklepowe i prawne.
+
+### 3.5 Wpływ na przyszłą cenę Premium
+
+- Prowizja sklepów: zwykle **15%** dla małych deweloperów i subskrypcji (programy Apple Small Business i Google Play) – do potwierdzenia przy publikacji; do tego VAT.
+- Punkt odniesienia rynku: Runna ok. 19,99 USD/mies. lub 119,99 USD/rok.
+- Wstępna hipoteza do testów: **ok. 29–39 zł / mies. lub 149–199 zł / rok** w Polsce – wyraźnie taniej niż Runna, przy koszcie AI na poziomie 2–8 zł na płacącego użytkownika. Ostateczną cenę ustalimy po MVP.
+
 ### Źródła
+
+- Cennik Claude API – dokumentacja Anthropic (stan: październik 2026)
 
 - [Runna – pricing (the5krunner, X 2026)](https://the5krunner.com/2026/10/14/is-runna-free/)
 - [Runna – ceny zakupów w aplikacji (App Pricing Lab)](https://www.apppricinglab.com/iap/apple/1594204443)
