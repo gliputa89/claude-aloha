@@ -8,5 +8,8 @@ a plan na bieżąco reaguje na zmęczenie, brak snu, chore dziecko czy nadgodzin
 
 - 📄 Opis produktu (MVP): [`docs/PROJECT.md`](docs/PROJECT.md)
 - 💼 Opis biznesowy: [`docs/BUSINESS.md`](docs/BUSINESS.md)
+- 📣 Plan marketingowy: [`docs/MARKETING.md`](docs/MARKETING.md)
+- 🎨 Makiety MVP: [`design/mockups/`](design/mockups/)
+- 📌 Stan prac i kolejne kroki: [`docs/STATUS.md`](docs/STATUS.md)
 - Status: faza koncepcji (MVP)
 - Nazwa robocza: **Aloha Training**
