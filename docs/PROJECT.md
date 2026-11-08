@@ -1,6 +1,6 @@
 # Aloha Training – opis projektu (MVP)
 
-*Wersja 0.2 · listopad 2026 · dokument roboczy*
+*Wersja 0.3 · listopad 2026 · dokument roboczy*
 
 ---
 
@@ -152,7 +152,20 @@ Każda zmiana:
 - Szybka ocena: jak poszło (skala 1–5) + opcjonalnie dystans i czas wpisane ręcznie.
 - Dane z realizacji wpływają na generowanie kolejnego tygodnia.
 
-### 4.7 Wielojęzyczność
+### 4.7 Zmiana celu i dostępności
+
+Zasada: **życie się zmienia, plan też może** – bez twardych limitów, ale bez gubienia postępów.
+
+| Zmiana | Co się dzieje |
+|---|---|
+| **Dostępność** (dni, max czas, liczba treningów) | Możliwa w każdej chwili. Domyślnie obowiązuje **od przyszłego tygodnia**; opcja „od teraz” przebudowuje bieżący tydzień (poziom 3). |
+| **Ten sam cel, inna data lub docelowy czas** | Przeliczenie planu w przód (poziom 4), historia i obecna forma zostają. |
+| **Nowy cel** (np. z 10 km na półmaraton) | Nowy plan budowany na **aktualnej formie** z historii treningów – nigdy od zera. Stary plan trafia do archiwum. |
+| **Częste zmiany celu** (2. zmiana w ciągu 14 dni) | Brak blokady; łagodny komunikat w tonie kumpla: *„Drugi raz zmieniasz cel w 2 tygodnie – wszystko ok? Plan najlepiej działa, gdy dasz mu kilka tygodni.”* |
+
+Ankieta zmiany jest skrócona – pyta tylko o to, co się zmienia.
+
+### 4.8 Wielojęzyczność
 - Polski i angielski od pierwszej wersji (interfejs + komunikaty generowane przez AI w języku użytkownika).
 
 ---
@@ -198,7 +211,42 @@ Zasady techniczne:
 
 ---
 
-## 6. Model biznesowy – freemium
+## 6. Prywatność, RODO i bezpieczeństwo
+
+Uwzględniamy od pierwszego dnia projektowania (privacy by design). *Poniższe to założenia projektowe, nie porada prawna – przed publikacją dokumenty sprawdzi prawnik.*
+
+### 6.1 Dane o zdrowiu
+- Check-in (samopoczucie, sen, ból), kontuzje i notatki **traktujemy jako dane dotyczące zdrowia** (art. 9 RODO – kategoria szczególna).
+- Podstawa przetwarzania: **wyraźna zgoda** – osobny, niezaznaczony domyślnie checkbox w onboardingu (oddzielny od akceptacji regulaminu), z możliwością wycofania w ustawieniach.
+- Bez zgody na dane zdrowotne aplikacja działa w trybie podstawowym: plan bez check-inu.
+
+### 6.2 Minimalizacja i przechowywanie
+- Zbieramy tylko dane potrzebne do planowania (bez GPS, kontaktów, zdjęć).
+- Hosting danych w **UE** (Supabase, region Frankfurt).
+- Szyfrowanie w transmisji (TLS) i w spoczynku; Row Level Security w Supabase – użytkownik widzi tylko swoje dane.
+
+### 6.3 AI a dane osobowe
+- Do Claude API wysyłamy **wyłącznie dane treningowe pod pseudonimowym ID** – bez e-maila, imienia i innych identyfikatorów.
+- Anthropic jako podmiot przetwarzający – umowa powierzenia (DPA); weryfikacja zasad retencji danych i braku trenowania modeli na danych z API.
+- Notatki tekstowe użytkownika: przed wysłaniem informacja w polityce prywatności, że są analizowane przez AI.
+
+### 6.4 Prawa użytkownika
+- **Eksport danych** (JSON) i **usunięcie konta z poziomu aplikacji** – wymagane przez RODO oraz przez App Store i Google Play.
+- Polityka prywatności i regulamin w PL i EN, dostępne przed rejestracją i w ustawieniach.
+- Minimalny wiek użytkownika: **18 lat** (deklaracja przy rejestracji).
+
+### 6.5 Bezpieczeństwo zdrowotne
+- **Disclaimer medyczny** w onboardingu i w regulaminie: aplikacja nie jest wyrobem medycznym i nie zastępuje lekarza.
+- Pytanie o przeciwwskazania w ankiecie; przy zgłoszonych problemach zdrowotnych – zalecenie konsultacji przed startem.
+- Czerwone flagi w check-inie / notatce → brak treningu + sugestia kontaktu z lekarzem.
+
+### 6.6 Sklepy z aplikacjami
+- Formularz **Data safety** (Google Play) i **App Privacy** (App Store) wypełnione zgodnie z faktycznym przetwarzaniem.
+- Brak reklam i sprzedaży danych podmiotom trzecim.
+
+---
+
+## 7. Model biznesowy – freemium
 
 **Decyzja na MVP: wszystkie funkcje są darmowe.** Celem MVP jest sprawdzenie, czy podejście human first
 działa i czy użytkownicy wracają. Paywall wprowadzimy po zebraniu danych o tym, z czego ludzie
@@ -222,7 +270,7 @@ Pomysł na później: **14-dniowy darmowy okres Premium** po rejestracji – uż
 
 ---
 
-## 7. Technologia (propozycja)
+## 8. Technologia (propozycja)
 
 | Obszar | Wybór | Uzasadnienie |
 |---|---|---|
@@ -237,7 +285,7 @@ Pomysł na później: **14-dniowy darmowy okres Premium** po rejestracji – uż
 
 ### Wstępny model danych
 
-- **User** – konto, język, strefa czasowa, pora powiadomienia z check-inem, status subskrypcji (w MVP zawsze „free – pełny dostęp”)
+- **User** – konto, język, strefa czasowa, pora powiadomienia z check-inem, status subskrypcji (w MVP zawsze „free – pełny dostęp”), zgody (regulamin, dane zdrowotne – z datą)
 - **Profile** – poziom, ostatni wynik, tygodniowy kilometraż, zdrowie
 - **Goal** – typ (ogólny / zawody), dystans, data, docelowy czas
 - **Availability** – preferowane dni, max czas (dzień powszedni / weekend), liczba treningów
@@ -254,11 +302,11 @@ Pomysł na później: **14-dniowy darmowy okres Premium** po rejestracji – uż
 5. Tydzień – lista jednostek
 6. Szczegóły i realizacja treningu
 7. Cel i postęp
-8. Ustawienia (język, pora powiadomienia, dostępność)
+8. Ustawienia (język, pora powiadomienia, dostępność, zgody, eksport danych, usunięcie konta)
 
 ---
 
-## 8. Poza zakresem MVP
+## 9. Poza zakresem MVP
 
 - Integracje: Garmin, Strava, Apple Health, Health Connect
 - Integracja z kalendarzem telefonu
@@ -272,7 +320,7 @@ Pomysł na później: **14-dniowy darmowy okres Premium** po rejestracji – uż
 
 ---
 
-## 9. Miary sukcesu MVP
+## 10. Miary sukcesu MVP
 
 - **Retencja**: % użytkowników aktywnych po 4 i 8 tygodniach
 - **Odpowiedzi na check-in**: % dni treningowych z wypełnionym check-inem
@@ -282,7 +330,7 @@ Pomysł na później: **14-dniowy darmowy okres Premium** po rejestracji – uż
 
 ---
 
-## 10. Plan prac (wstępny)
+## 11. Plan prac (wstępny)
 
 1. **Koncepcja** – ten dokument, makiety kluczowych ekranów (Dzisiaj, check-in, propozycja zmiany)
 2. **Silnik reguł** – generowanie szkieletu planu dla 4–5 typowych celów, testy jednostkowe
@@ -294,7 +342,7 @@ Pomysł na później: **14-dniowy darmowy okres Premium** po rejestracji – uż
 
 ---
 
-## 11. Podjęte decyzje
+## 12. Podjęte decyzje
 
 | Temat | Decyzja |
 |---|---|
@@ -312,10 +360,12 @@ Pomysł na później: **14-dniowy darmowy okres Premium** po rejestracji – uż
 | Technologia | React Native (Expo), budowane samodzielnie |
 | Ton | trener, ale kumpel |
 | Nazwa robocza | Aloha Training |
+| Zmiana celu / dostępności | bez limitów; dostępność od przyszłego tygodnia (opcja „od teraz”), nowy cel na bazie aktualnej formy |
+| Prywatność | privacy by design: zgoda na dane zdrowotne, hosting w UE, pseudonimizacja przed AI, eksport i usunięcie konta |
+| Identyfikacja wizualna | osobny wątek (poza tym dokumentem) |
 
-## 12. Otwarte pytania
+## 13. Otwarte pytania
 
-1. Jak często użytkownik może zmienić cel / dostępność bez „resetu” planu?
-2. Wymagania prawne: polityka prywatności, RODO (dane o samopoczuciu i zdrowiu mogą być danymi wrażliwymi), disclaimer medyczny.
-3. Identyfikacja wizualna (kolory, logo, nazwa docelowa).
-4. Cena i podział free/Premium – po MVP, na podstawie danych.
+1. Weryfikacja prawna dokumentów (polityka prywatności, regulamin, zgody) – przed publikacją.
+2. Cena i podział free/Premium – po MVP, na podstawie danych.
+3. Nazwa docelowa i identyfikacja wizualna – w osobnym wątku.
