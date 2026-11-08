@@ -1,0 +1,38 @@
+# zależności
+node_modules/
+.pnpm-store/
+
+# buildy
+.next/
+out/
+dist/
+.turbo/
+*.tsbuildinfo
+next-env.d.ts
+
+# Expo
+.expo/
+web-build/
+expo-env.d.ts
+ios/
+android/
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# Supabase
+supabase/.branches/
+supabase/.temp/
+
+# env – sekrety nigdy w repo
+.env
+.env*.local
+!.env.example
+
+# system / edytor
+.DS_Store
+*.log
+.vercel
+.idea/

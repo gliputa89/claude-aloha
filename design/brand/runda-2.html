@@ -1,0 +1,351 @@
+<title>Aloha – logo, ikony, ilustracje</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap">
+<style>
+/* Layout: jedna kolumna sekcji (logo → podpis → ikony → ilustracje → awatar), w każdej siatka kart-opcji; na końcu podsumowanie do skopiowania. Kolory = zatwierdzone tokeny Laguny. */
+:root{
+  --bg:#F3F7F6; --surface:#FFFFFF; --text:#10201E; --muted:#5B6B69; --border:#DCE6E4;
+  --brand:#0E6E66; --on-brand:#FFFFFF; --brand-soft:#DDEFEC; --text-brand:#0E6E66;
+  --accent:#FFB547; --on-accent:#3A2600; --night:#0C1514; --night-2:#152120;
+  --w-easy:#3FA796; --w-long:#2D7FB8; --w-int:#F08A3C;
+  --f:'Plus Jakarta Sans',system-ui,-apple-system,sans-serif;
+  --mono:'IBM Plex Mono',ui-monospace,Menlo,monospace;
+  --r-card:14px; --r-btn:10px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0C1514; --surface:#152120; --text:#E8F1EF; --muted:#93A6A3; --border:#253533;
+  --brand:#3FB8AC; --on-brand:#04211E; --brand-soft:#173A36; --text-brand:#7ED8CE; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0C1514; --surface:#152120; --text:#E8F1EF; --muted:#93A6A3; --border:#253533;
+  --brand:#3FB8AC; --on-brand:#04211E; --brand-soft:#173A36; --text-brand:#7ED8CE; color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:var(--f);font-size:15px;line-height:1.5}
+.wrap{max-width:1180px;margin:0 auto;padding-block:32px 72px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:48px}
+h1,h2,h3{margin:0;text-wrap:balance}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.intro{display:flex;flex-direction:column;gap:10px;max-width:70ch}
+.intro h1{font-size:32px;font-weight:800;letter-spacing:-.02em}
+.intro p{margin:0;color:var(--muted)}
+.sec{display:flex;flex-direction:column;gap:16px}
+.sec-h{display:flex;flex-direction:column;gap:4px}
+.sec-h h2{font-size:21px;font-weight:700;letter-spacing:-.01em}
+.sec-h p{margin:0;color:var(--muted);max-width:72ch}
+.grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fill,minmax(250px,1fr))}
+.grid.wide{grid-template-columns:repeat(auto-fill,minmax(min(320px,100%),1fr))}
+.opt{all:unset;box-sizing:border-box;cursor:pointer;display:flex;flex-direction:column;gap:14px;padding:16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-card);min-width:0}
+.opt:focus-visible,.seg button:focus-visible,.copy:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+.opt[aria-pressed="true"]{border-color:var(--brand);box-shadow:0 0 0 2px var(--brand)}
+.opt-h{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.opt-h b{font-size:16px;font-weight:700}
+.opt p{margin:0;font-size:13.5px;color:var(--muted)}
+.tick{font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-brand);visibility:hidden}
+.opt[aria-pressed="true"] .tick{visibility:visible}
+.rec{font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;padding:2px 6px;border-radius:4px;background:var(--brand-soft);color:var(--text-brand)}
+
+/* logo */
+.logo-stage{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+.logo-stage .lockups{flex:1 1 200px}
+.lockup .word{font-size:20px}
+.appicon{width:84px;height:84px;border-radius:20px;background:#0E6E66;display:grid;place-items:center;box-shadow:0 6px 16px rgba(14,110,102,.25)}
+.appicon svg{width:58px;height:58px}
+.lockups{display:flex;flex-direction:column;gap:8px;min-width:0}
+.lockup{display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:10px;min-width:0}
+.lockup.light{background:#FFFFFF;border:1px solid #DCE6E4;color:#10201E}
+.lockup.dark{background:#0C1514;color:#E8F1EF}
+.lockup svg{width:28px;height:28px;flex:none}
+.word{font-weight:800;font-size:22px;letter-spacing:-.03em;line-height:1;white-space:nowrap}
+.word small{font-weight:500;font-size:inherit;opacity:.55;letter-spacing:-.02em}
+.sizes{display:flex;align-items:center;gap:10px;font-family:var(--mono);font-size:11px;color:var(--muted)}
+.fav{display:grid;place-items:center;background:#0E6E66;border-radius:4px}
+.fav svg{display:block}
+
+.seg{display:inline-grid;grid-auto-flow:column;border:1px solid var(--border);border-radius:var(--r-btn);overflow:hidden;background:var(--surface);max-width:100%}
+.seg button{all:unset;cursor:pointer;padding:9px 16px;font-size:14px;text-align:center}
+.seg button + button{border-left:1px solid var(--border)}
+.seg button[aria-pressed="true"]{background:var(--brand);color:var(--on-brand);font-weight:700}
+.name-preview{display:flex;flex-wrap:wrap;gap:12px}
+.store{display:flex;gap:12px;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-card);padding:14px 16px;min-width:0}
+.store .appicon{width:56px;height:56px;border-radius:13px;box-shadow:none}
+.store .appicon svg{width:38px;height:38px}
+.store b{display:block;font-size:15px}
+.store span{font-size:12.5px;color:var(--muted)}
+
+.pat{position:absolute;inset:0;display:block}
+.motif-row{display:flex;flex-wrap:wrap;gap:12px;align-items:stretch}
+.splash{position:relative;flex:none;width:120px;height:214px;border-radius:20px;background:#0E6E66;overflow:hidden;display:grid;place-items:center}
+.splash-in{position:relative;display:flex;flex-direction:column;align-items:center;gap:8px}
+.splash-in .word{font-size:17px}
+.band{position:relative;flex:1 1 170px;min-width:0;border-radius:12px;background:#DDEFEC;color:#10201E;overflow:hidden;display:flex;align-items:center}
+.band-in{position:relative;display:flex;flex-direction:column;gap:8px;padding:16px;align-items:flex-start}
+.band-in b{font-size:18px;font-weight:800;letter-spacing:-.02em;line-height:1.15;text-wrap:balance}
+.band-btn{font-size:13px;font-weight:700;background:#0E6E66;color:#FFFFFF;padding:8px 12px;border-radius:10px}
+.cat{font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-brand)}
+/* ikony */
+.icons{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;color:var(--text)}
+.icons div{display:grid;place-items:center;aspect-ratio:1;max-width:100%;border-radius:10px;background:var(--bg)}
+.icons svg{width:26px;height:26px}
+.tabbar{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--border);padding-top:10px}
+.tab{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11px;color:var(--muted)}
+.tab.on{color:var(--text-brand);font-weight:700}
+.tab svg{width:24px;height:24px}
+
+/* ilustracje / awatar – mini karty w stylu apki */
+.mini{background:var(--bg);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:10px}
+.mcard{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-card);padding:14px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.mcard h3{font-size:17px;font-weight:800;letter-spacing:-.01em}
+.mcard p{margin:0;font-size:13px;color:var(--muted)}
+.dots{display:flex;gap:6px}
+.dots i{width:22px;height:8px;border-radius:999px;background:var(--brand)}
+.dots i.off{background:var(--border)}
+.coach{display:flex;gap:10px;align-items:flex-start}
+.av{flex:none;width:34px;height:34px;border-radius:50%;display:grid;place-items:center;font-size:16px;font-weight:800}
+.bubble{background:var(--surface);border:1px solid var(--border);border-radius:4px var(--r-card) var(--r-card) var(--r-card);padding:10px 12px;font-size:13px;min-width:0}
+.bubble .who{display:block;font-size:11px;font-weight:700;color:var(--text-brand);margin-bottom:2px;letter-spacing:.02em}
+
+textarea{font:inherit;font-size:14px;color:var(--text);background:var(--surface);border:1px solid var(--border);border-radius:var(--r-btn);padding:12px;min-height:90px;resize:vertical;width:100%;max-width:640px}
+textarea:focus-visible{outline:2px solid var(--brand);outline-offset:1px}
+.summary{display:flex;flex-direction:column;gap:10px;max-width:640px}
+.summary pre{margin:0;white-space:pre-wrap;font-family:var(--mono);font-size:12.5px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-btn);padding:12px;user-select:all}
+.copy{all:unset;cursor:pointer;text-align:center;padding:12px;border-radius:var(--r-btn);background:var(--brand);color:var(--on-brand);font-weight:700;font-size:14px}
+.hint{font-size:13px;color:var(--muted);margin:0}
+@media (prefers-reduced-motion:no-preference){.opt,.seg button{transition:border-color .15s,box-shadow .15s,background .15s}}
+</style>
+
+<div class="wrap">
+  <header class="intro">
+    <span class="eyebrow">Aloha App · design system · runda 2</span>
+    <h1>Logo, ikony i ilustracje</h1>
+    <p>Kolory, font i zaokrąglenia są już ustalone (Laguna, Plus Jakarta Sans, 14px). Nazwa: Aloha App. Teraz decyzje: znak, motyw hawajski, styl ikon, czym ozdabiamy ekrany i jak wygląda trener w dymkach. Kliknij po jednej opcji w każdej sekcji – podsumowanie jest na dole.</p>
+  </header>
+
+  <section class="sec">
+    <div class="sec-h"><span class="eyebrow">1 · Znak</span><h2>Logo i ikona aplikacji</h2><p>Trzynaście znaków w czterech grupach: Hawaje, bieg, spokój i ich połączenia. Każdy znak pokazany jako ikona w telefonie, z nazwą na jasnym i ciemnym tle oraz w rozmiarze favicony (32 i 16 px) – to tam najszybciej widać, czy znak się broni.</p></div>
+    <div class="grid wide" id="logoOpts"></div>
+  </section>
+
+  <section class="sec">
+    <div class="sec-h"><span class="eyebrow">2 · Nazwa</span><h2>Podpis pod logo</h2><p>Ustalone: <b>Aloha App</b>. Poniżej, jak wygląda w sklepie i pod ikoną. Dla porównania: samo „aloha” i „aloha run”.</p></div>
+    <div class="seg" id="nameOpts" role="group" aria-label="Podpis pod logo"></div>
+    <div class="name-preview" id="namePreview"></div>
+  </section>
+
+  <section class="sec">
+    <div class="sec-h"><span class="eyebrow">3 · Motyw hawajski</span><h2>Wzór i hawajskie słówka</h2><p>Hawaje jako warstwa ozdobna: wzór na ekranie startowym, w nagłówkach onboardingu i na stronie. Na ekranach z planem treningu wzoru nie ma – tam liczy się czytelność. Kolory zostają z Laguny.</p></div>
+    <div class="grid wide" id="motifOpts"></div>
+    <div class="sec-h" style="margin-top:8px"><h3 style="font-size:17px">Hawajskie słówka w tekstach</h3><p>„Aloha” (cześć), „Mahalo” (dziękuję), „A hui hou” (do zobaczenia). Pasują do tonu kumpla, ale mogą się szybko opatrzyć.</p></div>
+    <div class="seg" id="wordOpts" role="group" aria-label="Hawajskie słówka"></div>
+    <div class="grid" id="wordPreview"></div>
+  </section>
+
+  <section class="sec">
+    <div class="sec-h"><span class="eyebrow">4 · Ikony</span><h2>Styl ikon</h2><p>Ten sam zestaw w trzech stylach, plus dolny pasek z apki. Pod każdym stylem jest gotowa biblioteka, żeby nie rysować ikon samemu.</p></div>
+    <div class="grid" id="iconOpts"></div>
+  </section>
+
+  <section class="sec">
+    <div class="sec-h"><span class="eyebrow">5 · Ozdoby</span><h2>Ilustracje i emoji</h2><p>Na przykładzie ekranu po treningu. Ton „trener, ale kumpel” dopuszcza emoji z umiarem – pytanie, czy to wystarczy, czy chcemy czegoś własnego.</p></div>
+    <div class="grid" id="illOpts"></div>
+  </section>
+
+  <section class="sec">
+    <div class="sec-h"><span class="eyebrow">6 · Trener</span><h2>Kto mówi w dymkach</h2><p>Propozycje zmian planu są pisane w pierwszej osobie („Przesunąłem bieg na czwartek”). Potrzebują nadawcy.</p></div>
+    <div class="grid" id="avOpts"></div>
+  </section>
+
+  <section class="sec">
+    <div class="sec-h"><span class="eyebrow">Podsumowanie</span><h2>Twój wybór</h2></div>
+    <label for="notes" class="hint">Uwagi – np. „znak z rundy A, ale fala spokojniejsza”.</label>
+    <textarea id="notes" placeholder="Twoje uwagi…"></textarea>
+    <div class="summary">
+      <pre id="summary"></pre>
+      <button class="copy" id="copy" type="button">Kopiuj podsumowanie</button>
+      <p class="hint" id="copyHint">Wklej je w czacie.</p>
+    </div>
+  </section>
+</div>
+
+<script>
+const C = {teal:'#0E6E66', amber:'#FFB547', white:'#FFFFFF', ink:'#10201E', night:'#E8F1EF', lightTeal:'#3FB8AC'};
+// fg = kolor fali/linii, sun = akcent, bg = tło pod znakiem (do obwódek)
+const MARKS = {
+  fala:{cat:'Hawaje + spokój', name:'Słońce nad falą', desc:'Najprostsze skojarzenie z „aloha”: spokój, poranek, ocean. Dobrze czytelne w małym rozmiarze.', rec:true,
+    svg:(fg,sun)=>`<circle cx="32" cy="27" r="14" fill="${sun}"/><path d="M6 40c4.3 0 6.5-4.5 13-4.5S27.7 40 32 40s6.5-4.5 13-4.5S53.7 40 58 40v6c-4.3 0-6.5-4.5-13-4.5S36.3 46 32 46s-6.5-4.5-13-4.5S10.3 46 6 46z" fill="${fg}"/><path d="M12 52c3.3 0 5-3 10-3s6.7 3 10 3 5-3 10-3 6.7 3 10 3" fill="none" stroke="${fg}" stroke-width="4" stroke-linecap="round"/>`},
+  wschod:{cat:'Spokój', name:'Wschód', desc:'Słońce wychodzące zza horyzontu – „nowy dzień, nowy plan”. Spokojny i optymistyczny, mniej plażowy.',
+    svg:(fg,sun)=>`<path d="M15 42a17 17 0 0 1 34 0z" fill="${sun}"/><path d="M32 11v6M17 18l4 4M47 18l-4 4" stroke="${sun}" stroke-width="4" stroke-linecap="round"/><path d="M8 47h48" stroke="${fg}" stroke-width="5.5" stroke-linecap="round"/><path d="M19 55h26" stroke="${fg}" stroke-width="5.5" stroke-linecap="round"/>`},
+  biegnace:{cat:'Bieg', name:'Biegnące „a”', desc:'Geometryczna litera a z bursztynową kropką jak głowa biegacza. Najbardziej „produktowe”, dobrze działa jako monogram.',
+    svg:(fg,sun)=>`<circle cx="27" cy="38" r="12" fill="none" stroke="${fg}" stroke-width="7"/><path d="M42.5 27v23" stroke="${fg}" stroke-width="7" stroke-linecap="round"/><circle cx="43" cy="15" r="6" fill="${sun}"/>`},
+  biezna:{cat:'Bieg', name:'Bieżnia', desc:'Pętla bieżni z kropką biegacza na łuku. Mówi wprost „bieganie”, ale mniej „aloha”.',
+    svg:(fg,sun,bg)=>`<rect x="8" y="20" width="48" height="26" rx="13" fill="none" stroke="${fg}" stroke-width="6"/><circle cx="44" cy="20" r="7" fill="${sun}" stroke="${bg}" stroke-width="3.5"/>`},
+  plumeria:{cat:'Hawaje', name:'Plumeria', hawaii:true, desc:'Kwiat z hawajskich wianków lei – symbol powitania, czyli dosłownie „aloha”. Ciepły i rozpoznawalny, mniej „biegowy”.',
+    svg:(fg,sun)=>petals(fg,sun)},
+  palma:{cat:'Hawaje', name:'Palma o wschodzie', hawaii:true, desc:'Palma, słońce i fala – najbardziej wakacyjny znak. Świetny na stronę i w marketingu, w 16 px traci szczegóły.',
+    svg:(fg,sun)=>`<circle cx="40" cy="27" r="13" fill="${sun}"/><path d="M23 53c1.5-10 4-19 9-27" fill="none" stroke="${fg}" stroke-width="4.5" stroke-linecap="round"/><path d="M32 26c-6-6-15-6-21-1 7-1 14 0 21 1zM32 26c-2-8-9-13-17-12 7 3 12 7 17 12zM32 26c3-8 11-11 19-9-7 2-14 5-19 9zM32 26c7-2 15 1 19 7-6-3-13-5-19-7z" fill="${fg}"/><path d="M8 56c4 0 6-3 10-3s6 3 10 3 6-3 10-3 6 3 10 3 6-3 10-3" fill="none" stroke="${fg}" stroke-width="3.5" stroke-linecap="round"/>`},
+  shaka:{cat:'Hawaje', name:'Shaka', desc:'Gest „hang loose” – surferskie „luz, dasz radę”. Najlepiej oddaje ton kumpla. To szkic – dłoń wymaga dopracowania przez ilustratora.',
+    svg:(fg,sun,bg)=>`<circle cx="50" cy="15" r="7" fill="${sun}"/><path d="M24 29L13 15" stroke="${fg}" stroke-width="8.5" stroke-linecap="round"/><path d="M41 45l11 9" stroke="${fg}" stroke-width="6.5" stroke-linecap="round"/><rect x="20" y="24" width="25" height="26" rx="8" fill="${fg}"/><path d="M27 31.5h12M27 37.5h12M27 43.5h9" stroke="${bg}" stroke-width="2.6" stroke-linecap="round"/>`},
+  hibiskus:{cat:'Hawaje', name:'Hibiskus', desc:'Kwiat stanowy Hawajów z wysuniętym słupkiem w akcencie. Bardziej egzotyczny i ozdobny niż plumeria.',
+    svg:(fg,sun,bg)=>[0,1,2,3,4].map(i=>{const a=(-90+72*i)*Math.PI/180;return `<circle cx="${(32+13*Math.cos(a)).toFixed(1)}" cy="${(34+13*Math.sin(a)).toFixed(1)}" r="11.5" fill="${fg}"/>`}).join('')+`<circle cx="32" cy="34" r="5" fill="${bg}"/><path d="M32 34L46 14" stroke="${sun}" stroke-width="3.5" stroke-linecap="round"/><circle cx="47" cy="12.5" r="4.5" fill="${sun}"/>`},
+  honu:{cat:'Hawaje', name:'Żółw honu', desc:'Hawajski żółw morski – symbol wytrwałości i długiej drogi. Pasuje do idei „regularność ważniejsza niż rekordy”.',
+    svg:(fg,sun,bg)=>`<ellipse cx="17" cy="25" rx="8.5" ry="4.5" transform="rotate(-35 17 25)" fill="${fg}"/><ellipse cx="47" cy="25" rx="8.5" ry="4.5" transform="rotate(35 47 25)" fill="${fg}"/><ellipse cx="20" cy="49" rx="7" ry="4" transform="rotate(35 20 49)" fill="${fg}"/><ellipse cx="44" cy="49" rx="7" ry="4" transform="rotate(-35 44 49)" fill="${fg}"/><circle cx="32" cy="12" r="6" fill="${fg}"/><ellipse cx="32" cy="35" rx="14" ry="17" fill="${fg}"/><path d="M32 27l6.5 4v8l-6.5 4-6.5-4v-8z" fill="${sun}"/>`},
+  lei:{cat:'Hawaje + bieg', name:'Wianek lei', desc:'Wianek z kwiatów, którym wita się gości na Hawajach. Z daleka to też pętla trasy i litera „o” – symbol powitania i regularnego kółka.',
+    svg:(fg,sun)=>Array.from({length:10},(_,i)=>{const a=(i*36-90)*Math.PI/180;return `<circle cx="${(32+19*Math.cos(a)).toFixed(1)}" cy="${(32+19*Math.sin(a)).toFixed(1)}" r="6.2" fill="${i%3===0?sun:fg}"/>`}).join('')},
+  stoper:{cat:'Hawaje + bieg', name:'Słońce-stoper', desc:'Słońce, które jest jednocześnie stoperem. Łączy „aloha” z treningiem jednym kształtem i dobrze trzyma się w małym rozmiarze.',
+    svg:(fg,sun)=>`<rect x="27" y="7" width="10" height="6" rx="2.5" fill="${fg}"/><rect x="30" y="12" width="4" height="6" fill="${fg}"/><circle cx="32" cy="37" r="19" fill="${sun}"/><path d="M32 37V25M32 37l8 5" stroke="${fg}" stroke-width="4.5" stroke-linecap="round"/>`},
+  curl:{cat:'Hawaje + spokój', name:'Zawinięta fala', desc:'Fala surferska zawijająca się w spiralę. Dynamiczna, „w ruchu”, ale bez sportowej agresji.',
+    svg:(fg,sun)=>`<circle cx="15" cy="17" r="6" fill="${sun}"/><path d="M8 46c9 0 13-6 15-14 3-11 12-18 22-16 8 2 12 9 9 15-2 5-8 6-11 3-3-3-1-8 3-8" fill="none" stroke="${fg}" stroke-width="6.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M8 55h48" stroke="${fg}" stroke-width="5" stroke-linecap="round"/>`},
+  slady:{cat:'Hawaje + bieg', name:'Ślady na piasku', desc:'Dwa kroki na plaży – bieganie i wakacje naraz, do tego „krok po kroku”. Drugi ślad w akcencie pokazuje postęp.',
+    svg:(fg,sun)=>{const foot=(x,y,r,c)=>`<g transform="rotate(${r} ${x} ${y})" fill="${c}"><ellipse cx="${x}" cy="${y}" rx="6.5" ry="10.5"/><circle cx="${x-4.5}" cy="${y-14}" r="2.4"/><circle cx="${x-0.5}" cy="${y-15.5}" r="2.6"/><circle cx="${x+3.8}" cy="${y-14.2}" r="2.3"/></g>`;return foot(22,46,-14,fg)+foot(42,26,14,sun)}},
+};
+const PATTERNS = {
+  plumerie:{name:'Plumerie', desc:'Rozsypane kwiaty jak na koszuli aloha – najbardziej hawajsko, ale w delikatnym, tonalnym kolorze.', rec:true,
+    def:(c)=>`<pattern id="ID" width="56" height="56" patternUnits="userSpaceOnUse"><g transform="translate(4 4) scale(.34)">${petals(c,c)}</g><g transform="translate(32 30) scale(.24) rotate(25 32 32)">${petals(c,c)}</g></pattern>`},
+  fale:{name:'Fale', desc:'Spokojne linie oceanu. Najbezpieczniej – działa nawet w panelu admina, nie męczy.',
+    def:(c)=>`<pattern id="ID" width="48" height="22" patternUnits="userSpaceOnUse"><path d="M0 11c6 0 6-6 12-6s6 6 12 6 6-6 12-6 6 6 12 6" fill="none" stroke="${c}" stroke-width="2.2" stroke-linecap="round"/></pattern>`},
+  liscie:{name:'Liście palmy', desc:'Duże, tropikalne liście. Mocny klimat wakacji, trzeba pilnować, żeby nie zagłuszył treści.',
+    def:(c)=>`<pattern id="ID" width="70" height="70" patternUnits="userSpaceOnUse"><path d="M6 52c12-20 30-30 50-30-12 10-28 22-50 30z" fill="${c}"/><path d="M40 70c4-14 14-24 28-28-6 10-16 20-28 28z" fill="${c}"/></pattern>`},
+  brak:{name:'Bez wzoru', desc:'Hawaje tylko w znaku i słowach. Najczyściej.', def:null},
+};
+const WORDS = {
+  tak:{name:'Tak, z umiarem', ex:['Aloha, Tomek!','Mahalo! Trzeci trening w tym tygodniu 💪','A hui hou – do czwartku!']},
+  powitanie:{name:'Tylko „Aloha”', ex:['Aloha, Tomek!','Jest! Trzeci trening w tym tygodniu 💪','Do czwartku!']},
+  nie:{name:'Nie', ex:['Cześć, Tomek!','Jest! Trzeci trening w tym tygodniu 💪','Do czwartku!']},
+};
+let patN = 0;
+function patSvg(k, color, opacity){ const p = PATTERNS[k]; if(!p.def) return ''; const id='pt'+(patN++);
+  return `<svg class="pat" aria-hidden="true" width="100%" height="100%"><defs>${p.def(color).replace('ID',id)}</defs><rect width="100%" height="100%" fill="url(#${id})" opacity="${opacity}"/></svg>`; }
+const NAMES = {app:['aloha',' app'], solo:['aloha',''], run:['aloha',' run']};
+const NAME_LABELS = {app:'aloha app', solo:'aloha', run:'aloha run'};
+const titleCase = s => s.replace(/(^|\s)\S/g, m=>m.toUpperCase());
+const petals = (fg,sun) => [0,72,144,216,288].map(r=>`<ellipse cx="32" cy="18" rx="8.5" ry="14" transform="rotate(${r} 32 32)" fill="${fg}"/>`).join('') + `<circle cx="32" cy="32" r="6.5" fill="${sun}"/>`;
+
+const IC = [ // [zamknięte kształty (wypełnienie w duotone), linie]
+  ['<circle cx="12" cy="12" r="4"/>','<path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/>'],
+  ['<rect x="3.5" y="5" width="17" height="15.5" rx="3"/>','<path d="M3.5 10h17M8 3v4M16 3v4"/>'],
+  ['<path d="M5.5 4h11l-2 4 2 4h-11z"/>','<path d="M5.5 21V4"/>'],
+  ['<circle cx="12" cy="8" r="4"/>','<path d="M4.5 20.5c1.5-3.8 4.3-5.7 7.5-5.7s6 1.9 7.5 5.7"/>'],
+  ['<circle cx="12" cy="14" r="7"/>','<path d="M12 14v-3.5M10 3h4M12 3v4"/>'],
+  ['<path d="M19.5 14.5A8 8 0 1 1 9.5 4.5a6.3 6.3 0 0 0 10 10z"/>',''],
+  ['<circle cx="12" cy="12" r="9"/>','<path d="M8.5 14.3c1 1.2 2.2 1.8 3.5 1.8s2.5-.6 3.5-1.8M9 9.5h.01M15 9.5h.01"/>'],
+  ['<circle cx="12" cy="12" r="9"/>','<path d="M8 12.4l2.7 2.7L16 9.8"/>'],
+  ['<path d="M6 16v-5a6 6 0 0 1 12 0v5l1.5 2h-15z"/>','<path d="M10 21h4"/>'],
+  ['','<path d="M4 8h14l-3.5-3.5M20 16H6l3.5 3.5"/>'],
+];
+const ICON_STYLES = {
+  cienkie:{name:'Kontur cienki', lib:'Lucide · lucide-react / lucide-react-native', desc:'Lekkie i neutralne, najczęstszy wybór w apkach. Pasuje do czystego interfejsu, przy małym rozmiarze bywa blade.', sw:1.5, fill:false},
+  pelne:{name:'Kontur zaokrąglony', lib:'Phosphor (waga Bold) · phosphor-react-native', desc:'Grubsza, miękka kreska – cieplej i przyjaźniej, dobrze czytelne na pasku i w słońcu podczas biegu.', sw:2.2, fill:false, rec:true},
+  duo:{name:'Dwukolorowe', lib:'Phosphor (waga Duotone)', desc:'Kontur z delikatnym turkusowym wypełnieniem. Najwięcej charakteru, ale łatwo o przeładowanie – zwykle tylko w kluczowych miejscach.', sw:1.8, fill:true},
+};
+const ILL = {
+  emoji:{name:'Emoji z umiarem', desc:'Zero kosztów, od razu zgodne z tonem. Ryzyko: wygląda różnie na iPhonie i Androidzie.', rec:true},
+  ksztalty:{name:'Własne kształty', desc:'Abstrakcyjne słońca i fale z logo jako ilustracje stanów: sukces, odpoczynek, pusty tydzień. Spójne z marką, trzeba je zaprojektować.'},
+  typo:{name:'Tylko liczby i kolor', desc:'Bez ozdób – duża typografia i postęp tygodnia. Najspokojniej, najmniej „kumpla”.'},
+  hawaje:{name:'Hawajskie motywy', desc:'Plumeria, fala i słońce w kolorach marki, do tego „Mahalo!”. Spójne z motywem hawajskim, ilustracje trzeba zaprojektować.'},
+};
+const AV = {
+  shaka:{name:'Emoji 🤙', desc:'Gest „hang loose” – luz i kumpel w jednym. Prosto, ale nie nasze.'},
+  znak:{name:'Znak marki', desc:'Mały znak logo w kółku. Trener = Aloha, buduje rozpoznawalność.', rec:true},
+  litera:{name:'Litera A', desc:'Inicjał w turkusowym kółku – neutralnie, jak kontakt w telefonie.'},
+  brak:{name:'Bez awatara', desc:'Sam dymek z podpisem „Aloha”. Najmniej osobowości, najwięcej miejsca.'},
+};
+
+const state = {logo:'fala', name:'app', motif:'plumerie', words:'powitanie', icons:'pelne', ill:'emoji', av:'znak', notes:''};
+try{ const s=JSON.parse(localStorage.getItem('aloha-ds-r2')||'null'); if(s){ Object.assign(state,s); state.name='app';
+  if(!MARKS[state.logo]) state.logo='fala'; if(!PATTERNS[state.motif]) state.motif='plumerie'; if(!WORDS[state.words]) state.words='powitanie'; } }catch(e){}
+const save=()=>{ try{ localStorage.setItem('aloha-ds-r2', JSON.stringify(state)); }catch(e){} };
+
+const svgMark=(k,fg,sun,bg,size)=>`<svg viewBox="0 0 64 64" ${size?`width="${size}" height="${size}"`:''} aria-hidden="true">${MARKS[k].svg(fg,sun,bg)}</svg>`;
+const word=(n,color)=>`<span class="word" style="color:${color}">${NAMES[n][0]}<small>${NAMES[n][1]}</small></span>`;
+function icon(i,st,size=26){ const [shape,lines]=IC[i];
+  const fill = st.fill ? 'var(--brand-soft)' : 'none';
+  return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="${st.sw}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><g fill="${fill}">${shape}</g>${lines}</svg>`; }
+const head=(o,key,cur)=>`<div class="opt-h"><b>${o.name}</b>${o.rec?'<span class="rec">polecam</span>':'<span class="tick">wybrane</span>'}</div>`;
+
+function render(){
+  document.getElementById('logoOpts').innerHTML = Object.entries(MARKS).map(([k,m])=>`
+    <button class="opt" type="button" data-g="logo" data-v="${k}" aria-pressed="${k===state.logo}">
+      ${head(m)}
+      <div class="logo-stage">
+        <div class="appicon">${svgMark(k,C.white,C.amber,C.teal)}</div>
+        <div class="lockups">
+          <div class="lockup light">${svgMark(k,C.teal,C.amber,'#FFFFFF')}${word(state.name,C.ink)}</div>
+          <div class="lockup dark">${svgMark(k,C.lightTeal,C.amber,'#0C1514')}${word(state.name,C.night)}</div>
+        </div>
+      </div>
+      <div class="sizes"><span class="fav" style="width:32px;height:32px">${svgMark(k,C.white,C.amber,C.teal,24)}</span>32 px<span class="fav" style="width:16px;height:16px;border-radius:3px">${svgMark(k,C.white,C.amber,C.teal,13)}</span>16 px</div>
+      <span class="cat">${m.cat}</span>
+      <p>${m.desc}</p>
+    </button>`).join('');
+
+  document.getElementById('nameOpts').innerHTML = Object.entries(NAME_LABELS).map(([k,l])=>`<button type="button" data-g="name" data-v="${k}" aria-pressed="${k===state.name}">${l}</button>`).join('');
+  const nm = titleCase(NAME_LABELS[state.name]);
+  document.getElementById('namePreview').innerHTML = `
+    <div class="store"><div class="appicon">${svgMark(state.logo,C.white,C.amber,C.teal)}</div><div><b>${nm}</b><span>Plan biegowy, który dopasowuje się do życia</span></div></div>
+    <div class="store"><div class="appicon">${svgMark(state.logo,C.white,C.amber,C.teal)}</div><div><b style="font-size:13px">${nm}</b><span>pod ikoną na ekranie telefonu</span></div></div>`;
+
+  const w = WORDS[state.words].ex;
+  document.getElementById('motifOpts').innerHTML = Object.entries(PATTERNS).map(([k,p])=>`
+    <button class="opt" type="button" data-g="motif" data-v="${k}" aria-pressed="${k===state.motif}">
+      ${head(p)}
+      <div class="motif-row">
+        <div class="splash">${patSvg(k,'#FFFFFF',.13)}<div class="splash-in">${svgMark(state.logo,C.white,C.amber,C.teal,58)}${word(state.name,'#FFFFFF')}</div></div>
+        <div class="band">${patSvg(k,'#0E6E66',.12)}<div class="band-in"><span class="eyebrow" style="color:#0B5A53">${w[0]}</span><b>Plan, który dopasowuje się do życia.</b><span class="band-btn">Zapisz się na listę</span></div></div>
+      </div>
+      <p>${p.desc}</p>
+    </button>`).join('');
+  document.getElementById('wordOpts').innerHTML = Object.entries(WORDS).map(([k,o])=>`<button type="button" data-g="words" data-v="${k}" aria-pressed="${k===state.words}">${o.name}</button>`).join('');
+  document.getElementById('wordPreview').innerHTML = [['Ekran Dzisiaj',w[0]],['Po treningu',w[1]],['Powiadomienie o kolejnym biegu',w[2]]]
+    .map(([l,t])=>`<div class="mcard"><span class="eyebrow">${l}</span><h3>${t}</h3></div>`).join('');
+
+  document.getElementById('iconOpts').innerHTML = Object.entries(ICON_STYLES).map(([k,s])=>`
+    <button class="opt" type="button" data-g="icons" data-v="${k}" aria-pressed="${k===state.icons}">
+      ${head(s)}
+      <div class="icons">${IC.map((_,i)=>`<div>${icon(i,s)}</div>`).join('')}</div>
+      <div class="tabbar"><span class="tab on">${icon(0,s,24)}Dzisiaj</span><span class="tab">${icon(1,s,24)}Tydzień</span><span class="tab">${icon(2,s,24)}Cel</span><span class="tab">${icon(3,s,24)}Profil</span></div>
+      <p>${s.desc}</p><p style="font-family:var(--mono);font-size:11.5px">${s.lib}</p>
+    </button>`).join('');
+
+  const illArt = {
+    emoji:`<div class="mcard"><div style="font-size:38px;line-height:1">💪</div><h3>Jest! Trzeci trening w tym tygodniu</h3><p>Tak się buduje formę. Odpocznij jutro – w sobotę długi bieg.</p></div>`,
+    ksztalty:`<div class="mcard"><svg viewBox="0 0 220 70" width="100%" height="70" aria-hidden="true"><circle cx="70" cy="40" r="26" fill="var(--accent)"/><circle cx="150" cy="22" r="8" fill="var(--w-int)"/><path d="M0 52c18 0 27-12 55-12s37 12 55 12 27-12 55-12 37 12 55 12v18H0z" fill="var(--brand)"/><path d="M20 66c14 0 20-6 40-6s26 6 40 6" fill="none" stroke="var(--brand-soft)" stroke-width="3" stroke-linecap="round"/></svg><h3>Jest! Trzeci trening w tym tygodniu</h3><p>Tak się buduje formę. Odpocznij jutro – w sobotę długi bieg.</p></div>`,
+    hawaje:`<div class="mcard"><svg viewBox="0 0 220 70" width="100%" height="70" aria-hidden="true"><circle cx="160" cy="30" r="20" fill="var(--accent)"/><g transform="translate(28 4) scale(.85)">${petals('#FFFFFF','#FFB547').replace(/fill="#FFFFFF"/g,'fill="var(--surface)" stroke="var(--brand)" stroke-width="2.5"')}</g><path d="M0 56c18 0 27-10 55-10s37 10 55 10 27-10 55-10 37 10 55 10v14H0z" fill="var(--brand)"/></svg><h3>Mahalo! Trzeci trening w tym tygodniu</h3><p>Tak się buduje formę. Odpocznij jutro – w sobotę długi bieg.</p></div>`,
+    typo:`<div class="mcard"><div style="font-size:44px;font-weight:800;letter-spacing:-.03em;line-height:1;color:var(--text-brand)">3<span style="color:var(--muted);font-size:24px"> / 4</span></div><div class="dots"><i></i><i></i><i></i><i class="off"></i></div><h3>Trzeci trening w tym tygodniu</h3><p>Tak się buduje formę. Odpocznij jutro – w sobotę długi bieg.</p></div>`,
+  };
+  document.getElementById('illOpts').innerHTML = Object.entries(ILL).map(([k,o])=>`
+    <button class="opt" type="button" data-g="ill" data-v="${k}" aria-pressed="${k===state.ill}">${head(o)}<div class="mini">${illArt[k]}</div><p>${o.desc}</p></button>`).join('');
+
+  const avArt = {
+    shaka:`<span class="av" style="background:var(--accent);color:var(--on-accent)">🤙</span>`,
+    znak:`<span class="av" style="background:#0E6E66">${svgMark(state.logo,C.white,C.amber,C.teal,24)}</span>`,
+    litera:`<span class="av" style="background:var(--brand);color:var(--on-brand)">A</span>`,
+    brak:'',
+  };
+  document.getElementById('avOpts').innerHTML = Object.entries(AV).map(([k,o])=>`
+    <button class="opt" type="button" data-g="av" data-v="${k}" aria-pressed="${k===state.av}">${head(o)}
+      <div class="mini"><div class="coach">${avArt[k]}<div class="bubble">${k==='brak'?'<span class="who">ALOHA</span>':''}Wczoraj nie wyszło? Spoko, zdarza się. Przesunąłem bieg na czwartek.</div></div></div>
+      <p>${o.desc}</p></button>`).join('');
+  summary();
+}
+function summary(){
+  document.getElementById('summary').textContent =
+`Aloha – design system, runda 2
+Nazwa: Aloha App
+Znak: ${MARKS[state.logo].name}
+Motyw hawajski – wzór: ${PATTERNS[state.motif].name}
+Hawajskie słówka: ${WORDS[state.words].name}
+Ikony: ${ICON_STYLES[state.icons].name} (${ICON_STYLES[state.icons].lib})
+Ozdoby: ${ILL[state.ill].name}
+Trener w dymkach: ${AV[state.av].name}
+Uwagi: ${state.notes.trim()||'–'}`;
+}
+document.addEventListener('click', e=>{ const b=e.target.closest('[data-g]'); if(!b) return; state[b.dataset.g]=b.dataset.v; save(); render(); });
+const notes=document.getElementById('notes'); notes.value=state.notes;
+notes.addEventListener('input',()=>{ state.notes=notes.value; save(); summary(); });
+document.getElementById('copy').addEventListener('click',()=>{
+  const pre=document.getElementById('summary'), hint=document.getElementById('copyHint');
+  const fb=()=>{ const r=document.createRange(); r.selectNodeContents(pre); const s=getSelection(); s.removeAllRanges(); s.addRange(r); hint.textContent='Tekst zaznaczony – skopiuj go skrótem klawiszowym.'; };
+  try{ navigator.clipboard.writeText(pre.textContent).then(()=>{ hint.textContent='Skopiowane. Wklej w czacie.'; }, fb); }catch(err){ fb(); }
+});
+render();
+</script>

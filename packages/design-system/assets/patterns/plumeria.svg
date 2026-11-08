@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 56 56" width="56" height="56">
+  <!-- Aloha App – kafelek wzoru „Plumerie”. Kolor z currentColor; używać tonalnie (krycie ok. 10–15%), tylko na ekranie startowym, w onboardingu i na stronie. -->
+  <g fill="currentColor">
+    <g transform="translate(4 4) scale(.34)"><ellipse cx="32" cy="18" rx="8.5" ry="14" transform="rotate(0 32 32)"/><ellipse cx="32" cy="18" rx="8.5" ry="14" transform="rotate(72 32 32)"/><ellipse cx="32" cy="18" rx="8.5" ry="14" transform="rotate(144 32 32)"/><ellipse cx="32" cy="18" rx="8.5" ry="14" transform="rotate(216 32 32)"/><ellipse cx="32" cy="18" rx="8.5" ry="14" transform="rotate(288 32 32)"/><circle cx="32" cy="32" r="6.5"/></g>
+    <g transform="translate(32 30) scale(.24) rotate(25 32 32)"><ellipse cx="32" cy="18" rx="8.5" ry="14" transform="rotate(0 32 32)"/><ellipse cx="32" cy="18" rx="8.5" ry="14" transform="rotate(72 32 32)"/><ellipse cx="32" cy="18" rx="8.5" ry="14" transform="rotate(144 32 32)"/><ellipse cx="32" cy="18" rx="8.5" ry="14" transform="rotate(216 32 32)"/><ellipse cx="32" cy="18" rx="8.5" ry="14" transform="rotate(288 32 32)"/><circle cx="32" cy="32" r="6.5"/></g>
+  </g>
+</svg>

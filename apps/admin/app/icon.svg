@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Aloha App – favicona (zaokrąglony kwadrat) -->
+  <rect width="64" height="64" rx="14" fill="#0E6E66"/>
+  <g transform="translate(5.5 4) scale(.83)"><circle cx="32" cy="27" r="14" fill="#FFB547"/><path d="M6 40c4.3 0 6.5-4.5 13-4.5S27.7 40 32 40s6.5-4.5 13-4.5S53.7 40 58 40v6c-4.3 0-6.5-4.5-13-4.5S36.3 46 32 46s-6.5-4.5-13-4.5S10.3 46 6 46z" fill="#FFFFFF"/><path d="M12 52c3.3 0 5-3 10-3s6.7 3 10 3 5-3 10-3 6.7 3 10 3" fill="none" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round"/></g>
+</svg>
