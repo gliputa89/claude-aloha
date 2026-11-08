@@ -8,7 +8,8 @@
     "scheme": "aloha",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "icon": "./assets/expo.icon",
+      "bundleIdentifier": "com.gliputa89.aloha-training"
     },
     "android": {
       "adaptiveIcon": {
