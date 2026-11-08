@@ -12,7 +12,7 @@
 import { addDaysIso, daysBetween, isoWeekday } from './dates.ts';
 import type { Level, RaceDistanceM } from './goal.ts';
 
-export const ENGINE_VERSION = '0.1.0';
+export const ENGINE_VERSION = '0.1.1';
 
 export type SessionType = 'walk_run' | 'easy' | 'long' | 'intervals' | 'tempo' | 'recovery' | 'race';
 export type Intensity = 'easy' | 'moderate' | 'hard';
@@ -273,6 +273,12 @@ export function generateInitialPlan(input: PlanInput): GeneratedPlan {
   const count = input.weeks ?? 2;
   const weeks: PlannedWeek[] = [];
   let startsOn = input.startDate;
+  // Niepełny pierwszy tydzień bez żadnego treningu (np. start w niedzielę, a biegasz wt/sb)
+  // nie liczy się do planu – zaczynamy od najbliższego poniedziałku.
+  if (isoWeekday(startsOn) !== 1 && buildWeek(input, 0, startsOn, addDaysIso(startsOn, 7 - isoWeekday(startsOn))).sessions.length === 0) {
+    startsOn = addDaysIso(startsOn, 8 - isoWeekday(startsOn));
+  }
+  const planStart = startsOn;
   for (let i = 0; i < count; i++) {
     const endsOn = addDaysIso(startsOn, 7 - isoWeekday(startsOn));
     const week = buildWeek(input, i, startsOn, endsOn);
@@ -282,7 +288,7 @@ export function generateInitialPlan(input: PlanInput): GeneratedPlan {
   }
   return {
     engineVersion: ENGINE_VERSION,
-    startsOn: input.startDate,
+    startsOn: planStart,
     endsOn: weeks[weeks.length - 1]?.endsOn ?? input.startDate,
     weeks,
   };

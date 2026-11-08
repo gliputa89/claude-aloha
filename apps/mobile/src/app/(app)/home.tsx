@@ -126,16 +126,18 @@ export default function HomeScreen() {
         ) : null}
 
         {state.kind === 'ready'
-          ? state.plan.weeks.map((week) => (
-              <View key={week.id} style={styles.week}>
-                <Text variant="heading" accessibilityRole="header">
-                  {t('plan.week', { n: week.week_index + 1 })}
-                </Text>
-                {week.sessions.map((s) => (
-                  <SessionRow key={s.id} session={s} today={s.scheduled_on === today} />
-                ))}
-              </View>
-            ))
+          ? state.plan.weeks
+              .filter((week) => week.sessions.length > 0)
+              .map((week, i) => (
+                <View key={week.id} style={styles.week}>
+                  <Text variant="heading" accessibilityRole="header">
+                    {t('plan.week', { n: i + 1 })}
+                  </Text>
+                  {week.sessions.map((s) => (
+                    <SessionRow key={s.id} session={s} today={s.scheduled_on === today} />
+                  ))}
+                </View>
+              ))
           : null}
 
         <Button
