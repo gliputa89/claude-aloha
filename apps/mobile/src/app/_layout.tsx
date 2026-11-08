@@ -8,7 +8,6 @@ import {
 } from '@expo-google-fonts/plus-jakarta-sans';
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 
 import { fontFamily } from '@/components/ui/text';
@@ -62,7 +61,6 @@ function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
 
   return (
     <ThemeProvider value={navTheme}>
-      <StatusBar style="auto" />
       <Stack
         screenOptions={{
           headerShadowVisible: false,
