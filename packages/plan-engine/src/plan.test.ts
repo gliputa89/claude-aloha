@@ -125,3 +125,16 @@ test('start w środku tygodnia nie skraca treningów w tygodniu 1', () => {
   });
   assert.ok((plan.weeks[1]?.sessions ?? []).every((s) => (s.durationMin ?? 0) >= 25));
 });
+
+test('start w niedzielę bez treningu tego dnia → plan od poniedziałku, oba tygodnie z treningami', () => {
+  const plan = generateInitialPlan({ ...base, startDate: '2026-11-08' }); // niedziela, biega wt/cz/sb
+  assert.equal(plan.startsOn, '2026-11-09');
+  assert.deepEqual(plan.weeks.map((w) => w.startsOn), ['2026-11-09', '2026-11-16']);
+  assert.ok(plan.weeks.every((w) => w.sessions.length > 0));
+});
+
+test('start w niedzielę, gdy niedziela jest dniem treningowym → plan od niedzieli', () => {
+  const plan = generateInitialPlan({ ...base, startDate: '2026-11-08', preferredDays: [2, 4, 7] });
+  assert.equal(plan.startsOn, '2026-11-08');
+  assert.equal(plan.weeks[0]?.sessions.length, 1);
+});
