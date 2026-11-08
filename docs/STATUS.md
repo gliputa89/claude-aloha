@@ -32,7 +32,11 @@ Prototyp online: https://claude.ai/artifact/9fNTK4T8hFSpaJyb1RdYCB
 
 - Zainstalowane: `apps/web` i `apps/admin` (Next.js 16, Tailwind v4), `apps/mobile` (Expo SDK 58, Expo Router), `packages/design-system` (tokeny z makiet → CSS + TS), `packages/config`, `supabase/config.toml`.
 - `pnpm lint`, `pnpm typecheck`, `pnpm build` przechodzą; bundle Androida (Metro) buduje się z tokenami ze wspólnego pakietu.
-- Do zrobienia ręcznie: projekty w Vercel (Root Directory `apps/web` i `apps/admin`), `eas init` w `apps/mobile`, projekty Supabase `aloha-staging` / `aloha-prod` (UE).
+- **Vercel** (zespół `grzegorzliputas-projects`, Pro): projekty `aloha-web` (Root `apps/web`) i `aloha-admin` (Root `apps/admin`), podpięte do GitHuba, region funkcji `fra1`, Node 22, pomijanie buildów bez zmian. Gałąź produkcyjna: `claude/gracious-clarke-cc1clg` (domyślna w GitHubie) – zmienić na `main`, gdy powstanie. Domeny jeszcze nieprzypięte.
+- **Supabase** przez Vercel Marketplace (plan Free, Frankfurt): `aloha-prod` → Production obu projektów, `aloha-staging` → Preview + Development. Zmienne (`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_SUPABASE_*`, `POSTGRES_*`) ustawia integracja. Przed publiczną premierą → plan Pro (Free usypia bazę po tygodniu bez ruchu).
+- **Baza**: 5 migracji w `supabase/migrations` (schematy `marketing` / `ops` / `analytics`, tabele aplikacji z RLS, zgoda `health_data` wymagana do check-inu, widoki KPI) – wgrane na staging i prod (`npx supabase db push --db-url …`), sprawdzone testem RLS.
+- **Do decyzji przy liście oczekujących**: schematy `marketing` / `ops` / `analytics` nie są wystawione w API Supabase, więc `supabase-js` ich nie widzi. Albo serwer łączy się bezpośrednio z Postgresem (`POSTGRES_URL`), albo wystawiamy je w API (uprawnienia i tak ma tylko `service_role`).
+- Do zrobienia ręcznie: `eas init` w `apps/mobile`.
 
 ## Otwarte tematy
 
