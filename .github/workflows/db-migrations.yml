@@ -1,0 +1,57 @@
+# Migracje bazy (supabase/migrations) – docs/ARCHITECTURE.md, rozdział 5.
+#
+# • staging: automatycznie po każdym pushu/merge do głównej gałęzi, który zmienia migracje.
+# • production: ręcznie – Actions → „Migracje bazy” → Run workflow → production.
+#   (W Settings → Environments → production można dodać wymagane zatwierdzenie.)
+#
+# Sekret DB_URL w środowiskach GitHub `staging` i `production` ustawia `pnpm db:ci-setup`.
+
+name: Migracje bazy
+
+on:
+  push:
+    paths:
+      - supabase/migrations/**
+      - .github/workflows/db-migrations.yml
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Baza docelowa
+        type: choice
+        options: [staging, production]
+        default: staging
+      dry_run:
+        description: Tylko pokaż, co zostałoby wgrane
+        type: boolean
+        default: false
+
+concurrency:
+  group: db-migrations-${{ inputs.target || 'staging' }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  migrate:
+    # Push na inne gałęzie (feature, PR) niczego nie wgrywa.
+    if: github.event_name == 'workflow_dispatch' || github.ref_name == github.event.repository.default_branch
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.target || 'staging' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 3.0.0
+
+      - name: Wgraj migracje
+        env:
+          DB_URL: ${{ secrets.DB_URL }}
+          DRY_RUN: ${{ inputs.dry_run && '--dry-run' || '' }}
+        run: |
+          if [ -z "$DB_URL" ]; then
+            echo "::error::Brak sekretu DB_URL w środowisku GitHub. Uruchom lokalnie: pnpm db:ci-setup"
+            exit 1
+          fi
+          supabase db push --remote="$DB_URL" --yes $DRY_RUN

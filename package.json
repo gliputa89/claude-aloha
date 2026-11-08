@@ -17,6 +17,9 @@
     "db:start": "supabase start",
     "db:stop": "supabase stop",
     "db:reset": "supabase db reset",
+    "db:push:staging": "scripts/db-push.sh staging",
+    "db:push:prod": "scripts/db-push.sh prod",
+    "db:ci-setup": "scripts/ci-db-secrets.sh",
     "db:types": "supabase gen types typescript --local > packages/db/src/database.types.ts"
   },
   "devDependencies": {
