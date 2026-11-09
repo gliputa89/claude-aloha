@@ -1,8 +1,9 @@
 import { CheckCircle, WarningCircle } from 'phosphor-react-native';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet } from 'react-native';
+import Animated, { FadeInDown, FadeOut, useReducedMotion } from 'react-native-reanimated';
 
 import { Text } from '@/components/ui/text';
-import { radius, space } from '@/constants/theme';
+import { motion, radius, space } from '@/constants/theme';
 import { useColors } from '@/hooks/use-colors';
 
 type NoticeProps = {
@@ -15,8 +16,11 @@ export function Notice({ message, tone = 'warning' }: NoticeProps) {
   const c = useColors();
   const warning = tone === 'warning';
   const Icon = warning ? WarningCircle : CheckCircle;
+  const reduced = useReducedMotion();
   return (
-    <View
+    <Animated.View
+      entering={reduced ? undefined : FadeInDown.duration(motion.duration.slow).springify().damping(18)}
+      exiting={reduced ? undefined : FadeOut.duration(motion.duration.fast)}
       accessibilityRole="alert"
       accessibilityLiveRegion="polite"
       style={[styles.box, { backgroundColor: warning ? c.surfaceAccentSoft : c.surfaceBrandSoft }]}>
@@ -24,7 +28,7 @@ export function Notice({ message, tone = 'warning' }: NoticeProps) {
       <Text variant="caption" weight="medium" color={warning ? 'textAccentStrong' : 'textBrand'} style={styles.text}>
         {message}
       </Text>
-    </View>
+    </Animated.View>
   );
 }
 

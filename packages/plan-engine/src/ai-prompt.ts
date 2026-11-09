@@ -5,7 +5,7 @@
 // Do modelu NIE trafiają: imię, e-mail, id użytkownika – tylko dane treningowe.
 
 import { isoWeekday } from './dates.ts';
-import { AI_OPERATION_KINDS, AI_SESSION_TYPES, freePreferredDays, type Violation } from './ai-ops.ts';
+import { AI_OPERATION_KINDS, AI_SESSION_TYPES, AI_TIP_MAX_LENGTH, freePreferredDays, type Violation } from './ai-ops.ts';
 import type { AiEffort } from './ai-pricing.ts';
 import { TRAINING_LEVEL_INFO, type TrainingLevel } from './levels.ts';
 import { ENGINE_RULES, paramsForLevel, type EngineParams } from './params.ts';
@@ -79,6 +79,13 @@ export function rulesPromptBlock(params: EngineParams, level: TrainingLevel): st
     `- Suma minut pełnego tygodnia ≤ poprzedni pełny tydzień × ${(1 + p.weeklyGrowthPct / 100).toFixed(2)}.`,
     `- Suma minut tygodnia ≤ szkic × ${(1 + p.aiMaxIncreasePct / 100).toFixed(2)}. Skracać możesz zawsze (do minimum).`,
     `- Zawody: dzień przed i po – bez treningu; ${p.raceEasyDaysBefore} dni przed startem tylko spokojnie.`,
+    '',
+    'RADY TRENERA (pole tips):',
+    `- Do każdego treningu planu – w stanie PO Twoich operacjach – jedna rada: date + text, najwyżej ${AI_TIP_MAX_LENGTH} znaków, 1–2 zdania.`,
+    '- W języku biegacza (locale), w drugiej osobie, ton „trener, ale kumpel”: ciepło, konkretnie, bez moralizowania i bez porad medycznych.',
+    '- Dopasuj do osoby i do tego konkretnego treningu: poziom, cel, miejsce w tygodniu (np. pierwszy mocny trening, dzień po długim biegu, bliski start), to, co zmieniłeś.',
+    '- Każda rada inna – nie powtarzaj tych samych zdań. Bez liczb tempa (aplikacja pokazuje je sama).',
+    '- Po polsku bez form zależnych od płci (nie „zrobiłeś/zrobiłaś”) – płci biegacza nie znamy.',
     '',
     'LOGIKA SILNIKA (dla kontekstu):',
     ...ENGINE_RULES.map((r) => `- ${r.title}: ${r.detail}`),

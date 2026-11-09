@@ -153,6 +153,12 @@ Deno.serve(async (req) => {
     return json({ error: 'save_failed' }, 500);
   }
 
+  // Rady trenera od AI (te same wywołanie co plan). Błąd nie psuje planu – aplikacja ma rady z bazy.
+  if (outcome && Object.keys(outcome.tips).length > 0) {
+    const { error: tipsError } = await admin.rpc('set_session_coach_tips', { p_user_id: user.id, p_tips: outcome.tips });
+    if (tipsError) console.error('set_session_coach_tips failed', tipsError.code, tipsError.message);
+  }
+
   return json({
     planId,
     startsOn: plan.startsOn,

@@ -24,6 +24,7 @@
   --aloha-color-workout-tempo: #D9534F;
   --aloha-color-workout-walk-run: #8E7CC3;
   --aloha-color-workout-rest: #C5D2D0;
+  --aloha-color-text-on-workout: #0C1514;
   --aloha-font-display: var(--font-body-loaded, "Plus Jakarta Sans"), ui-sans-serif, system-ui, sans-serif;
   --aloha-font-body: var(--font-body-loaded, "Plus Jakarta Sans"), ui-sans-serif, system-ui, sans-serif;
   --aloha-radius-sm: 8px;
@@ -62,6 +63,7 @@
     --aloha-color-workout-tempo: #D9534F;
     --aloha-color-workout-walk-run: #8E7CC3;
     --aloha-color-workout-rest: #5B6B69;
+    --aloha-color-text-on-workout: #0C1514;
     color-scheme: dark;
   }
 }
@@ -90,6 +92,7 @@
   --aloha-color-workout-tempo: #D9534F;
   --aloha-color-workout-walk-run: #8E7CC3;
   --aloha-color-workout-rest: #5B6B69;
+  --aloha-color-text-on-workout: #0C1514;
   color-scheme: dark;
 }
 
@@ -118,6 +121,7 @@
   --color-workout-tempo: var(--aloha-color-workout-tempo);
   --color-workout-walk-run: var(--aloha-color-workout-walk-run);
   --color-workout-rest: var(--aloha-color-workout-rest);
+  --color-text-on-workout: var(--aloha-color-text-on-workout);
   --font-display: var(--aloha-font-display);
   --font-sans: var(--aloha-font-body);
   --radius-sm: var(--aloha-radius-sm);

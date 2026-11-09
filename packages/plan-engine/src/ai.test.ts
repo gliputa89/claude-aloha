@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { applyOperations, parseAiPlanResponse, validateWeeks, type AiOperation } from './ai-ops.ts';
+import { AI_TIP_MAX_LENGTH, applyOperations, parseAiPlanResponse, validateWeeks, type AiOperation } from './ai-ops.ts';
 import { costUsd, modelPrice } from './ai-pricing.ts';
 import { aiAthleteFromSurvey, DEFAULT_AI_PROMPTS, planWeeksUserMessage, rulesPromptBlock } from './ai-prompt.ts';
 import { planWeeksWithAi, type AiCallRecord, type AiModelRequest, type AiModelResult } from './ai-run.ts';
@@ -291,4 +291,52 @@ test('runner: ucięta odpowiedź (max_tokens) → fallback bez ponowienia', asyn
   const out = await planWeeksWithAi(runOpts(h));
   assert.equal(out.status, 'fallback');
   assert.equal(h.requests.length, 1);
+});
+
+test('parseAiPlanResponse: rady są dodatkiem – złe pozycje pomijane, długie przycinane, brak pola = pusta lista', () => {
+  const long = 'x'.repeat(500);
+  const parsed = parseAiPlanResponse({
+    summary: 's',
+    operations: [],
+    tips: [
+      { date: '2026-11-10', text: '  Spokojnie   na start.  ' },
+      { date: 'wtorek', text: 'zła data' },
+      { date: '2026-11-12', text: 42 },
+      { date: '2026-11-14', text: long },
+    ],
+  });
+  assert.ok(parsed.ok);
+  assert.deepEqual(
+    parsed.value.tips.map((t) => [t.date, t.text.length]),
+    [
+      ['2026-11-10', 'Spokojnie na start.'.length],
+      ['2026-11-14', AI_TIP_MAX_LENGTH],
+    ],
+  );
+  const noTips = parseAiPlanResponse({ summary: 's', operations: [] });
+  assert.ok(noTips.ok);
+  assert.deepEqual(noTips.value.tips, []);
+});
+
+test('runner: rady trafiają tylko do dni z treningiem, przy powtórzeniu wygrywa pierwsza', async () => {
+  const h = harness([
+    reply({
+      summary: 'ok',
+      operations: [],
+      tips: [
+        { date: '2026-11-10', text: 'Pierwszy bieg – luźno.' },
+        { date: '2026-11-11', text: 'W środę nie ma treningu.' },
+        { date: '2026-11-10', text: 'Druga rada na ten sam dzień.' },
+      ],
+    }),
+  ]);
+  const out = await planWeeksWithAi(runOpts(h));
+  assert.deepEqual(out.tips, { '2026-11-10': 'Pierwszy bieg – luźno.' });
+  assert.match(h.requests[0]!.system[1]!, /RADY TRENERA/);
+});
+
+test('runner: plan z samych reguł (błąd API) nie ma rad', async () => {
+  const h = harness([new Error('overloaded')]);
+  const out = await planWeeksWithAi(runOpts(h));
+  assert.deepEqual(out.tips, {});
 });

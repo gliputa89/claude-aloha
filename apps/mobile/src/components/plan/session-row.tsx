@@ -1,9 +1,9 @@
 import type { TranslationKey } from '@aloha/i18n';
 import { estimateDistanceM, formatApproxKm, stepsOf } from '@aloha/plan-engine';
-import { useState } from 'react';
+import { router } from 'expo-router';
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import { WorkoutChart, WorkoutSteps } from '@/components/plan/workout-intervals';
+import { WorkoutChart } from '@/components/plan/workout-intervals';
 import { Text } from '@/components/ui/text';
 import { radius, space, type ColorRole } from '@/constants/theme';
 import type { PlanSession } from '@/features/plan/api';
@@ -12,7 +12,7 @@ import { useColors } from '@/hooks/use-colors';
 import { useLocale, useT } from '@/hooks/use-t';
 
 /** Kolory typów treningu – tylko jako kropka/znacznik (zasada designu). */
-const TYPE_COLOR: Record<PlanSession['type'], ColorRole> = {
+export const TYPE_COLOR: Record<PlanSession['type'], ColorRole> = {
   walk_run: 'workoutWalkRun',
   easy: 'workoutEasy',
   recovery: 'workoutEasy',
@@ -23,7 +23,7 @@ const TYPE_COLOR: Record<PlanSession['type'], ColorRole> = {
   rest: 'workoutRest',
 };
 
-function useDetail(session: PlanSession) {
+export function useDetail(session: PlanSession) {
   const t = useT();
   const s = session.structure;
   if (!('kind' in s)) return null;
@@ -41,12 +41,11 @@ function useDetail(session: PlanSession) {
   }
 }
 
-/** Karta treningu: dzień, typ, długość i przebieg (słupki odcinków); tapnięcie rozwija listę odcinków z tempem. */
+/** Karta treningu: dzień, typ, długość i przebieg (słupki odcinków); tapnięcie otwiera arkusz ze szczegółami. */
 export function SessionRow({ session, today }: { session: PlanSession; today: boolean }) {
   const c = useColors();
   const t = useT();
   const locale = useLocale();
-  const [open, setOpen] = useState(false);
   // Własna część główna (np. od AI) ma inny przebieg niż domyślny opis typu – wtedy opis zastępuje wykres.
   const custom = 'custom' in session.structure && session.structure.custom === true;
   const defaultDetail = useDetail(session);
@@ -62,24 +61,31 @@ export function SessionRow({ session, today }: { session: PlanSession; today: bo
       : '';
   const hasSteps = steps.length > 0;
   // Suma w km tylko orientacyjnie (z czasu i stref tempa); odcinki zostają na czas.
-  const approxKm = session.duration_min && hasSteps ? formatApproxKm(estimateDistanceM(steps), locale === 'en' ? 'en' : 'pl') : null;
+  const approxKm =
+    session.duration_min && hasSteps ? formatApproxKm(estimateDistanceM(steps), locale === 'en' ? 'en' : 'pl') : null;
 
   return (
     <Pressable
-      disabled={!hasSteps}
-      onPress={() => setOpen((v) => !v)}
+      onPress={() => router.push({ pathname: '/workout/[id]', params: { id: session.id } })}
       style={({ pressed }) => [
         styles.card,
         {
           backgroundColor: today ? c.surfaceBrandSoft : c.surface,
           borderColor: today ? c.action : c.border,
           opacity: pressed ? 0.85 : 1,
+          transform: [{ scale: pressed ? 0.98 : 1 }],
         },
       ]}
-      accessibilityRole={hasSteps ? 'button' : undefined}
-      accessibilityState={hasSteps ? { expanded: open } : undefined}
-      accessibilityHint={hasSteps ? (open ? t('workout.hideSteps') : t('workout.showSteps')) : undefined}
-      accessibilityLabel={[today ? t('plan.today') : null, t(`onboarding.day.long${weekday}` as TranslationKey), title, detail, right, approxKm]
+      accessibilityRole="button"
+      accessibilityHint={t('workout.openDetails')}
+      accessibilityLabel={[
+        today ? t('plan.today') : null,
+        t(`onboarding.day.long${weekday}` as TranslationKey),
+        title,
+        detail,
+        right,
+        approxKm,
+      ]
         .filter(Boolean)
         .join(', ')}>
       <View style={styles.row}>
@@ -104,7 +110,6 @@ export function SessionRow({ session, today }: { session: PlanSession; today: bo
       {hasSteps ? (
         <View style={styles.outline}>
           <WorkoutChart steps={steps} />
-          {open ? <WorkoutSteps steps={steps} /> : null}
         </View>
       ) : null}
     </Pressable>

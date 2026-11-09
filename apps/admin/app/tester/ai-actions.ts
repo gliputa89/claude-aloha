@@ -5,6 +5,7 @@ import {
   ENGINE_VERSION,
   generatePlanWeek,
   planInputFromSurvey,
+  coachTipsFor,
   planWeeksWithAi,
   type AttemptResult,
   type OperationResult,
@@ -144,6 +145,12 @@ export async function saveAiWeek(userId: string, weekIndex: number, callId: numb
     },
   });
   if (error) return { ok: false, message: `Zapis nie powiódł się: ${error.message}` };
+  // Rady trenera z tej samej odpowiedzi modelu – tylko do dni z treningiem w zapisanym tygodniu.
+  const tips = fromAi ? coachTipsFor([week], detail.payload?.result?.response?.tips ?? []) : {};
+  if (Object.keys(tips).length > 0) {
+    const { error: tipsError } = await createServiceClient().rpc('set_session_coach_tips', { p_user_id: userId, p_tips: tips });
+    if (tipsError) console.error('set_session_coach_tips failed', tipsError.code, tipsError.message);
+  }
   refresh();
   return { ok: true, message: `Tydzień ${weekIndex + 1} zapisany z wywołania #${callId}.` };
 }

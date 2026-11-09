@@ -50,10 +50,18 @@ export type AiOperation = {
   reason: string;
 };
 
+/** Rada trenera do jednego treningu (dzień po wykonaniu operacji). */
+export type AiTip = { date: string; text: string };
+
+/** Najdłuższa rada (znaki) – dłuższe przycinamy. */
+export const AI_TIP_MAX_LENGTH = 180;
+
 export type AiPlanResponse = {
   /** Krótkie, ludzkie uzasadnienie dla użytkownika w jego języku. */
   summary: string;
   operations: AiOperation[];
+  /** Rady trenera do treningów planu (po operacjach), w języku biegacza. */
+  tips: AiTip[];
 };
 
 export const AI_OPERATION_LABEL: Record<AiOperationKind, string> = {
@@ -69,7 +77,7 @@ export const AI_OPERATION_LABEL: Record<AiOperationKind, string> = {
 export const AI_PLAN_RESPONSE_SCHEMA = {
   type: 'object',
   additionalProperties: false,
-  required: ['summary', 'operations'],
+  required: ['summary', 'operations', 'tips'],
   properties: {
     summary: {
       type: 'string',
@@ -110,6 +118,19 @@ export const AI_PLAN_RESPONSE_SCHEMA = {
             ],
           },
           reason: { type: 'string' },
+        },
+      },
+    },
+    tips: {
+      type: 'array',
+      description: 'Rada trenera do każdego treningu planu (stan PO operacjach), jedna na dzień, w języku biegacza.',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['date', 'text'],
+        properties: {
+          date: { type: 'string', description: 'YYYY-MM-DD – dzień treningu' },
+          text: { type: 'string', description: `Jedno–dwa krótkie zdania, do ${AI_TIP_MAX_LENGTH} znaków.` },
         },
       },
     },
@@ -163,7 +184,33 @@ export function parseAiPlanResponse(raw: unknown): { ok: true; value: AiPlanResp
       reason: typeof o.reason === 'string' ? o.reason.slice(0, 500) : '',
     });
   }
-  return { ok: true, value: { summary: r.summary.slice(0, 2000), operations } };
+  return { ok: true, value: { summary: r.summary.slice(0, 2000), operations, tips: parseTips(r.tips) } };
+}
+
+/** Rady są dodatkiem – błędne pozycje pomijamy, zamiast odrzucać całą odpowiedź. */
+function parseTips(raw: unknown): AiTip[] {
+  if (!Array.isArray(raw)) return [];
+  const tips: AiTip[] = [];
+  for (const item of raw.slice(0, 60)) {
+    const t = (item ?? {}) as Record<string, unknown>;
+    if (typeof t.date !== 'string' || !ISO_DATE.test(t.date) || typeof t.text !== 'string') continue;
+    const text = t.text.replace(/\s+/g, ' ').trim().slice(0, AI_TIP_MAX_LENGTH);
+    if (text) tips.push({ date: t.date, text });
+  }
+  return tips;
+}
+
+/**
+ * Rady przypisane do treningów gotowych tygodni: dzień → tekst. Tylko dni, w które jest trening
+ * (rada do dnia przeniesionego lub usuniętego treningu przepada), przy powtórzeniu wygrywa pierwsza.
+ */
+export function coachTipsFor(weeks: PlannedWeek[], tips: AiTip[]): Record<string, string> {
+  const days = new Set(weeks.flatMap((w) => w.sessions.map((s) => s.scheduledOn)));
+  const out: Record<string, string> = {};
+  for (const tip of tips) {
+    if (days.has(tip.date) && !(tip.date in out)) out[tip.date] = tip.text;
+  }
+  return out;
 }
 
 // ───────────────────────── walidacja ─────────────────────────

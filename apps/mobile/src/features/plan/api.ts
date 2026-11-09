@@ -11,6 +11,8 @@ export type PlanSession = {
   intensity: 'easy' | 'moderate' | 'hard' | null;
   structure: SessionStructure | Record<string, never>;
   status: 'planned' | 'done' | 'partial' | 'missed';
+  /** Rada trenera od AI (przy układaniu tygodnia); null – brak, aplikacja bierze radę z bazy. */
+  coach_tip: string | null;
 };
 
 export type PlanWeek = {
@@ -28,20 +30,35 @@ export type ActivePlan = {
   weeks: PlanWeek[];
 };
 
+const plans = () => supabase.from('plans');
+
 /** Aktywny plan z tygodniami i treningami (RLS: tylko własne). `null` – planu jeszcze nie ma. */
 export async function fetchActivePlan(): Promise<ActivePlan | null> {
-  const { data, error } = await supabase
-    .from('plans')
+  let { data, error } = await plans()
     .select(
-      'id, starts_on, ends_on, weeks(id, week_index, starts_on, focus, sessions(id, scheduled_on, type, duration_min, distance_m, intensity, structure, status))',
+      'id, starts_on, ends_on, weeks(id, week_index, starts_on, focus, sessions(id, scheduled_on, type, duration_min, distance_m, intensity, structure, status, coach_tip))',
     )
     .eq('status', 'active')
     .maybeSingle();
+  // Baza bez migracji z radami trenera (42703 = nieznana kolumna) – plan bez rad AI, rady weźmiemy z zapasu.
+  if (error?.code === '42703') {
+    ({ data, error } = await plans()
+      .select(
+        'id, starts_on, ends_on, weeks(id, week_index, starts_on, focus, sessions(id, scheduled_on, type, duration_min, distance_m, intensity, structure, status))',
+      )
+      .eq('status', 'active')
+      .maybeSingle());
+  }
   if (error) throw error;
   if (!data) return null;
   const weeks = [...(data.weeks as PlanWeek[])]
     .sort((a, b) => a.week_index - b.week_index)
-    .map((w) => ({ ...w, sessions: [...w.sessions].sort((a, b) => a.scheduled_on.localeCompare(b.scheduled_on)) }));
+    .map((w) => ({
+      ...w,
+      sessions: [...w.sessions]
+        .map((s) => ({ ...s, coach_tip: s.coach_tip ?? null }))
+        .sort((a, b) => a.scheduled_on.localeCompare(b.scheduled_on)),
+    }));
   return { ...(data as Omit<ActivePlan, 'weeks'>), weeks };
 }
 

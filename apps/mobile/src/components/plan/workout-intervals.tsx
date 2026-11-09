@@ -1,7 +1,18 @@
-import { flattenSteps, formatPace, isRepeat, stepsTotalS, ZONE_INFO, type PaceZone, type WorkoutItem, type WorkoutStep } from '@aloha/plan-engine';
+import {
+  flattenSteps,
+  formatPace,
+  isRepeat,
+  stepsTotalS,
+  ZONE_INFO,
+  type PaceZone,
+  type WorkoutItem,
+  type WorkoutStep,
+} from '@aloha/plan-engine';
 import { StyleSheet, View } from 'react-native';
+import Animated, { useReducedMotion } from 'react-native-reanimated';
 
 import { Text } from '@/components/ui/text';
+import { EASE_BACK } from '@/constants/easing';
 import { radius, space, type ColorRole } from '@/constants/theme';
 import { useColors } from '@/hooks/use-colors';
 import { useT } from '@/hooks/use-t';
@@ -31,24 +42,37 @@ function useStepText() {
     return rest ? t('workout.minSec', { m, s: String(rest).padStart(2, '0') }) : t('workout.minutes', { n: m });
   };
   const target = (s: WorkoutStep) =>
-    s.pace ? t('workout.pace', { fast: formatPace(s.pace.fastS), slow: formatPace(s.pace.slowS) }) : t(`workout.effort.${s.zone}`);
+    s.pace
+      ? t('workout.pace', { fast: formatPace(s.pace.fastS), slow: formatPace(s.pace.slowS) })
+      : t(`workout.effort.${s.zone}`);
   return { t, duration, target };
 }
 
-export function WorkoutChart({ steps }: { steps: WorkoutItem[] }) {
+type WorkoutChartProps = {
+  steps: WorkoutItem[];
+  height?: number;
+  /** Słupki rosną od dołu jeden po drugim, zaczynając po tylu ms (bez „Ogranicz ruch”). */
+  growDelay?: number;
+};
+
+export function WorkoutChart({ steps, height = 32, growDelay }: WorkoutChartProps) {
   const c = useColors();
+  const reduced = useReducedMotion();
   const { t, duration } = useStepText();
+  const grow = growDelay !== undefined && !reduced;
   const flat = flattenSteps(steps);
   if (!flat.length || !stepsTotalS(steps)) return null;
-  const label = flat.map((s) => `${t(`workout.step.${s.kind}`)} ${duration(s.durationS)} ${t(`workout.zone.${s.zone}`)}`).join(', ');
+  const label = flat
+    .map((s) => `${t(`workout.step.${s.kind}`)} ${duration(s.durationS)} ${t(`workout.zone.${s.zone}`)}`)
+    .join(', ');
   return (
     <View
-      style={[styles.chart, { backgroundColor: c.background }]}
+      style={[styles.chart, { backgroundColor: c.background, height }]}
       accessible
       accessibilityRole="image"
       accessibilityLabel={t('workout.chartLabel', { steps: label })}>
       {flat.map((s, i) => (
-        <View
+        <Animated.View
           key={i}
           style={[
             styles.bar,
@@ -56,6 +80,14 @@ export function WorkoutChart({ steps }: { steps: WorkoutItem[] }) {
               flexGrow: s.durationS,
               height: `${(ZONE_INFO[s.zone].level / MAX_LEVEL) * 100}%`,
               backgroundColor: c[ZONE_COLOR[s.zone]],
+            },
+            grow && {
+              transformOrigin: 'bottom',
+              animationName: { from: { transform: [{ scaleY: 0 }] }, to: { transform: [{ scaleY: 1 }] } },
+              animationDuration: 520,
+              animationDelay: growDelay + i * Math.min(60, 700 / flat.length),
+              animationTimingFunction: EASE_BACK,
+              animationFillMode: 'both',
             },
           ]}
         />
@@ -70,15 +102,14 @@ function StepLine({ s }: { s: WorkoutStep }) {
   return (
     <View style={styles.step}>
       <View style={[styles.dot, { backgroundColor: c[ZONE_COLOR[s.zone]] }]} />
-      <Text variant="caption" style={styles.kind}>
-        {t(`workout.step.${s.kind}`)}
-      </Text>
-      <Text variant="label" style={styles.time}>
-        {duration(s.durationS)}
-      </Text>
-      <Text variant="caption" style={styles.flex}>
-        {t(`workout.zone.${s.zone}`)} · {target(s)}
-      </Text>
+      <View style={styles.flex}>
+        <Text weight="semibold">
+          {t(`workout.step.${s.kind}`)} · {duration(s.durationS)}
+        </Text>
+        <Text variant="caption">
+          {t(`workout.zone.${s.zone}`)} · {target(s)}
+        </Text>
+      </View>
     </View>
   );
 }
@@ -95,7 +126,7 @@ export function WorkoutSteps({ steps }: { steps: WorkoutItem[] }) {
             <Text variant="heading" color="textBrand" style={styles.times}>
               {t('workout.repeat', { n: item.times })}
             </Text>
-            <View style={styles.flex}>
+            <View style={styles.repeatSteps}>
               {item.steps.map((s, j) => (
                 <StepLine key={j} s={s} />
               ))}
@@ -114,17 +145,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-end',
     gap: 1,
-    height: 32,
     borderRadius: radius.button,
     overflow: 'hidden',
   },
   bar: { flexBasis: 0, minWidth: 2, borderTopLeftRadius: 2, borderTopRightRadius: 2 },
-  list: { gap: space[2] },
-  step: { flexDirection: 'row', alignItems: 'center', gap: space[2] },
-  dot: { width: 8, height: 8, borderRadius: radius.pill },
-  kind: { width: 92 },
-  time: { width: 64 },
+  list: { gap: space[3] },
+  step: { flexDirection: 'row', alignItems: 'flex-start', gap: space[3] },
+  dot: { width: 10, height: 10, borderRadius: radius.pill, marginTop: 8 },
   flex: { flex: 1 },
-  repeat: { flexDirection: 'row', gap: space[2], borderWidth: 1, borderRadius: radius.button, padding: space[2] },
-  times: { width: 36 },
+  repeat: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[3],
+    borderWidth: 1.5,
+    borderRadius: radius.button,
+    padding: space[3],
+  },
+  repeatSteps: { flex: 1, gap: space[3] },
+  times: { minWidth: 36 },
 });

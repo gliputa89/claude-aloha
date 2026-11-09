@@ -98,6 +98,10 @@ async function regeneratePlanRow(admin: Admin, userId: string, useAi = false): P
     console.error('save_generated_plan failed', error.code, error.message);
     return { ok: false, message: `Zapis planu nie powiódł się: ${error.message}` };
   }
+  if (outcome && Object.keys(outcome.tips).length > 0) {
+    const { error: tipsError } = await db.rpc('set_session_coach_tips', { p_user_id: userId, p_tips: outcome.tips });
+    if (tipsError) console.error('set_session_coach_tips failed', tipsError.code, tipsError.message);
+  }
   await db.rpc('admin_log', {
     p_admin_id: admin.id,
     p_action: 'tester_regenerate_plan',

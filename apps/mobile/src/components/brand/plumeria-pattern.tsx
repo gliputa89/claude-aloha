@@ -17,6 +17,17 @@ function Flower({ transform }: { transform: string }) {
   );
 }
 
+/** Pojedynczy kwiat plumerii (viewBox 0 0 64 64) – np. do unoszących się płatków. */
+export function PlumeriaFlower({ size, color }: { size: number; color: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 64 64" accessible={false}>
+      <G fill={color}>
+        <Flower transform="" />
+      </G>
+    </Svg>
+  );
+}
+
 type PlumeriaPatternProps = {
   color?: ColorRole;
   /** 0.10–0.15 wg zasad marki. */

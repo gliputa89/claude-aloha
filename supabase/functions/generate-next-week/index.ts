@@ -148,6 +148,11 @@ async function processUser(
     },
   });
   if (saveError) return { userId, status: 'error', detail: `save_next_plan_week: ${saveError.message}` };
+  // Rady trenera od AI tylko dla świeżo zapisanego tygodnia. Błąd nie psuje tygodnia – aplikacja ma rady z bazy.
+  if (weekId && outcome && Object.keys(outcome.tips).length > 0) {
+    const { error: tipsError } = await db.rpc('set_session_coach_tips', { p_user_id: userId, p_tips: outcome.tips });
+    if (tipsError) console.error('set_session_coach_tips failed', tipsError.code, tipsError.message);
+  }
   return { userId, status: weekId ? 'created' : 'exists', level: review.level, levelChange: review.change };
 }
 

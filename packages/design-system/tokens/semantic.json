@@ -23,7 +23,8 @@
     "workoutIntervals": { "$value": "{palette.workout.intervals}" },
     "workoutTempo":     { "$value": "{palette.workout.tempo}" },
     "workoutWalkRun":   { "$value": "{palette.workout.walkRun}" },
-    "workoutRest":      { "$value": "{palette.workout.rest}" }
+    "workoutRest":      { "$value": "{palette.workout.rest}" },
+    "textOnWorkout":    { "$value": "{palette.neutral.950}" }
   },
   "dark": {
     "background":       { "$value": "{palette.neutral.950}" },
@@ -48,6 +49,7 @@
     "workoutIntervals": { "$value": "{palette.workout.intervals}" },
     "workoutTempo":     { "$value": "{palette.workout.tempo}" },
     "workoutWalkRun":   { "$value": "{palette.workout.walkRun}" },
-    "workoutRest":      { "$value": "{palette.neutral.600}" }
+    "workoutRest":      { "$value": "{palette.neutral.600}" },
+    "textOnWorkout":    { "$value": "{palette.neutral.950}" }
   }
 }

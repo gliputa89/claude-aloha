@@ -7,6 +7,7 @@
 import {
   AI_PLAN_RESPONSE_SCHEMA,
   applyOperations,
+  coachTipsFor,
   parseAiPlanResponse,
   validateWeeks,
   type AiPlanResponse,
@@ -138,6 +139,8 @@ export type PlanWeeksOutcome = {
   source: 'ai' | 'rules';
   status: AiStatus;
   summary: string | null;
+  /** Rady trenera od modelu: dzień treningu → tekst (puste, gdy plan z samych reguł). */
+  tips: Record<string, string>;
   callIds: number[];
   finalCallId: number | null;
   costUsd: number;
@@ -277,6 +280,7 @@ export async function planWeeksWithAi(opts: PlanWeeksWithAiOptions): Promise<Pla
     source: reviewed ? 'ai' : 'rules',
     status: final.status,
     summary: reviewed ? (final.response?.summary ?? null) : null,
+    tips: reviewed && final.response ? coachTipsFor(final.weeks, final.response.tips) : {},
     callIds,
     finalCallId: callIds[callIds.length - 1] ?? null,
     costUsd: Math.round(total * 1_000_000) / 1_000_000,
