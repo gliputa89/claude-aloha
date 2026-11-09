@@ -111,3 +111,51 @@ export function describeStructure(structure: Structure | null | undefined) {
       return '';
   }
 }
+
+// ───────────────────────── AI: koszty, tokeny, czas ─────────────────────────
+
+/** Koszt w USD – małe kwoty z większą precyzją (pojedyncze wywołanie to ułamki centa). */
+export function formatUsd(v: number | string | null | undefined) {
+  if (v === null || v === undefined || v === '') return '–';
+  const n = Number(v);
+  if (!Number.isFinite(n)) return '–';
+  const digits = n === 0 ? 2 : n < 0.01 ? 4 : n < 1 ? 3 : 2;
+  return `$${n.toLocaleString('en-US', { minimumFractionDigits: digits, maximumFractionDigits: digits })}`;
+}
+
+export function formatTokens(n: number | null | undefined) {
+  if (n === null || n === undefined) return '–';
+  return n >= 10_000 ? `${(n / 1000).toLocaleString('pl-PL', { maximumFractionDigits: 1 })}k` : n.toLocaleString('pl-PL');
+}
+
+export function formatMs(ms: number | null | undefined) {
+  if (ms === null || ms === undefined) return '–';
+  return ms >= 1000 ? `${(ms / 1000).toLocaleString('pl-PL', { maximumFractionDigits: 1 })} s` : `${ms} ms`;
+}
+
+/** Data i godzina w strefie Warszawy (log wywołań). */
+export function formatDateTime(iso: string | null | undefined) {
+  if (!iso) return '–';
+  return new Date(iso).toLocaleString('pl-PL', {
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'Europe/Warsaw',
+  });
+}
+
+export const AI_STATUS_LABEL: Record<string, string> = {
+  ok: 'przyjęte',
+  corrected: 'poprawione',
+  rejected: 'odrzucone',
+  fallback: 'awaryjnie (silnik)',
+};
+
+/** Klasy znacznika statusu walidacji. */
+export const AI_STATUS_TONE: Record<string, string> = {
+  ok: 'bg-surface-brand-soft text-text-brand',
+  corrected: 'bg-surface-accent-soft text-text-accent-strong',
+  rejected: 'bg-surface-accent-soft text-workout-tempo',
+  fallback: 'bg-background text-text-muted border border-border',
+};

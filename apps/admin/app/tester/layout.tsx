@@ -15,6 +15,9 @@ export default function TesterLayout({ children }: LayoutProps<'/tester'>) {
           <span className="hidden text-sm text-text-muted sm:inline">silnik reguł · generowanie tygodni</span>
         </div>
         <nav className="flex items-center gap-4 text-sm">
+          <Link href="/ai" className="text-text-muted hover:text-text">
+            AI
+          </Link>
           <Link href="/" className="text-text-muted hover:text-text">
             Panel
           </Link>

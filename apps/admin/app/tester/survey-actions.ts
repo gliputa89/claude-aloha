@@ -1,8 +1,10 @@
 'use server';
 
-import { generateInitialPlan, planInputFromSurvey, planStartDate } from '@aloha/plan-engine';
+import { aiAthleteFromSurvey, generateInitialPlan, planInputFromSurvey, planStartDate, planWeeksWithAi } from '@aloha/plan-engine';
 import { refresh } from 'next/cache';
 
+import { claudeCaller, hasClaudeKey } from '@/lib/ai/claude';
+import { aiLogger, loadAiRuntime } from '@/lib/ai/runtime';
 import { requireAdmin, type Admin } from '@/lib/auth';
 import { loadTesterUser, todayIn } from '@/lib/plan-tester';
 import { createServiceClient } from '@/lib/supabase/server';
@@ -29,20 +31,46 @@ async function saveSurveyRow(admin: Admin, userId: string, values: SurveyValues)
 }
 
 /**
- * Plan od nowa dokładnie jak w produkcji (Edge Function generate-plan): 2 tygodnie od daty startu
- * z ankiety, zapis przez save_generated_plan (stary plan → archiwum).
+ * Plan od nowa jak w produkcji (Edge Function generate-plan): aktywne parametry silnika, 2 tygodnie od daty
+ * startu z ankiety, z AI – szkic poprawiony przez Claude z walidacją; zapis przez save_generated_plan
+ * (stary plan → archiwum). Bez AI – sam szkic silnika (np. przy masowym zakładaniu kont testowych).
  */
-async function regeneratePlanRow(admin: Admin, userId: string): Promise<SurveyResult> {
+async function regeneratePlanRow(admin: Admin, userId: string, useAi = false): Promise<SurveyResult> {
   const user = await loadTesterUser(userId);
   const { profile, goal, availability } = user ?? {};
   if (!user || !profile?.onboarding_completed_at || !profile.level || !goal || !availability) {
     return { ok: false, message: 'Brak ukończonej ankiety.' };
   }
   const today = todayIn(profile.timezone);
-  const plan = generateInitialPlan(
-    planInputFromSurvey({ profile: { ...profile, level: profile.level }, goal, availability }, planStartDate(goal, today)),
-  );
   const db = createServiceClient();
+  const { prompt, engine } = await loadAiRuntime(db);
+  const survey = { profile: { ...profile, level: profile.level }, goal, availability };
+  const input = { ...planInputFromSurvey(survey, planStartDate(goal, today)), params: engine.params };
+  const draft = generateInitialPlan(input);
+  if (useAi && !hasClaudeKey()) return { ok: false, message: 'Brak ANTHROPIC_API_KEY w środowisku panelu.' };
+  const outcome = useAi
+    ? await planWeeksWithAi({
+        input: { ...input, startDate: draft.startsOn },
+        draft: draft.weeks,
+        previousWeek: null,
+        athlete: aiAthleteFromSurvey(survey),
+        today,
+        prompt,
+        engine,
+        call: claudeCaller(),
+        log: aiLogger(db),
+        meta: { userId, source: 'tester', isTest: user.isTest },
+      })
+    : null;
+  const plan = {
+    ...draft,
+    weeks: (outcome?.weeks ?? draft.weeks).map((w) => ({
+      ...w,
+      source: outcome?.source ?? 'rules',
+      aiCallId: outcome?.source === 'ai' ? outcome.finalCallId : null,
+      engineConfigVersion: engine.version,
+    })),
+  };
   const { error } = await db.rpc('save_generated_plan', { p_user_id: userId, p_goal_id: goal.id, p_plan: plan });
   if (error) {
     console.error('save_generated_plan failed', error.code, error.message);
@@ -53,9 +81,16 @@ async function regeneratePlanRow(admin: Admin, userId: string): Promise<SurveyRe
     p_action: 'tester_regenerate_plan',
     p_target_type: 'user',
     p_target_id: userId,
-    p_details: { starts_on: plan.startsOn, weeks: plan.weeks.length, engine_version: plan.engineVersion },
+    p_details: {
+      starts_on: plan.startsOn,
+      weeks: plan.weeks.length,
+      engine_version: plan.engineVersion,
+      engine_config_version: engine.version,
+      ai: outcome ? { status: outcome.status, calls: outcome.callIds, cost_usd: outcome.costUsd } : null,
+    },
   });
-  return { ok: true, message: `Nowy plan od ${plan.startsOn}: ${plan.weeks.length} tyg.` };
+  const ai = outcome ? ` · AI: ${outcome.status}, ${outcome.callIds.length} wyw., $${outcome.costUsd.toFixed(4)}` : '';
+  return { ok: true, message: `Nowy plan od ${plan.startsOn}: ${plan.weeks.length} tyg.${ai}` };
 }
 
 export async function saveSurvey(userId: string, values: SurveyValues): Promise<SurveyResult> {
@@ -66,10 +101,10 @@ export async function saveSurvey(userId: string, values: SurveyValues): Promise<
   return result;
 }
 
-export async function regeneratePlan(userId: string): Promise<SurveyResult> {
+export async function regeneratePlan(userId: string, useAi = false): Promise<SurveyResult> {
   const admin = await requireAdmin();
   if (!UUID.test(userId)) return { ok: false, message: 'Nieprawidłowy użytkownik.' };
-  const result = await regeneratePlanRow(admin, userId);
+  const result = await regeneratePlanRow(admin, userId, useAi);
   if (result.ok) refresh();
   return result;
 }

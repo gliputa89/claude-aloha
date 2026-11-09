@@ -1,4 +1,9 @@
 import Link from "next/link";
+import { Suspense } from "react";
+
+import { getAiCostSummary } from "@/lib/ai/data";
+import { requireAdmin } from "@/lib/auth";
+import { formatUsd } from "@/lib/format";
 
 // Tymczasowy dashboard – dane pojawią się po podłączeniu Supabase (schematy marketing / analytics).
 const kpis = [
@@ -7,8 +12,23 @@ const kpis = [
   { label: "Retencja po 4 tyg.", value: "–" },
   { label: "Check-iny w dni treningowe", value: "–" },
   { label: "Akceptacja propozycji", value: "–" },
-  { label: "Koszt AI (miesiąc)", value: "–" },
 ];
+
+async function AiCostKpi() {
+  await requireAdmin();
+  const summary = await getAiCostSummary(false).catch(() => null);
+  return (
+    <Link href="/ai" className="flex flex-col gap-2 rounded-card border border-border bg-surface p-5 hover:border-action">
+      <span className="text-sm text-text-muted">Koszt AI (miesiąc, bez kont testowych)</span>
+      <span className="font-display text-3xl font-semibold">{summary ? formatUsd(summary.month) : "–"}</span>
+      {summary ? (
+        <span className="text-xs text-text-muted">
+          {summary.month_calls} wywołań · {summary.month_users} użytk.
+        </span>
+      ) : null}
+    </Link>
+  );
+}
 
 export default function Dashboard() {
   return (
@@ -26,6 +46,15 @@ export default function Dashboard() {
           Podgląd użytkownika i ankiety, generowanie i usuwanie dowolnego tygodnia treningów.
         </span>
       </Link>
+      <Link
+        href="/ai"
+        className="flex flex-col gap-1 rounded-card border border-border bg-surface p-5 hover:border-action"
+      >
+        <span className="font-display text-xl font-semibold">AI: koszty, wywołania, prompty, ramy planu →</span>
+        <span className="text-sm text-text-muted">
+          Każde wywołanie Claude z wejściem, odpowiedzią i kosztem; koszt na użytkownika; edycja promptów i parametrów silnika w wersjach.
+        </span>
+      </Link>
       <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {kpis.map((kpi) => (
           <div key={kpi.label} className="flex flex-col gap-2 rounded-card border border-border bg-surface p-5">
@@ -33,6 +62,9 @@ export default function Dashboard() {
             <span className="font-display text-3xl font-semibold">{kpi.value}</span>
           </div>
         ))}
+        <Suspense fallback={<div className="rounded-card border border-border bg-surface p-5 text-sm text-text-muted">Koszt AI…</div>}>
+          <AiCostKpi />
+        </Suspense>
       </section>
     </main>
   );

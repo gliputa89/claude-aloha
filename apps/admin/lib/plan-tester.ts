@@ -1,7 +1,10 @@
 import 'server-only';
 
 import {
+  addDaysIso,
   generateInitialPlan,
+  isoWeekday,
+  type EngineParams,
   generatePlanWeek,
   planInputFromSurvey,
   planStartDate,
@@ -46,6 +49,9 @@ export type TesterWeek = {
   starts_on: string;
   focus: string | null;
   created_at: string;
+  source: 'rules' | 'ai';
+  ai_call_id: number | null;
+  engine_config_version: number | null;
   sessions: TesterSession[];
 };
 
@@ -143,7 +149,7 @@ export async function loadTesterUser(userId: string): Promise<TesterUser | null>
     db
       .from('plans')
       .select(
-        'id, starts_on, ends_on, engine_version, created_at, weeks(id, week_index, starts_on, focus, created_at, sessions(id, scheduled_on, type, duration_min, distance_m, intensity, structure, status))',
+        'id, starts_on, ends_on, engine_version, created_at, weeks(id, week_index, starts_on, focus, created_at, source, ai_call_id, engine_config_version, sessions(id, scheduled_on, type, duration_min, distance_m, intensity, structure, status))',
       )
       .eq('user_id', userId)
       .eq('status', 'active')
@@ -192,7 +198,7 @@ export type WeekBuild =
  * Z aktywnym planem liczymy od `plans.starts_on` (numeracja zgodna z istniejącymi tygodniami),
  * bez planu – od daty startu z ankiety, jak przy pierwszym generowaniu.
  */
-export function buildWeek(user: TesterUser, weekIndex: number): WeekBuild {
+export function buildWeek(user: TesterUser, weekIndex: number, params?: Partial<EngineParams>): WeekBuild {
   const { profile, goal, availability } = user;
   if (!profile?.onboarding_completed_at || !profile.level || !goal || !availability) {
     return { ok: false, reason: 'onboarding_incomplete' };
@@ -201,7 +207,27 @@ export function buildWeek(user: TesterUser, weekIndex: number): WeekBuild {
   // Bez planu: start jak w produkcji – pusty niepełny tydzień 0 przesuwa plan na poniedziałek.
   const planStartsOn =
     user.plan?.starts_on ??
-    generateInitialPlan({ ...planInputFromSurvey(survey, planStartDate(goal, todayIn(profile.timezone))), weeks: 1 }).startsOn;
-  const input = planInputFromSurvey(survey, planStartsOn);
+    generateInitialPlan({ ...planInputFromSurvey(survey, planStartDate(goal, todayIn(profile.timezone))), weeks: 1, params }).startsOn;
+  const input = { ...planInputFromSurvey(survey, planStartsOn), params };
   return { ok: true, planStartsOn, week: generatePlanWeek(input, weekIndex) };
+}
+
+/** Tydzień z bazy → tydzień silnika (do walidacji przyrostu i odstępów przy kolejnym tygodniu). */
+export function plannedWeekFromRow(w: TesterWeek): PlannedWeek {
+  return {
+    weekIndex: w.week_index,
+    startsOn: w.starts_on,
+    endsOn: addDaysIso(w.starts_on, 7 - isoWeekday(w.starts_on)),
+    focus: (w.focus ?? 'build') as PlannedWeek['focus'],
+    sessions: w.sessions
+      .filter((s): s is TesterSession & { type: SessionType } => s.type !== 'rest')
+      .map((s) => ({
+        scheduledOn: s.scheduled_on,
+        type: s.type,
+        durationMin: s.duration_min,
+        distanceM: s.distance_m,
+        intensity: s.intensity ?? 'easy',
+        structure: s.structure as SessionStructure,
+      })),
+  };
 }

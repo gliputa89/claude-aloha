@@ -1,18 +1,23 @@
-import { planInputFromSurvey } from '@aloha/plan-engine';
+import { describeSteps, estimateDistanceM, formatApproxKm, paceZonesFrom, planInputFromSurvey, stepsOf, type PaceZones } from '@aloha/plan-engine';
 import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
 
+import { TextLink } from '@/components/ai/ui';
+import { AiPreviewPanel } from '@/components/tester/ai-preview';
 import { SurveyPanel } from '@/components/tester/survey-form';
+import { WorkoutChart, WorkoutSteps } from '@/components/workout/workout-chart';
 import { DeleteTestUserButton, RegeneratePlanButton } from '@/components/tester/user-actions';
 import { GenerateWeekForm, WeekActions } from '@/components/tester/week-controls';
+import { hasClaudeKey } from '@/lib/ai/claude';
+import { getAiCostByUser, listAiPrompts, listEngineConfigs } from '@/lib/ai/data';
 import { requireAdmin } from '@/lib/auth';
 import {
-  describeStructure,
   formatDate,
   formatDistance,
   formatDuration,
   formatShortDate,
   FOCUS_LABEL,
+  formatUsd,
   INTENSITY_LABEL,
   isoWeekdayOf,
   LEVEL_LABEL,
@@ -49,9 +54,22 @@ async function UserDetail({ params }: Pick<PageProps<'/tester/[userId]'>, 'param
     p_target_id: userId,
   });
 
+  // Koszt AI użytkownika i wersje do wyboru w podglądzie z AI (brak migracji AI → puste, tester działa dalej).
+  const [aiCost, prompts, configs] = await Promise.all([
+    getAiCostByUser(1, userId).then((r) => r[0] ?? null).catch(() => null),
+    listAiPrompts('plan-weeks').catch(() => []),
+    listEngineConfigs().catch(() => []),
+  ]);
+
   const nextIndex = user.plan?.weeks.length ? Math.max(...user.plan.weeks.map((w) => w.week_index)) + 1 : 0;
   const canGenerate = !!(user.profile?.onboarding_completed_at && user.profile.level && user.goal && user.availability);
   const today = todayIn(user.profile?.timezone ?? 'Europe/Warsaw');
+  // Strefy tempa z ostatniego wyniku – dla starszych treningów bez zapisanych odcinków.
+  const paces = paceZonesFrom(
+    user.profile?.recent_result_distance_m
+      ? { distanceM: user.profile.recent_result_distance_m, timeS: user.profile.recent_result_time_s }
+      : null,
+  );
 
   return (
     <div className="flex max-w-5xl flex-col gap-6">
@@ -72,6 +90,20 @@ async function UserDetail({ params }: Pick<PageProps<'/tester/[userId]'>, 'param
           <span>konto od {formatDate(user.createdAt)}</span>
           <span>dziś u niego: {formatDate(today)}</span>
           <code className="text-xs">{user.id}</code>
+        </p>
+        <p className="flex flex-wrap gap-x-3 text-sm">
+          <span className="text-text-muted">Koszt AI:</span>
+          {aiCost ? (
+            <>
+              <b className="tabular-nums">{formatUsd(aiCost.cost_usd)}</b>
+              <span className="text-text-muted">
+                ({aiCost.calls} wyw., w tym miesiącu {formatUsd(aiCost.month_cost_usd)})
+              </span>
+              <TextLink href={`/ai/calls?user=${user.id}`}>wywołania →</TextLink>
+            </>
+          ) : (
+            <span className="text-text-muted">brak wywołań</span>
+          )}
         </p>
       </header>
 
@@ -113,10 +145,20 @@ async function UserDetail({ params }: Pick<PageProps<'/tester/[userId]'>, 'param
           )}
         </div>
 
+        {canGenerate ? (
+          <AiPreviewPanel
+            userId={user.id}
+            defaultWeek={nextIndex + 1}
+            hasKey={hasClaudeKey()}
+            prompts={prompts.map((p) => ({ id: p.id, label: `v${p.version} (${p.status === 'active' ? 'aktywna' : p.status === 'draft' ? 'szkic' : 'archiwum'}) · ${p.model}` }))}
+            configs={configs.map((c) => ({ id: c.id, label: `v${c.version} (${c.status === 'active' ? 'aktywna' : c.status === 'draft' ? 'szkic' : 'archiwum'})` }))}
+          />
+        ) : null}
+
         {user.plan?.weeks.length ? (
           <ol className="flex flex-col gap-3">
             {user.plan.weeks.map((week) => (
-              <WeekCard key={week.week_index} userId={user.id} week={week} today={today} canGenerate={canGenerate} />
+              <WeekCard key={week.week_index} userId={user.id} week={week} today={today} canGenerate={canGenerate} paces={paces} />
             ))}
           </ol>
         ) : null}
@@ -196,18 +238,28 @@ function EngineInputCard({ user }: { user: TesterUser }) {
   );
 }
 
+/** Orientacyjny dystans treningu: z odcinków (czas ÷ tempo strefy), a dla zawodów – dystans startu. */
+function sessionDistanceM(s: TesterWeek['sessions'][number], paces: PaceZones | null) {
+  const steps = stepsOf(s, paces);
+  if (s.duration_min && steps.length) return estimateDistanceM(steps, paces);
+  return s.distance_m ?? 0;
+}
+
 function WeekCard({
   userId,
   week,
   today,
   canGenerate,
+  paces,
 }: {
   userId: string;
   week: TesterWeek;
   today: string;
   canGenerate: boolean;
+  paces: PaceZones | null;
 }) {
   const minutes = week.sessions.reduce((sum, s) => sum + (s.duration_min ?? 0), 0);
+  const approxM = week.sessions.reduce((sum, s) => sum + sessionDistanceM(s, paces), 0);
   const touched = week.sessions.filter((s) => s.status !== 'planned').length;
   const endsOn = week.sessions.at(-1)?.scheduled_on;
   const current = week.starts_on <= today && (!endsOn || today <= endsOn || week.sessions.length === 0);
@@ -221,9 +273,17 @@ function WeekCard({
             {WEEK_FOCUS_LABEL[week.focus ?? ''] ?? week.focus ?? '–'}
           </span>
           <span className="text-sm text-text-muted">
-            {week.sessions.length} tren. · {minutes} min
+            {week.sessions.length} tren. · {minutes} min{approxM ? ` · ${formatApproxKm(approxM)}` : ''}
           </span>
           {touched ? <span className="text-xs text-text-accent-strong">{touched} z realizacją</span> : null}
+          {week.source === 'ai' ? (
+            <span className="rounded-pill bg-surface-brand-soft px-2 py-0.5 text-xs font-semibold text-text-brand">
+              AI{week.ai_call_id ? <> · <TextLink href={`/ai/calls/${week.ai_call_id}`}>#{week.ai_call_id}</TextLink></> : null}
+            </span>
+          ) : (
+            <span className="text-xs text-text-muted">silnik</span>
+          )}
+          {week.engine_config_version ? <span className="text-xs text-text-muted">ramy v{week.engine_config_version}</span> : null}
         </div>
         <WeekActions
           userId={userId}
@@ -235,8 +295,12 @@ function WeekCard({
       </div>
       {week.sessions.length ? (
         <ul className="flex flex-col divide-y divide-border">
-          {week.sessions.map((s) => (
-            <li key={s.id} className="grid grid-cols-[3.5rem_1fr_auto] items-center gap-3 py-2 text-sm">
+          {week.sessions.map((s) => {
+            const steps = stepsOf(s, paces);
+            const custom = 'custom' in s.structure && s.structure.custom === true;
+            return (
+            <li key={s.id} className="flex flex-col gap-2 py-2 text-sm">
+            <div className="grid grid-cols-[3.5rem_1fr_auto] items-center gap-3">
               <span className="text-text-muted">
                 <span className="font-semibold text-text">{weekdayShort(isoWeekdayOf(s.scheduled_on))}</span>{' '}
                 {formatShortDate(s.scheduled_on)}
@@ -244,19 +308,35 @@ function WeekCard({
               <span className="flex min-w-0 items-center gap-2">
                 <span aria-hidden className={`size-2.5 shrink-0 rounded-full ${SESSION_COLOR[s.type] ?? 'bg-workout-rest'}`} />
                 <span className="font-medium">{SESSION_LABEL[s.type] ?? s.type}</span>
-                <span className="truncate text-text-muted">{describeStructure(s.structure)}</span>
+                {custom ? <span className="rounded-pill bg-surface-brand-soft px-1.5 py-0.5 text-[10px] font-semibold text-text-brand">AI</span> : null}
+                <span className="truncate text-text-muted">{steps.length ? describeSteps(steps) : s.type === 'race' ? 'start' : ''}</span>
               </span>
               <span className="flex items-center gap-3 text-right">
                 {s.status !== 'planned' ? (
                   <span className="text-xs text-text-accent-strong">{STATUS_LABEL[s.status]}</span>
                 ) : null}
                 <span className="text-xs text-text-muted">{s.intensity ? INTENSITY_LABEL[s.intensity] : ''}</span>
-                <span className="w-14 font-semibold">
-                  {s.duration_min ? `${s.duration_min} min` : formatDistance(s.distance_m)}
+                <span className="flex w-20 flex-col items-end">
+                  <span className="font-semibold">{s.duration_min ? `${s.duration_min} min` : formatDistance(s.distance_m)}</span>
+                  {s.duration_min && steps.length ? (
+                    <span className="text-xs text-text-muted">{formatApproxKm(estimateDistanceM(steps, paces))}</span>
+                  ) : null}
                 </span>
               </span>
+            </div>
+            {steps.length ? (
+              <details className="group pl-[4.25rem]">
+                <summary className="cursor-pointer list-none">
+                  <WorkoutChart steps={steps} height="h-9" />
+                </summary>
+                <div className="pt-2">
+                  <WorkoutSteps steps={steps} />
+                </div>
+              </details>
+            ) : null}
             </li>
-          ))}
+            );
+          })}
         </ul>
       ) : (
         <p className="text-sm text-text-muted">Brak treningów w tym tygodniu (np. niepełny tydzień bez wolnych dni).</p>

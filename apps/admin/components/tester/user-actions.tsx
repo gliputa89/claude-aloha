@@ -66,13 +66,22 @@ function ConfirmButton({
 }
 
 export function RegeneratePlanButton({ userId, hasPlan }: { userId: string; hasPlan: boolean }) {
+  const question = hasPlan ? 'Zarchiwizować obecny plan i ułożyć 2 tygodnie od nowa' : 'Ułożyć plan jak po ankiecie';
   return (
-    <ConfirmButton
-      label="Plan od nowa (jak po ankiecie)"
-      question={hasPlan ? 'Zarchiwizować obecny plan i ułożyć 2 tygodnie od nowa?' : 'Ułożyć plan jak po ankiecie?'}
-      confirmLabel="Tak, ułóż"
-      onConfirm={() => regeneratePlan(userId)}
-    />
+    <div className="flex flex-wrap justify-end gap-2">
+      <ConfirmButton
+        label="Plan od nowa z AI (jak w aplikacji)"
+        question={`${question} – silnik + Claude (płatne wywołanie)?`}
+        confirmLabel="Tak, ułóż z AI"
+        onConfirm={() => regeneratePlan(userId, true)}
+      />
+      <ConfirmButton
+        label="Plan od nowa – sam silnik"
+        question={`${question} – sam silnik reguł?`}
+        confirmLabel="Tak, ułóż"
+        onConfirm={() => regeneratePlan(userId, false)}
+      />
+    </div>
   );
 }
 

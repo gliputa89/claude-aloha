@@ -3,6 +3,7 @@
 import { ENGINE_VERSION } from '@aloha/plan-engine';
 import { refresh } from 'next/cache';
 
+import { loadAiRuntime } from '@/lib/ai/runtime';
 import { requireAdmin } from '@/lib/auth';
 import { buildWeek, loadTesterUser } from '@/lib/plan-tester';
 import { createServiceClient } from '@/lib/supabase/server';
@@ -22,17 +23,19 @@ export async function generateWeek(userId: string, weekIndex: number): Promise<A
 
   const user = await loadTesterUser(userId);
   if (!user) return { ok: false, message: 'Nie ma takiego użytkownika.' };
-  const built = buildWeek(user, weekIndex);
+  const db = createServiceClient();
+  // Aktywne parametry silnika (jak w produkcji); brak aktywnej wersji = wbudowane.
+  const { engine } = await loadAiRuntime(db);
+  const built = buildWeek(user, weekIndex, engine.params);
   if (!built.ok) return { ok: false, message: 'Użytkownik nie skończył ankiety – brak danych dla silnika.' };
 
-  const db = createServiceClient();
   const { error } = await db.rpc('admin_save_plan_week', {
     p_admin_id: admin.id,
     p_user_id: userId,
     p_goal_id: user.goal?.id ?? null,
     p_plan_starts_on: built.planStartsOn,
     p_engine_version: ENGINE_VERSION,
-    p_week: built.week,
+    p_week: { ...built.week, source: 'rules', aiCallId: null, engineConfigVersion: engine.version },
   });
   if (error) {
     console.error('admin_save_plan_week failed', error.code, error.message);

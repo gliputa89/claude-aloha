@@ -7,6 +7,8 @@ import type { PlanGoal, PlanInput } from './plan.ts';
 export type SurveyProfile = {
   level: Level | null;
   has_contraindications: boolean | null;
+  recent_result_distance_m?: number | null;
+  recent_result_time_s?: number | null;
 };
 
 export type SurveyGoal = {
@@ -49,5 +51,8 @@ export function planInputFromSurvey(
     maxMinutesWeekday: availability.max_minutes_weekday,
     maxMinutesWeekend: availability.max_minutes_weekend,
     hasContraindications: !!profile.has_contraindications,
+    recentResult: profile.recent_result_distance_m
+      ? { distanceM: profile.recent_result_distance_m, timeS: profile.recent_result_time_s ?? null }
+      : null,
   };
 }
