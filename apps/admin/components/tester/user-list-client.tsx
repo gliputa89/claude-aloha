@@ -20,7 +20,13 @@ export function UserListClient({ users }: { users: TesterUserRow[] }) {
 
   return (
     <div className="flex flex-col">
-      <div className="sticky top-0 border-b border-border bg-background p-3">
+      <div className="sticky top-0 flex flex-col gap-2 border-b border-border bg-background p-3">
+        <Link
+          href="/tester/new"
+          className="rounded-button bg-action px-3 py-2 text-center text-sm font-semibold text-text-on-brand hover:bg-action-hover"
+        >
+          + Nowi użytkownicy testowi
+        </Link>
         <input
           type="search"
           value={query}
@@ -42,7 +48,12 @@ export function UserListClient({ users }: { users: TesterUserRow[] }) {
                   active ? 'bg-surface-brand-soft' : 'hover:bg-surface'
                 }`}
               >
-                <span className="truncate font-semibold">{u.displayName || u.email || u.id}</span>
+                <span className="flex items-center gap-1.5 truncate font-semibold">
+                  {u.isTest ? (
+                    <span className="rounded-pill bg-surface-accent-soft px-1.5 text-[10px] font-bold text-text-accent-strong">TEST</span>
+                  ) : null}
+                  <span className="truncate">{u.displayName || u.email || u.id}</span>
+                </span>
                 {u.displayName && u.email ? <span className="truncate text-text-muted">{u.email}</span> : null}
                 <span className="flex gap-2 text-xs text-text-muted">
                   {u.onboardingCompletedAt ? (

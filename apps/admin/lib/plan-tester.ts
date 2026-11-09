@@ -26,6 +26,7 @@ export type TesterUserRow = {
   onboardingCompletedAt: string | null;
   level: Level | null;
   weeks: number;
+  isTest: boolean;
 };
 
 export type TesterSession = {
@@ -76,6 +77,7 @@ export type TesterUser = {
   id: string;
   email: string | null;
   createdAt: string;
+  isTest: boolean;
   profile: TesterProfile | null;
   goal: TesterGoal | null;
   availability: SurveyAvailability | null;
@@ -110,6 +112,7 @@ export async function listTesterUsers(): Promise<TesterUserRow[]> {
         onboardingCompletedAt: (p?.onboarding_completed_at as string | null) ?? null,
         level: (p?.level as Level | null) ?? null,
         weeks: weekCount.get(u.id) ?? 0,
+        isTest: u.user_metadata?.test_account === true,
       };
     })
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
@@ -163,6 +166,7 @@ export async function loadTesterUser(userId: string): Promise<TesterUser | null>
     id: userId,
     email: userRes.data.user.email ?? null,
     createdAt: userRes.data.user.created_at,
+    isTest: userRes.data.user.user_metadata?.test_account === true,
     profile: profileRes.data as TesterProfile | null,
     goal: goalRes.data as TesterGoal | null,
     availability: availabilityRes.data as SurveyAvailability | null,

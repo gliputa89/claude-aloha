@@ -2,6 +2,8 @@ import { planInputFromSurvey } from '@aloha/plan-engine';
 import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
 
+import { SurveyPanel } from '@/components/tester/survey-form';
+import { DeleteTestUserButton, RegeneratePlanButton } from '@/components/tester/user-actions';
 import { GenerateWeekForm, WeekActions } from '@/components/tester/week-controls';
 import { requireAdmin } from '@/lib/auth';
 import {
@@ -22,6 +24,7 @@ import {
 } from '@/lib/format';
 import { loadTesterUser, todayIn, type TesterUser, type TesterWeek } from '@/lib/plan-tester';
 import { createServiceClient } from '@/lib/supabase/server';
+import { surveyValuesFromRows } from '@/lib/survey';
 
 export default function TesterUserPage({ params }: PageProps<'/tester/[userId]'>) {
   return (
@@ -53,9 +56,17 @@ async function UserDetail({ params }: Pick<PageProps<'/tester/[userId]'>, 'param
   return (
     <div className="flex max-w-5xl flex-col gap-6">
       <header className="flex flex-col gap-1">
-        <h1 className="font-display text-2xl font-semibold tracking-tight">
-          {user.profile?.display_name || user.email || 'Użytkownik'}
-        </h1>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h1 className="flex items-center gap-2 font-display text-2xl font-semibold tracking-tight">
+            {user.profile?.display_name || user.email || 'Użytkownik'}
+            {user.isTest ? (
+              <span className="rounded-pill bg-surface-accent-soft px-2 py-0.5 text-xs font-semibold text-text-accent-strong">
+                TEST
+              </span>
+            ) : null}
+          </h1>
+          {user.isTest ? <DeleteTestUserButton userId={user.id} /> : null}
+        </div>
         <p className="flex flex-wrap gap-x-3 text-sm text-text-muted">
           {user.email ? <span>{user.email}</span> : null}
           <span>konto od {formatDate(user.createdAt)}</span>
@@ -65,7 +76,15 @@ async function UserDetail({ params }: Pick<PageProps<'/tester/[userId]'>, 'param
       </header>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <SurveyCard user={user} />
+        <SurveyPanel
+          userId={user.id}
+          initial={surveyValuesFromRows(
+            { displayName: user.profile?.display_name ?? null, profile: user.profile, goal: user.goal, availability: user.availability },
+            today,
+          )}
+        >
+          <SurveyCard user={user} />
+        </SurveyPanel>
         <EngineInputCard user={user} />
       </div>
 
@@ -83,7 +102,10 @@ async function UserDetail({ params }: Pick<PageProps<'/tester/[userId]'>, 'param
             )}
           </div>
           {canGenerate ? (
-            <GenerateWeekForm userId={user.id} defaultWeek={nextIndex + 1} />
+            <div className="flex flex-col items-end gap-2">
+              <GenerateWeekForm userId={user.id} defaultWeek={nextIndex + 1} />
+              <RegeneratePlanButton userId={user.id} hasPlan={!!user.plan} />
+            </div>
           ) : (
             <p className="rounded-md bg-surface-accent-soft px-3 py-2 text-sm text-text-accent-strong">
               Ankieta nieukończona – silnik nie ma danych.
@@ -115,8 +137,6 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
 function SurveyCard({ user }: { user: TesterUser }) {
   const { profile, goal, availability } = user;
   return (
-    <section className="flex flex-col gap-3 rounded-card border border-border bg-surface p-5">
-      <h2 className="font-semibold">Ankieta</h2>
       <dl className="flex flex-col">
         <Row label="Ukończona">{profile?.onboarding_completed_at ? formatDate(profile.onboarding_completed_at) : 'nie'}</Row>
         <Row label="Cel">
@@ -153,7 +173,6 @@ function SurveyCard({ user }: { user: TesterUser }) {
         </Row>
         <Row label="Strefa czasowa">{profile?.timezone ?? '–'}</Row>
       </dl>
-    </section>
   );
 }
 
