@@ -7,7 +7,8 @@
 import { isoWeekday } from './dates.ts';
 import { AI_OPERATION_KINDS, AI_SESSION_TYPES, freePreferredDays, type Violation } from './ai-ops.ts';
 import type { AiEffort } from './ai-pricing.ts';
-import { ENGINE_RULES, type EngineParams } from './params.ts';
+import { TRAINING_LEVEL_INFO, type TrainingLevel } from './levels.ts';
+import { ENGINE_RULES, paramsForLevel, type EngineParams } from './params.ts';
 import { describeSteps, paceZonesFrom, stepsOf, ZONE_INFO, formatPace } from './workout.ts';
 import { weekMinutes, type PlanInput, type PlannedWeek } from './plan.ts';
 
@@ -59,9 +60,11 @@ export const DEFAULT_AI_PROMPTS: Record<AiFunctionName, AiPromptConfig> = {
 };
 
 /** Blok reguł do promptu systemowego – generowany z aktywnych parametrów, zawsze zgodny z walidacją. */
-export function rulesPromptBlock(p: EngineParams): string {
+export function rulesPromptBlock(params: EngineParams, level: TrainingLevel): string {
+  const p = paramsForLevel(params, level);
   return [
     'REGUŁY (sprawdzane przez silnik po Twojej odpowiedzi):',
+    `- Poziom zaawansowania biegacza: ${level}/5 (${TRAINING_LEVEL_INFO[level].label}) – liczby poniżej są dla tego poziomu.`,
     `- Operacje: ${AI_OPERATION_KINDS.join(', ')}. Typy treningów: ${AI_SESSION_TYPES.join(', ')} (zawodów – type race – nie wolno zmieniać ani przenosić).`,
     '- set_duration: date + durationMin. set_type: date + type (+ opcjonalnie durationMin). move: date + toDate. remove: date. add: date + type + durationMin. set_main: date + sets. Niewykorzystane pola = null.',
     '- Zmiana długości lub typu przywraca domyślną część główną – jeśli chcesz własną, daj set_main PO set_duration / set_type tego dnia.',
@@ -72,7 +75,7 @@ export function rulesPromptBlock(p: EngineParams): string {
     `- Każdy trening co najmniej ${p.minSessionMin} min i nie dłużej niż limit dnia (dayCapMin). Długości zaokrąglane do 5 min.`,
     `- Mocne jednostki (intervals, tempo): najwyżej ${p.maxHardPerWeek} w tygodniu, co najmniej ${p.qualityMinMin} min, odstęp co najmniej ${p.minDaysHardToLong} dni od długiego biegu i innej mocnej jednostki.`,
     '- Najwyżej jeden długi bieg (long) w tygodniu.',
-    '- Poziom „beginner” (nie biega): tylko walk_run. Przeciwwskazania: tylko spokojne jednostki (bez intervals i tempo).',
+    '- Poziom 1 (nie biega): tylko walk_run. Przeciwwskazania: tylko spokojne jednostki (bez intervals i tempo).',
     `- Suma minut pełnego tygodnia ≤ poprzedni pełny tydzień × ${(1 + p.weeklyGrowthPct / 100).toFixed(2)}.`,
     `- Suma minut tygodnia ≤ szkic × ${(1 + p.aiMaxIncreasePct / 100).toFixed(2)}. Skracać możesz zawsze (do minimum).`,
     `- Zawody: dzień przed i po – bez treningu; ${p.raceEasyDaysBefore} dni przed startem tylko spokojnie.`,

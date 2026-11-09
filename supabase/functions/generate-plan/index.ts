@@ -20,6 +20,8 @@ import {
   planStartDate,
   planWeeksWithAi,
   promptFromRow,
+  surveyTrainingLevel,
+  TRAINING_LEVEL_INFO,
   type AiCallPayload,
   type AiCallRecord,
 } from '../_shared/plan-engine/index.ts';
@@ -94,7 +96,22 @@ Deno.serve(async (req) => {
   // Plan nie zaczyna się w przeszłości (np. gdy generujemy go ponownie kilka dni później).
   const today = todayIn(profile.timezone ?? 'Europe/Warsaw');
   const survey = { profile: { ...profile, level: profile.level }, goal, availability };
-  const input = { ...planInputFromSurvey(survey, planStartDate(goal, today)), params: engine.params };
+  const baseInput = planInputFromSurvey(survey, planStartDate(goal, today));
+
+  // Nowy plan po ankiecie: poziom startowy z ankiety (zapisany w profilu – dalej zmienia go cotygodniowy przegląd).
+  const surveyLevel = surveyTrainingLevel(baseInput);
+  const { error: levelError } = await admin.rpc('set_training_level', {
+    p_user_id: user.id,
+    p_level: surveyLevel,
+    p_source: 'survey',
+    p_reason_code: 'initial',
+    p_reason: `Poziom z ankiety: ${surveyLevel} (${TRAINING_LEVEL_INFO[surveyLevel].label}).`,
+    p_stats: { surveyLevel },
+    p_survey_level: surveyLevel,
+    p_on: today,
+  });
+  if (levelError) console.error('set_training_level failed', levelError.code, levelError.message);
+  const input = { ...baseInput, trainingLevel: surveyLevel, params: engine.params };
   const draft = generateInitialPlan(input);
 
   const apiKey = claudeKey();

@@ -1,4 +1,15 @@
-import { describeSteps, estimateDistanceM, formatApproxKm, paceZonesFrom, planInputFromSurvey, stepsOf, type PaceZones } from '@aloha/plan-engine';
+import {
+  describeSteps,
+  estimateDistanceM,
+  formatApproxKm,
+  paceZonesFrom,
+  planInputFromSurvey,
+  stepsOf,
+  TRAINING_LEVEL_INFO,
+  type EngineParams,
+  type PaceZones,
+  type TrainingLevel,
+} from '@aloha/plan-engine';
 import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
 
@@ -7,9 +18,11 @@ import { AiPreviewPanel } from '@/components/tester/ai-preview';
 import { SurveyPanel } from '@/components/tester/survey-form';
 import { WorkoutChart, WorkoutSteps } from '@/components/workout/workout-chart';
 import { DeleteTestUserButton, RegeneratePlanButton } from '@/components/tester/user-actions';
+import { NextWeekWithReviewButton, SetLevelForm } from '@/components/tester/level-controls';
 import { GenerateWeekForm, WeekActions } from '@/components/tester/week-controls';
 import { hasClaudeKey } from '@/lib/ai/claude';
 import { getAiCostByUser, listAiPrompts, listEngineConfigs } from '@/lib/ai/data';
+import { loadAiRuntime } from '@/lib/ai/runtime';
 import { requireAdmin } from '@/lib/auth';
 import {
   formatDate,
@@ -30,6 +43,7 @@ import {
 import { loadTesterUser, todayIn, type TesterUser, type TesterWeek } from '@/lib/plan-tester';
 import { createServiceClient } from '@/lib/supabase/server';
 import { surveyValuesFromRows } from '@/lib/survey';
+import { loadTrainingLevel, previewReview, surveyLevelOf, type TrainingLevelData } from '@/lib/training-level';
 
 export default function TesterUserPage({ params }: PageProps<'/tester/[userId]'>) {
   return (
@@ -55,10 +69,12 @@ async function UserDetail({ params }: Pick<PageProps<'/tester/[userId]'>, 'param
   });
 
   // Koszt AI użytkownika i wersje do wyboru w podglądzie z AI (brak migracji AI → puste, tester działa dalej).
-  const [aiCost, prompts, configs] = await Promise.all([
+  const [aiCost, prompts, configs, levelData, runtime] = await Promise.all([
     getAiCostByUser(1, userId).then((r) => r[0] ?? null).catch(() => null),
     listAiPrompts('plan-weeks').catch(() => []),
     listEngineConfigs().catch(() => []),
+    loadTrainingLevel(user),
+    loadAiRuntime(createServiceClient()),
   ]);
 
   const nextIndex = user.plan?.weeks.length ? Math.max(...user.plan.weeks.map((w) => w.week_index)) + 1 : 0;
@@ -117,8 +133,10 @@ async function UserDetail({ params }: Pick<PageProps<'/tester/[userId]'>, 'param
         >
           <SurveyCard user={user} />
         </SurveyPanel>
-        <EngineInputCard user={user} />
+        <EngineInputCard user={user} level={levelData.available ? levelData.level : null} />
       </div>
+
+      <LevelCard user={user} data={levelData} params={runtime.engine.params} canGenerate={canGenerate} />
 
       <section className="flex flex-col gap-4">
         <div className="flex flex-wrap items-end justify-between gap-4">
@@ -218,11 +236,14 @@ function SurveyCard({ user }: { user: TesterUser }) {
   );
 }
 
-function EngineInputCard({ user }: { user: TesterUser }) {
+function EngineInputCard({ user, level }: { user: TesterUser; level: TrainingLevel | null }) {
   const { profile, goal, availability } = user;
   const input =
     profile?.level && goal && availability
-      ? planInputFromSurvey({ profile: { ...profile, level: profile.level }, goal, availability }, user.plan?.starts_on ?? '(start z ankiety)')
+      ? planInputFromSurvey(
+          { profile: { ...profile, level: profile.level, training_level: level }, goal, availability },
+          user.plan?.starts_on ?? '(start z ankiety)',
+        )
       : null;
   return (
     <section className="flex flex-col gap-3 rounded-card border border-border bg-surface p-5">
@@ -234,6 +255,104 @@ function EngineInputCard({ user }: { user: TesterUser }) {
       <pre className="overflow-x-auto rounded-md bg-background p-3 text-xs leading-relaxed">
         {input ? JSON.stringify(input, null, 2) : 'Brak danych – ankieta nieukończona.'}
       </pre>
+    </section>
+  );
+}
+
+const levelName = (l: number | null | undefined) => (l ? `${l} · ${TRAINING_LEVEL_INFO[l as TrainingLevel].label}` : '–');
+const LEVEL_SOURCE: Record<string, string> = { survey: 'ankieta', review: 'przegląd', admin: 'panel' };
+
+/** Poziom zaawansowania: zapisany, z ankiety, podgląd cotygodniowego przeglądu i historia zmian. */
+function LevelCard({
+  user,
+  data,
+  params,
+  canGenerate,
+}: {
+  user: TesterUser;
+  data: TrainingLevelData;
+  params: EngineParams;
+  canGenerate: boolean;
+}) {
+  const surveyLevel = surveyLevelOf(user);
+  if (!data.available) {
+    return (
+      <section className="flex flex-col gap-2 rounded-card border border-border bg-surface p-5">
+        <h2 className="font-semibold">Poziom zaawansowania</h2>
+        <p className="text-sm text-text-muted">
+          W tej bazie nie ma jeszcze migracji <code>20261109170000_training_level</code> – silnik liczy poziom z ankiety:{' '}
+          <b className="text-text">{levelName(surveyLevel)}</b>.
+        </p>
+      </section>
+    );
+  }
+  const review = previewReview(user, data, params);
+  const current = data.level ?? surveyLevel;
+  return (
+    <section className="flex flex-col gap-4 rounded-card border border-border bg-surface p-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex flex-col gap-1">
+          <h2 className="font-semibold">Poziom zaawansowania</h2>
+          <p className="text-sm">
+            <b className="text-lg">{levelName(current)}</b>{' '}
+            <span className="text-text-muted">
+              {data.level ? `zapisany, od ${formatDate(data.since)}` : 'jeszcze nie zapisany – silnik bierze poziom z ankiety'}
+            </span>
+          </p>
+          <p className="text-sm text-text-muted">
+            Z ankiety teraz: {levelName(surveyLevel)}
+            {data.surveyBefore && data.surveyBefore !== surveyLevel ? ` (przy ostatnim przeglądzie: ${data.surveyBefore})` : ''}
+          </p>
+        </div>
+        {canGenerate && user.plan?.weeks.length ? <NextWeekWithReviewButton userId={user.id} /> : null}
+      </div>
+
+      {review ? (
+        <div className={`rounded-md px-3 py-2 text-sm ${review.change === 'none' ? 'bg-background' : 'bg-surface-accent-soft'}`}>
+          <span className="font-medium">Przegląd na dziś (podgląd, nic nie zapisuje): </span>
+          {review.reason}
+          <span className="block text-xs text-text-muted">
+            tyg. na poziomie {review.stats.weeksOnLevel} · wykonane w 3 tyg.{' '}
+            {review.stats.donePctLast3 === null ? '–' : `${review.stats.donePctLast3}%`} · ostatnie 2 tyg.{' '}
+            {review.stats.donePctLast2.length ? review.stats.donePctLast2.map((p) => (p === null ? '–' : `${p}%`)).join(' / ') : '–'} · dni od
+            ostatniego treningu {review.stats.daysSinceLastDone ?? '–'} · dni z bólem/flagą (14/28) {review.stats.painDaysLast14}/
+            {review.stats.painDaysLast28}
+          </span>
+        </div>
+      ) : null}
+
+      {current ? <SetLevelForm userId={user.id} current={current} /> : null}
+
+      {data.changes.length ? (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[32rem] text-sm">
+            <caption className="pb-1 text-left text-xs text-text-muted">Historia zmian</caption>
+            <thead>
+              <tr className="border-b border-border text-left text-xs text-text-muted">
+                <th scope="col" className="py-1 pr-3 font-normal">Kiedy</th>
+                <th scope="col" className="py-1 pr-3 font-normal">Zmiana</th>
+                <th scope="col" className="py-1 pr-3 font-normal">Źródło</th>
+                <th scope="col" className="py-1 font-normal">Powód</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.changes.map((c) => (
+                <tr key={c.id} className="border-b border-border align-top last:border-b-0">
+                  <td className="py-1.5 pr-3 whitespace-nowrap">{formatDate(c.created_at)}</td>
+                  <td className="py-1.5 pr-3 whitespace-nowrap font-medium">
+                    {c.from_level ? `${c.from_level} → ` : ''}
+                    {c.to_level}
+                  </td>
+                  <td className="py-1.5 pr-3">{LEVEL_SOURCE[c.source] ?? c.source}</td>
+                  <td className="py-1.5 text-text-muted">{c.reason}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <p className="text-xs text-text-muted">Brak zmian poziomu w historii.</p>
+      )}
     </section>
   );
 }

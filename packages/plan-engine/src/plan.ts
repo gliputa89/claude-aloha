@@ -6,15 +6,16 @@
 //  - treningi tylko w preferowane dni, rozłożone możliwie równo w tygodniu,
 //  - „nie biegam” → marsz-bieg; reszta: spokojne biegi + długi bieg w weekend,
 //  - najwyżej jedna mocniejsza jednostka w tygodniu, nigdy dzień przed/po długim biegu,
-//  - przyrost czasu tydzień do tygodnia ≤ 10%, każdy trening ≤ limit czasu z ankiety,
+//  - objętość i przyrost wg poziomu zaawansowania 1–5 (levels.ts), każdy trening ≤ limit czasu z ankiety,
 //  - przeciwwskazania → tylko spokojne jednostki, krótsze o ok. 20%.
 
 import { addDaysIso, daysBetween, isoWeekday } from './dates.ts';
 import type { Level, RaceDistanceM } from './goal.ts';
-import { resolveEngineParams, type EngineParams } from './params.ts';
+import { trainingLevelOf, type TrainingLevel } from './levels.ts';
+import { paramsForLevel, resolveEngineParams, type EngineParams, type LevelParams } from './params.ts';
 import { paceZonesFrom, stepsFromStructure, type WorkoutItem } from './workout.ts';
 
-export const ENGINE_VERSION = '0.3.0';
+export const ENGINE_VERSION = '0.5.0';
 
 export type SessionType = 'walk_run' | 'easy' | 'long' | 'intervals' | 'tempo' | 'recovery' | 'race';
 export type Intensity = 'easy' | 'moderate' | 'hard';
@@ -48,6 +49,11 @@ export type PlannedWeek = {
   endsOn: string;
   focus: WeekFocus;
   sessions: PlannedSession[];
+  /**
+   * Baza objętości tygodnia: długość spokojnego biegu przed zaokrągleniem i skróceniem przy przeciwwskazaniach.
+   * Zapisywana z tygodniem – kolejny tydzień rośnie od niej (bez zaokrągleń, które przy małym przyroście zatrzymałyby wzrost).
+   */
+  baseEasyMin?: number;
 };
 
 export type GeneratedPlan = {
@@ -79,14 +85,16 @@ export type PlanInput = {
    * Używane przy dogenerowaniu tygodnia do istniejącego planu – numeracja tygodni musi zostać ta sama.
    */
   keepStartDate?: boolean;
-  /** Parametry silnika (wersja z panelu); brak = wartości wbudowane. Wartości spoza granic → wbudowane. */
+  /** Parametry silnika (wersja z panelu, wszystkie poziomy); brak = wartości wbudowane. Wartości spoza granic → wbudowane. */
   params?: Partial<EngineParams>;
+  /** Poziom zaawansowania zapisany w profilu (przegląd co tydzień). Brak → wyliczony z ankiety. */
+  trainingLevel?: TrainingLevel | null;
   /** Ostatni wynik z ankiety – z niego strefy tempa odcinków. Brak → odcinki tylko ze strefą wysiłku. */
   recentResult?: { distanceM: number; timeS: number | null } | null;
 };
 
 /** Parametry wejścia po sprawdzeniu granic. */
-export const paramsOf = (input: PlanInput): EngineParams => resolveEngineParams(input.params);
+export const paramsOf = (input: PlanInput): LevelParams => paramsForLevel(resolveEngineParams(input.params), trainingLevelOf(input));
 
 /** Odcinki treningu z jego typu i struktury (rozgrzewka → część główna → schłodzenie), z tempem z wyniku. */
 export function withSteps(session: PlannedSession, input: PlanInput): PlannedSession {
@@ -96,9 +104,8 @@ export function withSteps(session: PlannedSession, input: PlanInput): PlannedSes
   return { ...session, structure: { ...base, steps } as SessionStructure };
 }
 
-const baseEasyMin = (p: EngineParams, level: Level) =>
-  level === 'beginner' ? p.baseEasyBeginner : level === 'intermediate' ? p.baseEasyIntermediate : p.baseEasyAdvanced;
-const weeklyGrowth = (p: EngineParams) => 1 + p.weeklyGrowthPct / 100;
+/** Mnożnik przyrostu tygodnia (np. 1,1 przy 10%). */
+export const weeklyGrowth = (p: LevelParams) => 1 + p.weeklyGrowthPct / 100;
 
 export const isWeekend = (weekday: number) => weekday >= 6;
 export const round5 = (min: number) => Math.max(5, Math.round(min / 5) * 5);
@@ -147,10 +154,10 @@ export function walkRun(duration: number, weekIndex: number, gentle: boolean): S
   return { kind: 'walk_run', warmupWalkMin, repeats, runMin, walkMin };
 }
 
-export function intervals(duration: number, level: Level): SessionStructure {
+export function intervals(duration: number, level: TrainingLevel): SessionStructure {
   const warmupMin = duration >= 40 ? 10 : 8;
   const cooldownMin = duration >= 40 ? 10 : 7;
-  const workMin = level === 'advanced' ? 3 : 2;
+  const workMin = level >= 4 ? 3 : 2;
   const recoveryMin = 2;
   const repeats = Math.max(3, Math.min(8, Math.floor((duration - warmupMin - cooldownMin) / (workMin + recoveryMin))));
   return { kind: 'intervals', warmupMin, repeats, workMin, recoveryMin, cooldownMin };
@@ -165,16 +172,21 @@ export function tempo(duration: number): SessionStructure {
 /** Czy w planie są mocniejsze jednostki (interwały / tempo) i w którym tygodniu się zaczynają. */
 function qualityFrom(input: PlanInput): number | null {
   if (paramsOf(input).maxHardPerWeek < 1) return null;
-  if (input.hasContraindications || input.level === 'beginner') return null;
+  const level = trainingLevelOf(input);
+  if (input.hasContraindications || level === 1) return null;
   if (input.goal.type === 'general' && input.goal.focus !== 'improve_fitness') return null;
-  return input.level === 'advanced' ? 0 : 1;
+  return level >= 4 ? 0 : 1;
 }
 
-function buildWeek(input: PlanInput, weekIndex: number, startsOn: string, endsOn: string): PlannedWeek {
+/**
+ * @param volumeBase baza objętości tygodnia (patrz `PlannedWeek.baseEasyMin`); domyślnie bazowy trening poziomu × przyrost^tydzień.
+ */
+function buildWeek(input: PlanInput, weekIndex: number, startsOn: string, endsOn: string, volumeBase?: number): PlannedWeek {
   const p = paramsOf(input);
+  const level = trainingLevelOf(input);
   const gentle = input.hasContraindications;
-  const growth = weeklyGrowth(p) ** weekIndex;
-  const baseEasy = baseEasyMin(p, input.level) * growth * (gentle ? 1 - p.gentleReductionPct / 100 : 1);
+  const baseEasyMin = volumeBase ?? p.baseEasyMin * weeklyGrowth(p) ** weekIndex;
+  const baseEasy = baseEasyMin * (gentle ? 1 - p.gentleReductionPct / 100 : 1);
   const MIN_SESSION = p.minSessionMin;
 
   // Dni tego tygodnia (tydzień 0 może być niepełny).
@@ -190,7 +202,7 @@ function buildWeek(input: PlanInput, weekIndex: number, startsOn: string, endsOn
   const chosen = pickTrainingDays(availableWeekdays, target);
   const dateOf = (weekday: number) => dates.find((d) => isoWeekday(d) === weekday) as string;
 
-  const walkRunMode = input.level === 'beginner';
+  const walkRunMode = level === 1;
   const longDay: number | null =
     !walkRunMode && chosen.length >= 2
       ? ([...chosen].reverse().find(isWeekend) ?? chosen[chosen.length - 1] ?? null)
@@ -234,7 +246,7 @@ function buildWeek(input: PlanInput, weekIndex: number, startsOn: string, endsOn
         durationMin: duration,
         distanceM: null,
         intensity: qualityType === 'intervals' ? 'hard' : 'moderate',
-        structure: qualityType === 'intervals' ? intervals(duration, input.level) : tempo(duration),
+        structure: qualityType === 'intervals' ? intervals(duration, level) : tempo(duration),
       };
     }
     const duration = Math.max(MIN_SESSION, Math.min(cap, round5(baseEasy)));
@@ -267,7 +279,7 @@ function buildWeek(input: PlanInput, weekIndex: number, startsOn: string, endsOn
     focus = 'race';
   }
 
-  return { weekIndex, startsOn, endsOn, focus, sessions };
+  return { weekIndex, startsOn, endsOn, focus, sessions, baseEasyMin };
 }
 
 export const weekMinutes = (w: PlannedWeek) => w.sessions.reduce((sum, s) => sum + (s.durationMin ?? 0), 0);
@@ -293,7 +305,7 @@ function capGrowth(input: PlanInput, prev: PlannedWeek, week: PlannedWeek): Plan
       .sort((a, b) => (b.durationMin ?? 0) - (a.durationMin ?? 0))[0];
     if (!longest || longest.durationMin === null) break;
     longest.durationMin -= 5;
-    if (longest.structure.kind === 'intervals') longest.structure = intervals(longest.durationMin, input.level);
+    if (longest.structure.kind === 'intervals') longest.structure = intervals(longest.durationMin, trainingLevelOf(input));
     if (longest.structure.kind === 'tempo') longest.structure = tempo(longest.durationMin);
     if (longest.structure.kind === 'walk_run') {
       longest.structure = { ...longest.structure, repeats: Math.max(3, longest.structure.repeats - 1) };
@@ -337,4 +349,43 @@ export function generatePlanWeek(input: PlanInput, weekIndex: number): PlannedWe
   if (!Number.isInteger(weekIndex) || weekIndex < 0) throw new RangeError(`weekIndex must be ≥ 0, got ${weekIndex}`);
   const plan = generateInitialPlan({ ...input, weeks: weekIndex + 1, keepStartDate: true });
   return plan.weeks[weekIndex] as PlannedWeek;
+}
+
+export type LevelChange = 'up' | 'down' | 'none';
+
+/** Baza objętości tygodnia z bazy danych: zapisana albo – dla starszych tygodni – odczytana z najdłuższego spokojnego treningu. */
+export function volumeBaseOf(week: PlannedWeek, input: PlanInput): number | null {
+  if (week.baseEasyMin && week.baseEasyMin > 0) return week.baseEasyMin;
+  const p = paramsOf(input);
+  const gentle = input.hasContraindications ? 1 - p.gentleReductionPct / 100 : 1;
+  const easy = week.sessions.filter((s) => s.type === 'easy' || s.type === 'walk_run').map((s) => s.durationMin ?? 0);
+  if (easy.length) return Math.max(...easy) / gentle;
+  const long = week.sessions.filter((s) => s.type === 'long').map((s) => s.durationMin ?? 0);
+  if (long.length) return Math.max(...long) / p.longFactor / gentle;
+  return null;
+}
+
+/**
+ * Kolejny tydzień po zapisanym tygodniu `prev` (cotygodniowe generowanie). Objętość rośnie od bazy poprzedniego
+ * tygodnia × przyrost obecnego poziomu (`input.trainingLevel`) – zmiana poziomu zmienia przyrost i limity, ale nie
+ * skacze do bazowego treningu nowego poziomu. Po spadku poziomu (`change: 'down'`) – bez przyrostu, najwyżej bazowy
+ * trening nowego poziomu. Limit przyrostu sumy minut liczony względem faktycznego `prev`.
+ */
+export function generateNextWeek(input: PlanInput, prev: PlannedWeek, change: LevelChange = 'none'): PlannedWeek {
+  const p = paramsOf(input);
+  const startsOn = addDaysIso(prev.endsOn, 1);
+  const endsOn = addDaysIso(startsOn, 6);
+  const weekIndex = prev.weekIndex + 1;
+  const prevBase = volumeBaseOf(prev, input);
+  const base =
+    prevBase === null
+      ? p.baseEasyMin * weeklyGrowth(p) ** weekIndex
+      : change === 'down'
+        ? Math.min(prevBase, p.baseEasyMin)
+        : prev.focus === 'race'
+          ? prevBase
+          : prevBase * weeklyGrowth(p);
+  const week = buildWeek(input, weekIndex, startsOn, endsOn, base);
+  const capped = weekMinutes(prev) > 0 && change !== 'down' ? capGrowth(input, prev, week) : week;
+  return { ...capped, sessions: capped.sessions.map((s) => withSteps(s, input)) };
 }

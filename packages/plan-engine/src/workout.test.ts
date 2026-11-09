@@ -84,7 +84,7 @@ test('stare treningi bez steps dostają odcinki wyliczone w locie', () => {
   assert.match(describeSteps(steps), /rozgrzewki .* tempo .* schłodzenia/);
 });
 
-const rules = { type: 'intervals', durationMin: 50, level: 'advanced' as const, gentle: false, maxHardSharePct: 35 };
+const rules = { type: 'intervals', durationMin: 50, walkRunOnly: false, gentle: false, maxHardSharePct: 35 };
 
 test('część główna od AI: drabinka z przerwami, silnik dokłada rozgrzewkę i schłodzenie', () => {
   const res = buildFromMainSets(

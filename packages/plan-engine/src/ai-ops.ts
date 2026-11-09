@@ -6,7 +6,8 @@
 // Strukturę treningu (rozgrzewka, powtórzenia, schłodzenie) zawsze liczy silnik.
 
 import { addDaysIso, daysBetween, isoWeekday } from './dates.ts';
-import type { EngineParams } from './params.ts';
+import { trainingLevelOf } from './levels.ts';
+import type { LevelParams } from './params.ts';
 import { buildFromMainSets, paceZonesFrom, PACE_ZONES, type MainSet, type PaceZone } from './workout.ts';
 import {
   dayCap,
@@ -16,6 +17,7 @@ import {
   round5,
   tempo,
   walkRun,
+  weeklyGrowth,
   weekMinutes,
   withSteps,
   type Intensity,
@@ -222,7 +224,7 @@ export type ValidationContext = {
 /** Naruszenia reguł w tygodniach planu. Pusta lista = plan zgodny z regułami. */
 export function validateWeeks(weeks: PlannedWeek[], ctx: ValidationContext): Violation[] {
   const { input } = ctx;
-  const p: EngineParams = paramsOf(input);
+  const p: LevelParams = paramsOf(input);
   const out: Violation[] = [];
   const add = (code: ViolationCode, weekIndex: number, date: string | null, detail?: string) =>
     out.push({ code, weekIndex, date, message: detail ? `${VIOLATION_LABEL[code]}: ${detail}` : VIOLATION_LABEL[code] });
@@ -251,7 +253,7 @@ export function validateWeeks(weeks: PlannedWeek[], ctx: ValidationContext): Vio
       const cap = dayCap(input, weekday);
       if (minutes > cap) add('over_day_cap', wi, s.scheduledOn, `${minutes} > ${cap} min`);
       if (isHard(s) && minutes < p.qualityMinMin) add('quality_too_short', wi, s.scheduledOn);
-      if (input.level === 'beginner' && s.type !== 'walk_run') add('beginner_type', wi, s.scheduledOn);
+      if (trainingLevelOf(input) === 1 && s.type !== 'walk_run') add('beginner_type', wi, s.scheduledOn);
       if (input.hasContraindications && s.intensity !== 'easy') add('contraindication_intensity', wi, s.scheduledOn);
       if (isHard(s)) {
         const tooClose = allSessions.some(
@@ -275,7 +277,7 @@ export function validateWeeks(weeks: PlannedWeek[], ctx: ValidationContext): Vio
     // a tygodnia z samymi minimalnymi treningami nie da się już skrócić.
     const atFloor = regular.every((s) => (s.durationMin ?? 0) <= p.minSessionMin);
     if (week.focus !== 'race' && prev && prev.focus !== 'race' && !atFloor && isFullWeek(prev) && isFullWeek(week) && weekMinutes(prev) > 0) {
-      const limit = weekMinutes(prev) * (1 + p.weeklyGrowthPct / 100);
+      const limit = weekMinutes(prev) * weeklyGrowth(p);
       if (minutes > limit + 1e-9) add('growth', week.weekIndex, null, `${minutes} > ${Math.floor(limit)} min`);
     }
     if (draft) {
@@ -322,7 +324,7 @@ export function buildSession(
       case 'walk_run':
         return { ...base, intensity: 'easy' as Intensity, structure: walkRun(duration, weekIndex, gentle) };
       case 'intervals':
-        return { ...base, intensity: 'hard' as Intensity, structure: intervals(duration, input.level) };
+        return { ...base, intensity: 'hard' as Intensity, structure: intervals(duration, trainingLevelOf(input)) };
       case 'tempo':
         return { ...base, intensity: 'moderate' as Intensity, structure: tempo(duration) };
       default:
@@ -374,7 +376,7 @@ function execute(weeks: PlannedWeek[], op: AiOperation, input: PlanInput): strin
         {
           type: session.type,
           durationMin: session.durationMin ?? 0,
-          level: input.level,
+          walkRunOnly: trainingLevelOf(input) === 1,
           gentle: input.hasContraindications,
           maxHardSharePct: paramsOf(input).maxHardSharePct,
         },

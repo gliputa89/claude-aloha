@@ -6,6 +6,7 @@ import { refresh } from 'next/cache';
 import { loadAiRuntime } from '@/lib/ai/runtime';
 import { requireAdmin } from '@/lib/auth';
 import { buildWeek, loadTesterUser } from '@/lib/plan-tester';
+import { loadTrainingLevel } from '@/lib/training-level';
 import { createServiceClient } from '@/lib/supabase/server';
 
 export type ActionResult = { ok: true; message: string } | { ok: false; message: string };
@@ -26,7 +27,9 @@ export async function generateWeek(userId: string, weekIndex: number): Promise<A
   const db = createServiceClient();
   // Aktywne parametry silnika (jak w produkcji); brak aktywnej wersji = wbudowane.
   const { engine } = await loadAiRuntime(db);
-  const built = buildWeek(user, weekIndex, engine.params);
+  // Zapisany poziom zaawansowania (brak migracji / poziomu → z ankiety).
+  const level = await loadTrainingLevel(user);
+  const built = buildWeek(user, weekIndex, engine.params, level.available ? level.level : null);
   if (!built.ok) return { ok: false, message: 'Użytkownik nie skończył ankiety – brak danych dla silnika.' };
 
   const { error } = await db.rpc('admin_save_plan_week', {

@@ -1,6 +1,16 @@
 'use client';
 
-import { DEFAULT_ENGINE_PARAMS, ENGINE_PARAM_GROUPS, ENGINE_PARAM_SPECS, type EngineParams } from '@aloha/plan-engine';
+import {
+  DEFAULT_ENGINE_PARAMS,
+  ENGINE_PARAM_GROUPS,
+  ENGINE_PARAM_SPECS,
+  METRIC_SPECS,
+  paramKey,
+  TRAINING_LEVEL_INFO,
+  TRAINING_LEVELS,
+  type EngineParams,
+  type ParamGroup,
+} from '@aloha/plan-engine';
 import { useState, useTransition } from 'react';
 
 import { activateEngineConfig, createEngineConfig, type AiActionResult } from '@/app/ai/actions';
@@ -52,49 +62,12 @@ export function ParamsWorkbench({
             {changed ? ` · zmienione: ${changed}` : ''}
           </span>
         </div>
-        {(Object.keys(ENGINE_PARAM_GROUPS) as (keyof typeof ENGINE_PARAM_GROUPS)[]).map((group) => (
-          <fieldset key={group} className="flex flex-col gap-2">
-            <legend className="pb-1 text-sm font-semibold text-text-brand">{ENGINE_PARAM_GROUPS[group]}</legend>
-            {ENGINE_PARAM_SPECS.filter((s) => s.group === group).map((s) => {
-              const v = values[s.key] ?? '';
-              const differs = Number(v) !== active[s.key];
-              const error = fieldErrors[s.key];
-              return (
-                <div
-                  key={s.key}
-                  className={`grid gap-2 rounded-md px-3 py-2 sm:grid-cols-[minmax(0,1fr)_9rem] ${differs ? 'bg-surface-accent-soft' : 'bg-background'}`}
-                >
-                  <div className="flex min-w-0 flex-col gap-0.5">
-                    <label htmlFor={`p-${s.key}`} className="text-sm font-medium">
-                      {s.label}
-                    </label>
-                    <span className="text-xs text-text-muted">{s.description}</span>
-                    <span className="text-xs text-text-muted">
-                      granice {s.min}–{s.max} {s.unit} · wbudowane {s.default} {s.unit}
-                      {differs ? ` · aktywne ${active[s.key]} ${s.unit}` : ''}
-                    </span>
-                    {error ? <span className="text-xs text-workout-tempo">{error}</span> : null}
-                  </div>
-                  <div className="flex items-center gap-2 sm:justify-end">
-                    <input
-                      id={`p-${s.key}`}
-                      type="number"
-                      inputMode="decimal"
-                      min={s.min}
-                      max={s.max}
-                      step={s.step}
-                      value={v}
-                      aria-invalid={!!error}
-                      onChange={(e) => setValues((prev) => ({ ...prev, [s.key]: e.target.value }))}
-                      className={`${inputClass} w-24 text-right tabular-nums`}
-                    />
-                    <span className="w-8 text-xs text-text-muted">{s.unit}</span>
-                  </div>
-                </div>
-              );
-            })}
-          </fieldset>
-        ))}
+        <LevelTable
+          values={values}
+          active={active}
+          fieldErrors={fieldErrors}
+          onChange={(key, value) => setValues((prev) => ({ ...prev, [key]: value }))}
+        />
         <label className="flex flex-col gap-1 text-sm">
           <span className="text-text-muted">Co zmieniłeś? (notatka do historii)</span>
           <input className={inputClass} value={note} onChange={(e) => setNote(e.target.value)} placeholder="np. wolniejszy przyrost dla wracających" />
@@ -143,6 +116,91 @@ export function ParamsWorkbench({
           />
         ))}
       </aside>
+    </div>
+  );
+}
+
+/** Wszystkie parametry: wiersz = metryka (pogrupowane), kolumna = poziom zaawansowania 1–5. */
+function LevelTable({
+  values,
+  active,
+  fieldErrors,
+  onChange,
+}: {
+  values: Record<string, string>;
+  active: EngineParams;
+  fieldErrors: Record<string, string>;
+  onChange: (key: string, value: string) => void;
+}) {
+  const groups = Object.keys(ENGINE_PARAM_GROUPS) as ParamGroup[];
+  return (
+    <div className="overflow-x-auto rounded-md bg-background">
+      <table className="w-full min-w-[46rem] border-collapse text-sm">
+        <thead>
+          <tr className="border-b border-border text-left align-bottom">
+            <th scope="col" className="w-[13rem] px-3 py-2 font-semibold">
+              Metryka
+            </th>
+            {TRAINING_LEVELS.map((level) => (
+              <th key={level} scope="col" className="w-[6.5rem] px-2 py-2 font-normal">
+                <span className="block font-semibold">
+                  {level} · {TRAINING_LEVEL_INFO[level].label}
+                </span>
+                <span className="block text-xs leading-snug text-text-muted">{TRAINING_LEVEL_INFO[level].criterion}</span>
+              </th>
+            ))}
+          </tr>
+        </thead>
+        {groups.map((group) => (
+          <tbody key={group}>
+            <tr>
+              <th scope="colgroup" colSpan={TRAINING_LEVELS.length + 1} className="px-3 pb-1 pt-4 text-left text-sm font-semibold text-text-brand">
+                {ENGINE_PARAM_GROUPS[group]}
+              </th>
+            </tr>
+            {METRIC_SPECS.filter((m) => m.group === group).map((m) => (
+              <tr key={m.metric} className="border-b border-border align-top last:border-b-0">
+                <th scope="row" className="px-3 py-2 text-left font-normal">
+                  <span className="block font-medium">
+                    {m.label} <span className="text-xs font-normal text-text-muted">({m.unit})</span>
+                  </span>
+                  <span className="block text-xs text-text-muted">{m.description}</span>
+                  <span className="block text-xs text-text-muted">
+                    granice {m.min}–{m.max} {m.unit}
+                  </span>
+                </th>
+                {TRAINING_LEVELS.map((level) => {
+                  const key = paramKey(m.metric, level);
+                  const v = values[key] ?? '';
+                  const differs = Number(v) !== active[key];
+                  const error = fieldErrors[key];
+                  return (
+                    <td key={level} className={`px-2 py-2 ${differs ? 'bg-surface-accent-soft' : ''}`}>
+                      <input
+                        type="number"
+                        inputMode="decimal"
+                        aria-label={`${m.label} – poziom ${level} (${m.unit})`}
+                        min={m.min}
+                        max={m.max}
+                        step={m.step}
+                        value={v}
+                        aria-invalid={!!error}
+                        onChange={(e) => onChange(key, e.target.value)}
+                        className={`${inputClass} w-16 text-right tabular-nums`}
+                      />
+                      <span className="mt-1 block text-xs text-text-muted">
+                        wbud. {m.defaults[level]}
+                        {differs ? ` · akt. ${active[key]}` : ''}
+                      </span>
+                      {error ? <span className="block text-xs text-workout-tempo">{error}</span> : null}
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        ))}
+      </table>
     </div>
   );
 }

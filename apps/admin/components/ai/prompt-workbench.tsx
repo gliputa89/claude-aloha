@@ -131,7 +131,7 @@ export function PromptWorkbench({
         </label>
         <details className="text-sm">
           <summary className="cursor-pointer text-text-muted">
-            Dopisywane automatycznie: blok reguł z aktywnych Ram planu (nie edytujesz go tutaj)
+            Dopisywane automatycznie: blok reguł z aktywnych Ram planu – liczby dla poziomu biegacza, tu przykład dla poziomu 3 (nie edytujesz go tutaj)
           </summary>
           <JsonBlock value={rulesBlock} maxHeight="max-h-80" />
         </details>

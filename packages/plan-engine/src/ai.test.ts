@@ -66,18 +66,36 @@ test('szkic silnika jest zgodny z walidacją dla wielu ankiet', () => {
 test('parametry: domyślne są w granicach, wartości spoza granic → błąd', () => {
   for (const s of ENGINE_PARAM_SPECS) assert.ok(s.default >= s.min && s.default <= s.max, s.key);
   assert.deepEqual(validateEngineParams({}), { ok: true, params: DEFAULT_ENGINE_PARAMS });
-  const bad = validateEngineParams({ weeklyGrowthPct: 30 });
+  const bad = validateEngineParams({ weeklyGrowthPctL2: 30 });
   assert.equal(bad.ok, false);
-  const good = validateEngineParams({ weeklyGrowthPct: 5, longFactor: 1.2 });
-  assert.ok(good.ok && good.params.weeklyGrowthPct === 5 && good.params.longFactor === 1.2);
+  const good = validateEngineParams({ weeklyGrowthPctL2: 5, longFactorL3: 1.2 });
+  assert.ok(good.ok && good.params.weeklyGrowthPctL2 === 5 && good.params.longFactorL3 === 1.2);
+});
+
+test('parametry: stare wersje (3 bazowe czasy, jeden przyrost) przechodzą na poziomy 1–5', () => {
+  const res = validateEngineParams({ baseEasyBeginner: 20, baseEasyIntermediate: 25, baseEasyAdvanced: 45, weeklyGrowthPct: 8 });
+  assert.ok(res.ok);
+  assert.equal(res.params.baseEasyMinL1, 20);
+  assert.equal(res.params.baseEasyMinL2, 25);
+  assert.equal(res.params.baseEasyMinL3, DEFAULT_ENGINE_PARAMS.baseEasyMinL3);
+  assert.equal(res.params.baseEasyMinL4, 45);
+  assert.ok([1, 2, 3, 4, 5].every((l) => res.params[`weeklyGrowthPctL${l}` as 'weeklyGrowthPctL1'] === 8));
+  assert.ok(!('baseEasyBeginner' in res.params));
+  // Pozostałe stare klucze (jedna wartość) trafiają do wszystkich poziomów.
+  const flat = validateEngineParams({ longFactor: 1.2, maxHardPerWeekL5: 2, maxHardPerWeek: 0 });
+  assert.ok(flat.ok);
+  assert.equal(flat.params.longFactorL1, 1.2);
+  assert.equal(flat.params.longFactorL5, 1.2);
+  assert.equal(flat.params.maxHardPerWeekL4, 0);
+  assert.equal(flat.params.maxHardPerWeekL5, 2);
 });
 
 test('parametry zmieniają szkic: niższy bazowy czas → krótsze treningi', () => {
   const normal = generateInitialPlan(base).weeks[0]!;
-  const shorter = generateInitialPlan({ ...base, params: { baseEasyIntermediate: 20 } }).weeks[0]!;
+  const shorter = generateInitialPlan({ ...base, params: { baseEasyMinL2: 20 } }).weeks[0]!;
   const sum = (w: typeof normal) => w.sessions.reduce((n, s) => n + (s.durationMin ?? 0), 0);
   assert.ok(sum(shorter) < sum(normal));
-  const noHard = generateInitialPlan({ ...base, level: 'advanced', params: { maxHardPerWeek: 0 } });
+  const noHard = generateInitialPlan({ ...base, level: 'advanced', params: { maxHardPerWeekL4: 0 } });
   assert.ok(noHard.weeks.every((w) => w.sessions.every((s) => s.intensity === 'easy')));
 });
 
@@ -162,7 +180,7 @@ test('koszt z cennika', () => {
 });
 
 test('prompt: blok reguł z parametrów, wiadomość bez danych osobowych', () => {
-  assert.match(rulesPromptBlock({ ...DEFAULT_ENGINE_PARAMS, weeklyGrowthPct: 5 }), /× 1\.05/);
+  assert.match(rulesPromptBlock({ ...DEFAULT_ENGINE_PARAMS, weeklyGrowthPctL2: 5 }, 2), /× 1\.05/);
   const draft = generateInitialPlan(base).weeks;
   const athlete = aiAthleteFromSurvey({
     profile: { level: 'intermediate', locale: 'pl', weekly_km: 12 },

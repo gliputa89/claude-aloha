@@ -1,6 +1,14 @@
 'use server';
 
-import { aiAthleteFromSurvey, generateInitialPlan, planInputFromSurvey, planStartDate, planWeeksWithAi } from '@aloha/plan-engine';
+import {
+  aiAthleteFromSurvey,
+  generateInitialPlan,
+  planInputFromSurvey,
+  planStartDate,
+  planWeeksWithAi,
+  surveyTrainingLevel,
+  TRAINING_LEVEL_INFO,
+} from '@aloha/plan-engine';
 import { refresh } from 'next/cache';
 
 import { claudeCaller, hasClaudeKey } from '@/lib/ai/claude';
@@ -45,7 +53,21 @@ async function regeneratePlanRow(admin: Admin, userId: string, useAi = false): P
   const db = createServiceClient();
   const { prompt, engine } = await loadAiRuntime(db);
   const survey = { profile: { ...profile, level: profile.level }, goal, availability };
-  const input = { ...planInputFromSurvey(survey, planStartDate(goal, today)), params: engine.params };
+  const baseInput = planInputFromSurvey(survey, planStartDate(goal, today));
+  // Jak generate-plan: nowy plan = poziom startowy z ankiety (brak migracji poziomu → tylko ostrzeżenie w logu).
+  const surveyLevel = surveyTrainingLevel(baseInput);
+  const levelRes = await db.rpc('set_training_level', {
+    p_user_id: userId,
+    p_level: surveyLevel,
+    p_source: 'survey',
+    p_reason_code: 'initial',
+    p_reason: `Poziom z ankiety: ${surveyLevel} (${TRAINING_LEVEL_INFO[surveyLevel].label}).`,
+    p_stats: { surveyLevel },
+    p_survey_level: surveyLevel,
+    p_on: today,
+  });
+  if (levelRes.error) console.warn('set_training_level failed', levelRes.error.code, levelRes.error.message);
+  const input = { ...baseInput, trainingLevel: surveyLevel, params: engine.params };
   const draft = generateInitialPlan(input);
   if (useAi && !hasClaudeKey()) return { ok: false, message: 'Brak ANTHROPIC_API_KEY w środowisku panelu.' };
   const outcome = useAi

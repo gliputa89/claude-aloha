@@ -4,8 +4,12 @@ import {
   ENGINE_RULES,
   ENGINE_VERSION,
   rulesPromptBlock,
+  TRAINING_LEVEL_INFO,
+  TRAINING_LEVELS,
   VIOLATION_LABEL,
+  type TrainingLevel,
 } from '@aloha/plan-engine';
+import Link from 'next/link';
 import { Suspense } from 'react';
 
 import { ParamsWorkbench } from '@/components/ai/params-workbench';
@@ -23,16 +27,22 @@ const OPERATION_HINT: Record<string, string> = {
   add: 'dodaje trening na wolny dzień – nie ponad liczbę treningów ze szkicu',
 };
 
-export default function AiRulesPage() {
+export default function AiRulesPage({ searchParams }: { searchParams: Promise<{ poziom?: string }> }) {
   return (
     <Suspense fallback={<p className="text-text-muted">Wczytuję ramy…</p>}>
-      <Rules />
+      <Rules searchParams={searchParams} />
     </Suspense>
   );
 }
 
-async function Rules() {
+const toLevel = (raw: string | undefined): TrainingLevel => {
+  const n = Number(raw);
+  return (TRAINING_LEVELS as readonly number[]).includes(n) ? (n as TrainingLevel) : 3;
+};
+
+async function Rules({ searchParams }: { searchParams: Promise<{ poziom?: string }> }) {
   await requireAdmin();
+  const level = toLevel((await searchParams).poziom);
   const [versions, runtime] = await Promise.all([listEngineConfigs(), loadAiRuntime(createServiceClient())]);
   const { engine } = runtime;
 
@@ -91,7 +101,21 @@ async function Rules() {
       </div>
 
       <Card title="Tak widzi to Claude – blok reguł w prompcie (z aktywnych parametrów)">
-        <JsonBlock value={rulesPromptBlock(engine.params)} />
+        <nav aria-label="Poziom zaawansowania" className="flex flex-wrap items-center gap-2 text-sm">
+          <span className="text-text-muted">Dla biegacza na poziomie:</span>
+          {TRAINING_LEVELS.map((l) => (
+            <Link
+              key={l}
+              href={`?poziom=${l}`}
+              scroll={false}
+              aria-current={l === level ? 'page' : undefined}
+              className={`rounded-pill px-3 py-1 ${l === level ? 'bg-surface-brand-soft font-semibold text-text-brand' : 'bg-background text-text-muted hover:text-text'}`}
+            >
+              {l} · {TRAINING_LEVEL_INFO[l].label}
+            </Link>
+          ))}
+        </nav>
+        <JsonBlock value={rulesPromptBlock(engine.params, level)} />
       </Card>
     </>
   );

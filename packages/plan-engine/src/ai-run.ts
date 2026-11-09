@@ -21,6 +21,7 @@ import {
   type AiFunctionName,
   type AiPromptConfig,
 } from './ai-prompt.ts';
+import { trainingLevelOf } from './levels.ts';
 import type { EngineParams } from './params.ts';
 import { dayCap, ENGINE_VERSION, type PlanInput, type PlannedWeek } from './plan.ts';
 
@@ -167,7 +168,7 @@ export async function planWeeksWithAi(opts: PlanWeeksWithAiOptions): Promise<Pla
   const input: PlanInput = { ...opts.input, params: opts.engine.params };
   const maxAttempts = Math.max(1, opts.maxAttempts ?? 2);
 
-  const system = [opts.prompt.systemPrompt, rulesPromptBlock(opts.engine.params)];
+  const system = [opts.prompt.systemPrompt, rulesPromptBlock(opts.engine.params, trainingLevelOf(input))];
   const messages: AiMessage[] = [
     {
       role: 'user',

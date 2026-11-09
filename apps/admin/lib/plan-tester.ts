@@ -14,6 +14,7 @@ import {
   type SessionType,
   type SurveyAvailability,
   type SurveyGoal,
+  type TrainingLevel,
 } from '@aloha/plan-engine';
 
 import { createServiceClient } from '@/lib/supabase/server';
@@ -198,7 +199,7 @@ export type WeekBuild =
  * Z aktywnym planem liczymy od `plans.starts_on` (numeracja zgodna z istniejącymi tygodniami),
  * bez planu – od daty startu z ankiety, jak przy pierwszym generowaniu.
  */
-export function buildWeek(user: TesterUser, weekIndex: number, params?: Partial<EngineParams>): WeekBuild {
+export function buildWeek(user: TesterUser, weekIndex: number, params?: Partial<EngineParams>, trainingLevel?: TrainingLevel | null): WeekBuild {
   const { profile, goal, availability } = user;
   if (!profile?.onboarding_completed_at || !profile.level || !goal || !availability) {
     return { ok: false, reason: 'onboarding_incomplete' };
@@ -208,7 +209,7 @@ export function buildWeek(user: TesterUser, weekIndex: number, params?: Partial<
   const planStartsOn =
     user.plan?.starts_on ??
     generateInitialPlan({ ...planInputFromSurvey(survey, planStartDate(goal, todayIn(profile.timezone))), weeks: 1, params }).startsOn;
-  const input = { ...planInputFromSurvey(survey, planStartsOn), params };
+  const input = { ...planInputFromSurvey(survey, planStartsOn), params, trainingLevel: trainingLevel ?? null };
   return { ok: true, planStartsOn, week: generatePlanWeek(input, weekIndex) };
 }
 

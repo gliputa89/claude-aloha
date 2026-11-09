@@ -34,7 +34,7 @@ async function Prompts() {
         active={runtime.prompt}
         builtin={DEFAULT_AI_PROMPTS[fn]}
         versions={versions}
-        rulesBlock={rulesPromptBlock(runtime.engine.params)}
+        rulesBlock={rulesPromptBlock(runtime.engine.params, 3)}
       />
     </>
   );

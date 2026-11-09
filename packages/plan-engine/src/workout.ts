@@ -193,7 +193,8 @@ export type MainSet = {
 export type MainRules = {
   type: string;
   durationMin: number;
-  level: 'beginner' | 'intermediate' | 'advanced';
+  /** Poziom 1 (nie biega) – tylko marszobieg. */
+  walkRunOnly: boolean;
   gentle: boolean;
   /** Najwyżej tyle procent treningu w strefach mocnych. */
   maxHardSharePct: number;
@@ -220,7 +221,7 @@ export function buildFromMainSets(
   if (!sets.length || sets.length > 12) return { ok: false, error: 'część główna musi mieć 1–12 serii' };
   const allowed = ALLOWED_ZONES[rules.type];
   if (!allowed) return { ok: false, error: `nie można ułożyć części głównej dla typu ${rules.type}` };
-  if (rules.level === 'beginner' && rules.type !== 'walk_run') return { ok: false, error: 'osoba nie biega – tylko marszobieg' };
+  if (rules.walkRunOnly && rules.type !== 'walk_run') return { ok: false, error: 'osoba nie biega – tylko marszobieg' };
 
   const main: WorkoutItem[] = [];
   for (const [i, s] of sets.entries()) {

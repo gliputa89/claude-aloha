@@ -2,6 +2,7 @@
 // Jedno miejsce dla Edge Function generate-plan i testera w panelu – tester liczy dokładnie tak jak produkcja.
 
 import type { Level, RaceDistanceM } from './goal.ts';
+import { isTrainingLevel } from './levels.ts';
 import type { PlanGoal, PlanInput } from './plan.ts';
 
 export type SurveyProfile = {
@@ -9,6 +10,8 @@ export type SurveyProfile = {
   has_contraindications: boolean | null;
   recent_result_distance_m?: number | null;
   recent_result_time_s?: number | null;
+  /** Poziom zapisany w profilu (1–5); brak → silnik wylicza go z ankiety. */
+  training_level?: number | null;
 };
 
 export type SurveyGoal = {
@@ -51,6 +54,7 @@ export function planInputFromSurvey(
     maxMinutesWeekday: availability.max_minutes_weekday,
     maxMinutesWeekend: availability.max_minutes_weekend,
     hasContraindications: !!profile.has_contraindications,
+    trainingLevel: isTrainingLevel(profile.training_level) ? profile.training_level : null,
     recentResult: profile.recent_result_distance_m
       ? { distanceM: profile.recent_result_distance_m, timeS: profile.recent_result_time_s ?? null }
       : null,
