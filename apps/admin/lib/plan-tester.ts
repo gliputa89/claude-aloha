@@ -42,6 +42,8 @@ export type TesterSession = {
   intensity: 'easy' | 'moderate' | 'hard' | null;
   structure: SessionStructure | Record<string, never>;
   status: 'planned' | 'done' | 'partial' | 'missed';
+  /** Rada trenera od AI; null – aplikacja bierze radę z bazy. */
+  coach_tip: string | null;
 };
 
 export type TesterWeek = {
@@ -150,7 +152,7 @@ export async function loadTesterUser(userId: string): Promise<TesterUser | null>
     db
       .from('plans')
       .select(
-        'id, starts_on, ends_on, engine_version, created_at, weeks(id, week_index, starts_on, focus, created_at, source, ai_call_id, engine_config_version, sessions(id, scheduled_on, type, duration_min, distance_m, intensity, structure, status))',
+        'id, starts_on, ends_on, engine_version, created_at, weeks(id, week_index, starts_on, focus, created_at, source, ai_call_id, engine_config_version, sessions(id, scheduled_on, type, duration_min, distance_m, intensity, structure, status, coach_tip))',
       )
       .eq('user_id', userId)
       .eq('status', 'active')

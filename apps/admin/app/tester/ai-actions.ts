@@ -6,6 +6,7 @@ import {
   generatePlanWeek,
   planInputFromSurvey,
   coachTipsFor,
+  type AiTip,
   planWeeksWithAi,
   type AttemptResult,
   type OperationResult,
@@ -33,6 +34,8 @@ export type AiPreview =
       status: PlanWeeksOutcome['status'];
       source: PlanWeeksOutcome['source'];
       summary: string | null;
+      /** Rady trenera z odpowiedzi modelu (przed przypisaniem do treningów). */
+      tips: AiTip[];
       costUsd: number;
       callIds: number[];
       finalCallId: number | null;
@@ -105,6 +108,7 @@ export async function previewAiWeek(
     status: outcome.status,
     source: outcome.source,
     summary: outcome.summary,
+    tips: last.response?.tips ?? [],
     costUsd: outcome.costUsd,
     callIds: outcome.callIds,
     finalCallId: outcome.finalCallId,

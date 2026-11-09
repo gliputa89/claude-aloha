@@ -13,6 +13,7 @@ import {
 import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
 
+import { SessionCoachTip } from '@/components/ai/coach-tips';
 import { TextLink } from '@/components/ai/ui';
 import { AiPreviewPanel } from '@/components/tester/ai-preview';
 import { SurveyPanel } from '@/components/tester/survey-form';
@@ -453,6 +454,7 @@ function WeekCard({
                 </div>
               </details>
             ) : null}
+            <SessionCoachTip tip={s.coach_tip} />
             </li>
             );
           })}

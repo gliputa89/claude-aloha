@@ -5,6 +5,7 @@ import { useState, useTransition } from 'react';
 
 import { previewAiWeek, saveAiWeek, type AiPreview } from '@/app/tester/ai-actions';
 import { inputClass, primaryButton, secondaryButton, StatusBadge } from '@/components/ai/ui';
+import { CoachTipList } from '@/components/ai/coach-tips';
 import { OperationList, WeekCompare } from '@/components/ai/week-compare';
 import { formatUsd } from '@/lib/format';
 
@@ -118,6 +119,10 @@ export function AiPreviewPanel({
               <h3 className="text-sm font-semibold">Operacje i decyzje silnika</h3>
               <OperationList results={preview.operations} />
             </div>
+          </div>
+          <div className="flex flex-col gap-2">
+            <h3 className="text-sm font-semibold">Rady trenera</h3>
+            <CoachTipList weeks={[preview.result]} tips={preview.tips} />
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {preview.finalCallId ? (

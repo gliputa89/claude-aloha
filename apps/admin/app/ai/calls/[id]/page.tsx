@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
 
 import { Card, JsonBlock, StatusBadge, TestBadge, TextLink } from '@/components/ai/ui';
+import { CoachTipList } from '@/components/ai/coach-tips';
 import { OperationList, WeekCompare } from '@/components/ai/week-compare';
 import { getAiCall, type AiCallDetail } from '@/lib/ai/data';
 import { requireAdmin } from '@/lib/auth';
@@ -143,6 +144,12 @@ async function CallDetail({ params }: Pick<PageProps<'/ai/calls/[id]'>, 'params'
                   Naruszenia obecne już w szkicu (AI nie mogło ich pogłębić): {result.apply.remaining.map((v) => v.message).join('; ')}
                 </p>
               ) : null}
+              <h3 className="pt-2 text-sm font-semibold">Rady trenera</h3>
+              {result.response ? (
+                <CoachTipList weeks={result.weeks} tips={result.response.tips ?? []} />
+              ) : (
+                <p className="text-sm text-text-muted">Brak odpowiedzi modelu – brak rad.</p>
+              )}
             </Card>
           ) : null}
 
