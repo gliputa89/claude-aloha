@@ -8,7 +8,7 @@
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 
-import { generateInitialPlan, type PlanGoal, type PlanInput } from '../_shared/plan-engine/index.ts';
+import { generateInitialPlan, planInputFromSurvey, planStartDate } from '../_shared/plan-engine/index.ts';
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -68,25 +68,9 @@ Deno.serve(async (req) => {
     return json({ error: 'onboarding_incomplete' }, 409);
   }
 
-  const planGoal: PlanGoal =
-    goal.type === 'race' && goal.distance_m && goal.race_date
-      ? { type: 'race', distanceM: goal.distance_m, raceDate: goal.race_date }
-      : { type: 'general', focus: goal.general_focus ?? 'run_regularly' };
-
   // Plan nie zaczyna się w przeszłości (np. gdy generujemy go ponownie kilka dni później).
   const today = todayIn(profile.timezone ?? 'Europe/Warsaw');
-  const startDate = goal.plan_starts_on && goal.plan_starts_on > today ? goal.plan_starts_on : today;
-
-  const input: PlanInput = {
-    startDate,
-    level: profile.level,
-    goal: planGoal,
-    preferredDays: availability.preferred_days ?? [],
-    sessionsPerWeek: availability.sessions_per_week,
-    maxMinutesWeekday: availability.max_minutes_weekday,
-    maxMinutesWeekend: availability.max_minutes_weekend,
-    hasContraindications: !!profile.has_contraindications,
-  };
+  const input = planInputFromSurvey({ profile: { ...profile, level: profile.level }, goal, availability }, planStartDate(goal, today));
 
   const plan = generateInitialPlan(input);
 

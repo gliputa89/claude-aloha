@@ -66,6 +66,11 @@ export type PlanInput = {
   hasContraindications: boolean;
   /** Ile tygodni wygenerować (domyślnie 2). */
   weeks?: number;
+  /**
+   * Nie przesuwaj startu na poniedziałek, gdy niepełny tydzień 0 nie ma treningów.
+   * Używane przy dogenerowaniu tygodnia do istniejącego planu – numeracja tygodni musi zostać ta sama.
+   */
+  keepStartDate?: boolean;
 };
 
 const BASE_EASY_MIN: Record<Level, number> = { beginner: 25, intermediate: 30, advanced: 40 };
@@ -275,7 +280,7 @@ export function generateInitialPlan(input: PlanInput): GeneratedPlan {
   let startsOn = input.startDate;
   // Niepełny pierwszy tydzień bez żadnego treningu (np. start w niedzielę, a biegasz wt/sb)
   // nie liczy się do planu – zaczynamy od najbliższego poniedziałku.
-  if (isoWeekday(startsOn) !== 1 && buildWeek(input, 0, startsOn, addDaysIso(startsOn, 7 - isoWeekday(startsOn))).sessions.length === 0) {
+  if (!input.keepStartDate && isoWeekday(startsOn) !== 1 && buildWeek(input, 0, startsOn, addDaysIso(startsOn, 7 - isoWeekday(startsOn))).sessions.length === 0) {
     startsOn = addDaysIso(startsOn, 8 - isoWeekday(startsOn));
   }
   const planStart = startsOn;
@@ -292,4 +297,15 @@ export function generateInitialPlan(input: PlanInput): GeneratedPlan {
     endsOn: weeks[weeks.length - 1]?.endsOn ?? input.startDate,
     weeks,
   };
+}
+
+/**
+ * Generuje jeden tydzień planu (numeracja od 0) dokładnie tak, jak wyglądałby w pełnym planie:
+ * te same daty, ten sam przyrost obciążenia i limit 10% względem poprzednich tygodni.
+ * `input.startDate` to dzień startu planu (`plans.starts_on`), nie początek tygodnia.
+ */
+export function generatePlanWeek(input: PlanInput, weekIndex: number): PlannedWeek {
+  if (!Number.isInteger(weekIndex) || weekIndex < 0) throw new RangeError(`weekIndex must be ≥ 0, got ${weekIndex}`);
+  const plan = generateInitialPlan({ ...input, weeks: weekIndex + 1, keepStartDate: true });
+  return plan.weeks[weekIndex] as PlannedWeek;
 }

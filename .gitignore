@@ -36,3 +36,5 @@ supabase/.temp/
 *.log
 .vercel
 .idea/
+.env*
+!.env.example
