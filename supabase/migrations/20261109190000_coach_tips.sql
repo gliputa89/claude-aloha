@@ -82,9 +82,9 @@ insert into public.coach_tips (session_type, locale, text) values
   ('walk_run', 'pl', 'Krótki krok, luźne ramiona, wzrok przed siebie. Bieg ma być przyjemny.'),
   ('walk_run', 'pl', 'Każdy taki trening to cegiełka. Za kilka tygodni biegowe odcinki same się wydłużą.'),
   ('walk_run', 'en', 'Run slowly enough to chat. Walking is part of the plan, not a failure.'),
-  ('walk_run', 'en', "Keep the running bits light. Huffing at the end? Go a little slower next time."),
+  ('walk_run', 'en', 'Keep the running bits light. Huffing at the end? Go a little slower next time.'),
   ('walk_run', 'en', 'The walk is active rest: walk briskly, swing your arms, let your breathing settle.'),
-  ('walk_run', 'en', "Don't skip the walk breaks, even if you feel great. Consistency beats one hard day."),
+  ('walk_run', 'en', 'Don''t skip the walk breaks, even if you feel great. Consistency beats one hard day.'),
   ('walk_run', 'en', 'Short steps, loose shoulders, eyes ahead. This should feel good.'),
   ('walk_run', 'en', 'Every session like this is a building block. In a few weeks the running parts will grow on their own.'),
   -- bieg spokojny
@@ -98,8 +98,8 @@ insert into public.coach_tips (session_type, locale, text) values
   ('easy', 'en', 'Easy means truly easy. You should finish feeling you could keep going.'),
   ('easy', 'en', 'Good day for a new route or a run by feel, without checking your watch.'),
   ('easy', 'en', 'Relax your shoulders and hands. Easy runs are technique practice too.'),
-  ('easy', 'en', "Don't race the clock. Today is about time on your feet, not pace."),
-  ('easy', 'en', "It's fine to walk the hills – it's still an easy run, not a test."),
+  ('easy', 'en', 'Don''t race the clock. Today is about time on your feet, not pace.'),
+  ('easy', 'en', 'It''s fine to walk the hills – it''s still an easy run, not a test.'),
   -- rozbieganie
   ('recovery', 'pl', 'Bardzo lekko, dla rozruszania nóg. Im wolniej, tym lepiej.'),
   ('recovery', 'pl', 'To bieg na regenerację – wolniej, niż Ci się wydaje, że wypada.'),
@@ -132,7 +132,7 @@ insert into public.coach_tips (session_type, locale, text) values
   ('intervals', 'pl', 'Czujesz, że technika się sypie? Odpuść ostatni odcinek – jakość ważniejsza niż liczba.'),
   ('intervals', 'pl', 'Płaski, znany odcinek trasy ułatwi trzymanie równego tempa.'),
   ('intervals', 'en', 'Hard but even – the last rep as fast as the first. Jog the recoveries.'),
-  ('intervals', 'en', "Don't skip the warm-up – hard reps on cold legs are asking for trouble."),
+  ('intervals', 'en', 'Don''t skip the warm-up – hard reps on cold legs are asking for trouble.'),
   ('intervals', 'en', 'Start the first rep a touch slow. Better to finish strong than fade halfway.'),
   ('intervals', 'en', 'Count reps, not kilometres. Focus on an even rhythm and your breathing.'),
   ('intervals', 'en', 'Form falling apart? Skip the last rep – quality beats quantity.'),
@@ -144,7 +144,7 @@ insert into public.coach_tips (session_type, locale, text) values
   ('tempo', 'pl', 'Po rozgrzewce wejdź w tempo stopniowo, przez minutę–dwie, nie od razu.'),
   ('tempo', 'pl', 'Ten trening uczy ciało biegać szybciej dłużej. Cierpliwość popłaca.'),
   ('tempo', 'en', 'Steady, harder pace: you can say a few words, but not a full sentence.'),
-  ('tempo', 'en', "Comfortably hard is the feeling. Don't speed up halfway."),
+  ('tempo', 'en', 'Comfortably hard is the feeling. Don''t speed up halfway.'),
   ('tempo', 'en', 'Focus on your breathing: a steady, deep rhythm helps you hold the pace.'),
   ('tempo', 'en', 'After the warm-up, ease into the pace over a minute or two, not all at once.'),
   ('tempo', 'en', 'This session teaches your body to run faster for longer. Patience pays off.'),
@@ -155,8 +155,8 @@ insert into public.coach_tips (session_type, locale, text) values
   ('race', 'pl', 'Praca jest zrobiona. Dziś po prostu ją odbierasz – powodzenia!'),
   ('race', 'en', 'Start easy, pick it up in the second half. And enjoy the race!'),
   ('race', 'en', 'Nothing new on race day: familiar shoes, breakfast and kit.'),
-  ('race', 'en', "Arrive early, warm up gently and don't get swept along in the first kilometre."),
-  ('race', 'en', "You've done the work. Today you just collect it – good luck!"),
+  ('race', 'en', 'Arrive early, warm up gently and don''t get swept along in the first kilometre.'),
+  ('race', 'en', 'You''ve done the work. Today you just collect it – good luck!'),
   -- odpoczynek
   ('rest', 'pl', 'Dziś bez biegania. Spacer albo rozciąganie – jeśli masz ochotę.'),
   ('rest', 'pl', 'Odpoczynek to też trening. Mięśnie rosną w przerwie, nie w biegu.'),
@@ -165,4 +165,4 @@ insert into public.coach_tips (session_type, locale, text) values
   ('rest', 'en', 'No running today. A walk or some stretching – if you feel like it.'),
   ('rest', 'en', 'Rest is training too. Your muscles get stronger in the break, not the run.'),
   ('rest', 'en', 'Good day for a bit more sleep than usual.'),
-  ('rest', 'en', "Your legs will thank you. You'll be fresher tomorrow.");
+  ('rest', 'en', 'Your legs will thank you. You''ll be fresher tomorrow.');
