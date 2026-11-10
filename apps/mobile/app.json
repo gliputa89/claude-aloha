@@ -43,7 +43,18 @@
       ],
       "expo-sqlite",
       "expo-localization",
-      "expo-apple-authentication"
+      "expo-apple-authentication",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Aloha sprawdza pogodę w Twojej okolicy, żeby podpowiedzieć najlepszą porę na trening.",
+          "locationAlwaysAndWhenInUsePermission": false,
+          "locationAlwaysPermission": false,
+          "locationFullAccuracyPermission": false,
+          "motionUsagePermission": false,
+          "isIosReducedAccuracyByDefault": true
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
@@ -64,6 +75,10 @@
     },
     "updates": {
       "url": "https://u.expo.dev/d2b6cfeb-6668-42c3-86ac-90744e3dde7a"
+    },
+    "locales": {
+      "pl": "./locales/pl.json",
+      "en": "./locales/en.json"
     }
   }
 }

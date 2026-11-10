@@ -3,6 +3,7 @@ import { StyleSheet, View } from 'react-native';
 
 import { Mark } from '@/components/brand/mark';
 import { SessionRow } from '@/components/plan/session-row';
+import { WeatherCard, WeatherPrompt } from '@/components/plan/weather-card';
 import { Button } from '@/components/ui/button';
 import { FadeUp } from '@/components/ui/fade-up';
 import { InfoCard } from '@/components/ui/info-card';
@@ -12,17 +13,22 @@ import { radius, space } from '@/constants/theme';
 import { todayIso } from '@/features/onboarding/time';
 import { allSessions, usePlan } from '@/features/plan/plan-provider';
 import { PlanStatus } from '@/features/plan/plan-status';
+import { useWeather } from '@/features/weather/weather-provider';
 import { useColors } from '@/hooks/use-colors';
 import { useLocale, useT } from '@/hooks/use-t';
 import { useAuth } from '@/providers/auth-provider';
 
-/** Zakładka „Dzisiaj”: powitanie, dzisiejszy trening i następny w kolejce. Docelowo też check-in wg makiet. */
+/**
+ * Zakładka „Dzisiaj”: powitanie, dzisiejszy trening i następny w kolejce – każdy z pogodą i poradą,
+ * kiedy najlepiej wyjść. Docelowo też check-in wg makiet.
+ */
 export default function TodayScreen() {
   const t = useT();
   const c = useColors();
   const locale = useLocale();
   const { profile } = useAuth();
   const { state, reload } = usePlan();
+  const weather = useWeather();
   const today = todayIso();
   const name = profile?.display_name;
 
@@ -36,12 +42,17 @@ export default function TodayScreen() {
   const todays = sessions.filter((s) => s.scheduled_on === today);
   const todayRuns = todays.filter((s) => s.type !== 'rest');
   const next = sessions.find((s) => s.scheduled_on > today && s.type !== 'rest');
+  const shown = [...todayRuns, ...(next ? [next] : [])];
+  const hasWeather = shown.some((s) => weather.bySession.has(s.id));
 
   return (
     <Screen
       title={name ? t('home.greeting', { name }) : t('home.greetingNoName')}
       subtitle={dateLabel.charAt(0).toUpperCase() + dateLabel.slice(1)}
-      onRefresh={reload}
+      onRefresh={async () => {
+        await reload();
+        await weather.refresh();
+      }}
       above={
         <View style={[styles.avatar, { backgroundColor: c.surfaceBrand }]}>
           <Mark size={36} wave="textOnBrand" />
@@ -56,7 +67,12 @@ export default function TodayScreen() {
               {t('today.title')}
             </Text>
             {todayRuns.length > 0 ? (
-              todayRuns.map((s) => <SessionRow key={s.id} session={s} today />)
+              todayRuns.map((s) => (
+                <View key={s.id} style={styles.section}>
+                  <SessionRow session={s} today />
+                  <WeatherCard session={s} />
+                </View>
+              ))
             ) : todays.length > 0 ? (
               <InfoCard title={t('today.restTitle')} body={t('today.restBody')} />
             ) : (
@@ -70,7 +86,15 @@ export default function TodayScreen() {
                 {t('today.next')}
               </Text>
               <SessionRow session={next} today={false} />
+              <WeatherCard session={next} />
             </FadeUp>
+          ) : null}
+
+          {shown.length > 0 ? <WeatherPrompt /> : null}
+          {hasWeather ? (
+            <Text variant="caption" align="center">
+              {t('weather.credit')}
+            </Text>
           ) : null}
 
           <FadeUp delay={220}>

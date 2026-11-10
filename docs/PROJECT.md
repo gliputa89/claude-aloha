@@ -230,6 +230,11 @@ Uwzględniamy od pierwszego dnia projektowania (privacy by design). *Poniższe t
 - Anthropic jako podmiot przetwarzający – umowa powierzenia (DPA); weryfikacja zasad retencji danych i braku trenowania modeli na danych z API.
 - Notatki tekstowe użytkownika: przed wysłaniem informacja w polityce prywatności, że są analizowane przez AI.
 
+### 6.3a Lokalizacja (pogoda do treningu)
+- Lokalizacja tylko za zgodą systemową „podczas używania aplikacji”; bez zgody aplikacja działa normalnie, tylko bez karty pogody.
+- Z telefonu wychodzą współrzędne **zaokrąglone do 0,1° (ok. 10 km)**; tylko takie zapisujemy (`session_weather`) i wysyłamy do dostawcy prognozy (Open-Meteo). Do Claude API lokalizacja nie trafia – model dostaje samą pogodę i rodzaj treningu.
+- Do uzupełnienia przed publikacją: wpis w polityce prywatności (cel, odbiorca Open-Meteo) oraz „Przybliżona lokalizacja” w App Privacy / Data safety.
+
 ### 6.4 Prawa użytkownika
 - **Eksport danych** (JSON) i **usunięcie konta z poziomu aplikacji** – wymagane przez RODO oraz przez App Store i Google Play.
 - Polityka prywatności i regulamin w PL i EN, dostępne przed rejestracją i w ustawieniach.

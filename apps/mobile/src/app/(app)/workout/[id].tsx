@@ -18,6 +18,7 @@ import Animated, { useReducedMotion } from 'react-native-reanimated';
 
 import { Mark } from '@/components/brand/mark';
 import { TYPE_COLOR, useDetail } from '@/components/plan/session-row';
+import { WeatherCard } from '@/components/plan/weather-card';
 import { WorkoutChart, WorkoutSteps } from '@/components/plan/workout-intervals';
 import { FadeUp } from '@/components/ui/fade-up';
 import { InfoCard } from '@/components/ui/info-card';
@@ -227,6 +228,10 @@ function Detail({ session }: { session: PlanSession }) {
           </FadeUp>
         </>
       ) : null}
+
+      <FadeUp delay={hasSteps ? T.rest + 60 : T.stats + 80}>
+        <WeatherCard session={session} credit />
+      </FadeUp>
 
       <FadeUp delay={hasSteps ? T.rest + 100 : T.stats + 120}>
         <View style={[styles.coach, { backgroundColor: c.surfaceBrandSoft }]}>

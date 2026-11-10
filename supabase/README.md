@@ -20,6 +20,17 @@ Szczegóły: [`docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md), sekcja 3.
 - `generate-next-week` – kolejny tydzień + przegląd poziomu zaawansowania (awans / spadek o jeden, historia w `training_level_changes`).
   Generuje tydzień, gdy ostatni kończy się w ciągu 2 dni; drugi raz tego samego tygodnia nie dopisze.
 
+## Edge Function pogody
+
+- `session-weather` – pogoda do treningów z najbliższych 7 dni dla zakładki „Dzisiaj” i szczegółów treningu.
+  Aplikacja podaje przybliżoną lokalizację (zaokrągloną do 0,1°), funkcja pobiera prognozę godzinową i jakość powietrza
+  z Open-Meteo, reguły z `packages/plan-engine/weather.ts` wybierają najlepsze okno i ostrzeżenia, a Claude
+  (funkcja AI `weather-advice`, domyślnie Haiku) pisze 1–2 zdania porady. Wynik trafia do `public.session_weather`
+  (świeży przez 3 h, dla dzisiejszego treningu 1 h); AI jest wołane tylko, gdy wynik reguł się zmienił.
+- **Licencja Open-Meteo**: darmowe API jest tylko do użytku niekomercyjnego (aplikacja z subskrypcją lub reklamami to już
+  użytek komercyjny) i wymaga podpisu źródła – aplikacja pokazuje „Dane pogodowe: Open-Meteo”. Przed płatnym wydaniem:
+  wykup plan i ustaw `supabase secrets set OPEN_METEO_API_KEY=…` – funkcja sama przełączy się na adresy dla klientów.
+
 Przed `supabase functions serve` / deployem: `scripts/sync-plan-engine.sh` (kopia `packages/plan-engine`).
 
 ### Cron dla `generate-next-week` (raz na środowisko)

@@ -13,3 +13,5 @@ export * from './ai-prompt.ts';
 export * from './ai-run.ts';
 export * from './ai-config.ts';
 export * from './workout.ts';
+export * from './weather.ts';
+export * from './weather-advice.ts';

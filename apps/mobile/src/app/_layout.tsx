@@ -91,6 +91,7 @@ function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
         <Stack.Screen name="auth/reset-password" />
         {/* Podglądy deweloperskie – poza development buildem trasa przekierowuje na start. */}
         <Stack.Screen name="dev/plan-loader" options={{ headerShown: false }} />
+        <Stack.Screen name="dev/weather" options={{ headerShown: false }} />
       </Stack>
     </ThemeProvider>
   );
