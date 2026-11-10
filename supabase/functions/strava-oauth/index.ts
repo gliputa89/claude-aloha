@@ -14,7 +14,7 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 
 import { isServiceKey } from '../_shared/auth.ts';
-import { exchangeCode, RateLimited, saveConnection, STRAVA, stravaClient, Unauthorized } from '../_shared/strava.ts';
+import { AthleteLimit, exchangeCode, RateLimited, saveConnection, STRAVA, stravaClient, Unauthorized } from '../_shared/strava.ts';
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -90,6 +90,10 @@ Deno.serve(async (req) => {
       if (!athlete) return back(state.r, 'failed');
       return back(state.r, (await saveConnection(db, state.u, tokens, athlete, granted.join(','))) === 'ok' ? 'connected' : 'failed');
     } catch (e) {
+      if (e instanceof AthleteLimit) {
+        console.warn('strava athlete limit', state.u, e.message);
+        return back(state.r, 'athlete_limit');
+      }
       if (e instanceof RateLimited) return back(state.r, 'rate_limited');
       if (!(e instanceof Unauthorized)) console.error('strava oauth exchange failed', state.u, e instanceof Error ? e.message : e);
       return back(state.r, 'failed');

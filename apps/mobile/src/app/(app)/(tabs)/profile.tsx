@@ -56,7 +56,8 @@ export default function ProfileScreen() {
       await reload();
       setStrava(await fetchStravaStatus());
     } else if (result !== 'cancelled') {
-      Alert.alert(t('profile.strava'), t(result === 'no_activity_scope' ? 'profile.stravaNoScope' : 'profile.stravaConnectFailed'));
+      const message = { no_activity_scope: 'profile.stravaNoScope', athlete_limit: 'profile.stravaLimit', failed: 'profile.stravaConnectFailed' } as const;
+      Alert.alert(t('profile.strava'), t(message[result]));
     }
     setStravaBusy(false);
   };

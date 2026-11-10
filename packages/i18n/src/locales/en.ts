@@ -379,6 +379,7 @@ export const en: Dictionary = {
     reconnect: 'Reconnect',
     stravaConnectFailed: 'Couldn’t connect to Strava. Try again in a moment.',
     stravaNoScope: 'Without access to your activities I can’t fetch your runs. Connect again and leave that permission checked.',
+    stravaLimit: 'Strava isn’t accepting more accounts for Aloha right now. Try again later – we’re on it.',
     stravaDisconnectTitle: 'Disconnect Strava?',
     stravaDisconnectBody: 'New runs will stop syncing. Completed workouts stay in your plan.',
     stravaDisconnect: 'Disconnect',

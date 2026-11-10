@@ -380,6 +380,7 @@ export const pl = {
     reconnect: 'Połącz ponownie',
     stravaConnectFailed: 'Nie udało się połączyć ze Stravą. Spróbuj jeszcze raz za chwilę.',
     stravaNoScope: 'Bez dostępu do aktywności nie pobiorę Twoich biegów. Połącz jeszcze raz i zostaw tę zgodę zaznaczoną.',
+    stravaLimit: 'Strava nie przyjmuje teraz kolejnych kont w Aloha. Spróbuj później – pracujemy nad tym.',
     stravaDisconnectTitle: 'Rozłączyć Stravę?',
     stravaDisconnectBody: 'Nowe biegi przestaną się pobierać. Odhaczone treningi zostaną w planie.',
     stravaDisconnect: 'Rozłącz',

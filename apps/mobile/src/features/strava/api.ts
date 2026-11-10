@@ -67,7 +67,7 @@ export async function syncStrava(force = false): Promise<number> {
   }
 }
 
-export type StravaConnectResult = 'connected' | 'cancelled' | 'no_activity_scope' | 'failed';
+export type StravaConnectResult = 'connected' | 'cancelled' | 'no_activity_scope' | 'athlete_limit' | 'failed';
 
 /**
  * „Połącz przez Stravę”: ekran zgody Stravy w systemowym oknie logowania. Funkcja strava-oauth zapisuje
@@ -88,7 +88,7 @@ export async function connectStrava(): Promise<StravaConnectResult> {
       disconnected = false;
       return 'connected';
     }
-    return result === 'cancelled' || result === 'no_activity_scope' ? result : 'failed';
+    return result === 'cancelled' || result === 'no_activity_scope' || result === 'athlete_limit' ? result : 'failed';
   } catch {
     return 'failed';
   }

@@ -20,6 +20,8 @@ export class Unauthorized extends Error {
   }
 }
 export class RateLimited extends Error {}
+/** Aplikacja Stravy ma już komplet połączonych sportowców (nowe aplikacje: jeden) – Strava nie wydaje tokenów. */
+export class AthleteLimit extends Error {}
 
 export type StravaTokens = { access_token: string; refresh_token: string; access_token_expires_at: string };
 export type StravaAthlete = { id?: number; firstname?: string; lastname?: string };
@@ -31,9 +33,17 @@ async function tokenRequest(client: StravaClient, grant: Record<string, string>)
     body: JSON.stringify({ client_id: client.id, client_secret: client.secret, ...grant }),
     signal: AbortSignal.timeout(10_000),
   });
-  if (res.status === 400 || res.status === 401) throw new Unauthorized('token');
-  if (res.status === 429) throw new RateLimited();
-  if (!res.ok) throw new Error(`token ${res.status}`);
+  if (!res.ok) {
+    // Treść błędu Stravy (bez tokenów) – po niej widać, czy to limit sportowców, zły kod, czy złe klucze.
+    const text = (await res.text().catch(() => '')).slice(0, 300);
+    if (res.status === 403 || /limit of connected athletes/i.test(text)) throw new AthleteLimit(text);
+    if (res.status === 429) throw new RateLimited();
+    if (res.status === 400 || res.status === 401) {
+      console.warn('strava token rejected', res.status, text);
+      throw new Unauthorized('token');
+    }
+    throw new Error(`token ${res.status} ${text}`);
+  }
   const body = (await res.json()) as { access_token: string; refresh_token: string; expires_at: number; athlete?: StravaAthlete };
   const tokens: StravaTokens = {
     access_token: body.access_token,

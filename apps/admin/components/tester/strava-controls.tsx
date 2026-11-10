@@ -15,6 +15,8 @@ const RETURNED: Record<string, string> = {
   cancelled: 'Anulowano na ekranie Stravy – nic się nie zmieniło.',
   no_activity_scope: 'Na ekranie Stravy odznaczono dostęp do aktywności – bez niego nie pobiorę biegów. Połącz jeszcze raz.',
   not_configured: 'Funkcja nie ma sekretów STRAVA_CLIENT_ID / STRAVA_CLIENT_SECRET.',
+  athlete_limit:
+    'Strava odmówiła: aplikacja ma już komplet połączonych sportowców (nowa aplikacja obsługuje jednego). Zgoda zapisała się w Stravie i zajmuje miejsce – cofnij ją w Stravie (Ustawienia → Moje aplikacje), zanim spróbujesz innym kontem.',
   rate_limited: 'Strava odmówiła z powodu limitu zapytań – spróbuj za kilkanaście minut.',
   failed: 'Strava nie przyjęła połączenia (kod wygasł albo sekrety funkcji są z innej aplikacji Stravy). Spróbuj jeszcze raz.',
 };
