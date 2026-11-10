@@ -1,6 +1,7 @@
 // Edge Function: pogoda do najbliższych treningów (zakładka „Dzisiaj” i szczegóły treningu).
 //
-// Aplikacja podaje przybliżoną lokalizację (zaokrąglamy do 0,1° ≈ 10 km) i język. Funkcja:
+// Aplikacja podaje przybliżoną lokalizację (zaokrąglamy do 0,1° ≈ 10 km), opcjonalnie inne miejsca
+// dla pojedynczych treningów (`places`: id treningu → { lat, lon }) i język. Funkcja:
 //   1. bierze treningi aktywnego planu na 7 dni (bez odpoczynku, tylko zaplanowane),
 //   2. pobiera prognozę godzinową i jakość powietrza (Open-Meteo),
 //   3. reguły (packages/plan-engine/weather.ts) wybierają najlepsze okno i ostrzeżenia,
@@ -23,6 +24,7 @@ import {
   promptFromRow,
   weatherAdviceWithAi,
   weatherKey,
+  WEATHER_RULES,
   type AiCallPayload,
   type AiCallRecord,
   type HourForecast,
@@ -41,7 +43,7 @@ const json = (body: unknown, status = 200) =>
 const FORECAST_DAYS = 7;
 const FRESH_MS = 3 * 60 * 60 * 1000;
 const FRESH_TODAY_MS = 60 * 60 * 1000;
-/** Częściej niż co tyle nie pytamy o prognozę, cokolwiek przyśle aplikacja. */
+/** Częściej niż co tyle nie pytamy o prognozę dla tego samego miejsca, cokolwiek przyśle aplikacja. */
 const MIN_INTERVAL_MS = 10 * 60 * 1000;
 
 type SessionRow = {
@@ -51,6 +53,24 @@ type SessionRow = {
   duration_min: number | null;
   intensity: string | null;
   status: string;
+};
+
+type Grid = { lat: number; lon: number };
+
+/** Najwyżej tyle różnych miejsc (zapytań o prognozę) w jednym wywołaniu. */
+const MAX_PLACES = 4;
+
+type SavedRow = {
+  session_id: string;
+  user_id: string;
+  forecast: SessionWeather;
+  forecast_key: string;
+  advice: string | null;
+  advice_locale: string | null;
+  advice_key: string | null;
+  lat_grid: number;
+  lon_grid: number;
+  fetched_at: string;
 };
 
 type WeatherRow = {
@@ -129,12 +149,17 @@ Deno.serve(async (req) => {
   const userId = auth.user.id;
 
   const body = await req.json().catch(() => null);
-  const lat = Number(body?.lat);
-  const lon = Number(body?.lon);
-  if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return json({ error: 'invalid_location' }, 400);
   // Zaokrąglenie do 0,1° – dokładniejsza pozycja nie wychodzi poza to miejsce (ani do bazy, ani do dostawcy pogody).
-  const latGrid = Math.round(lat * 10) / 10;
-  const lonGrid = Math.round(lon * 10) / 10;
+  const gridOf = (p: unknown): Grid | null => {
+    const lat = Number((p as { lat?: unknown } | null)?.lat ?? NaN);
+    const lon = Number((p as { lon?: unknown } | null)?.lon ?? NaN);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return null;
+    return { lat: Math.round(lat * 10) / 10, lon: Math.round(lon * 10) / 10 };
+  };
+  // Miejsce domyślne (okolica z telefonu albo wpisane) i miejsca wybrane dla pojedynczych treningów.
+  const defaultGrid = gridOf(body);
+  const places: Record<string, unknown> = typeof body?.places === 'object' && body.places !== null ? body.places : {};
+  if (!defaultGrid && Object.keys(places).length === 0) return json({ error: 'invalid_location' }, 400);
   const locale = body?.locale === 'en' ? 'en' : 'pl';
 
   const [profileRes, planRes] = await Promise.all([
@@ -151,117 +176,145 @@ Deno.serve(async (req) => {
 
   // Wstępny wybór wg strefy z profilu (o dobę szerzej) – właściwe „dziś” znamy dopiero ze strefy miejsca prognozy.
   const profileNow = localNow(profileRes.data?.timezone ?? 'Europe/Warsaw');
-  const upcoming = allSessions.filter(
-    (s) =>
-      s.type !== 'rest' &&
-      s.status === 'planned' &&
-      s.scheduled_on >= addDaysIso(profileNow.today, -1) &&
-      s.scheduled_on <= addDaysIso(profileNow.today, FORECAST_DAYS),
-  );
+  const upcoming = allSessions
+    .filter(
+      (s) =>
+        s.type !== 'rest' &&
+        s.status === 'planned' &&
+        s.scheduled_on >= addDaysIso(profileNow.today, -1) &&
+        s.scheduled_on <= addDaysIso(profileNow.today, FORECAST_DAYS),
+    )
+    .map((s) => ({ session: s, grid: gridOf(places[s.id]) ?? defaultGrid }))
+    .filter((u): u is { session: SessionRow; grid: Grid } => u.grid !== null);
   if (upcoming.length === 0) return json({ sessions: [], cached: true });
 
   const cachedRes = await db
     .from('session_weather')
     .select('session_id, forecast, forecast_key, advice, advice_locale, advice_key, lat_grid, lon_grid, fetched_at')
-    .in('session_id', upcoming.map((s) => s.id));
+    .in('session_id', upcoming.map((u) => u.session.id));
   if (cachedRes.error) return json({ error: 'load_failed', detail: cachedRes.error.message }, 500);
   const cached = new Map((cachedRes.data as WeatherRow[]).map((r) => [r.session_id, r]));
 
   const nowMs = Date.now();
   const age = (r: WeatherRow) => nowMs - Date.parse(r.fetched_at);
-  const rows = [...cached.values()];
-  const sameGrid = (r: WeatherRow) => Number(r.lat_grid) === latGrid && Number(r.lon_grid) === lonGrid;
-  const throttled = rows.some((r) => age(r) < MIN_INTERVAL_MS);
-  const fresh =
-    rows.length > 0 &&
-    upcoming
-      .filter((s) => s.scheduled_on >= profileNow.today && s.scheduled_on < addDaysIso(profileNow.today, FORECAST_DAYS))
-      .every((s) => {
-        const r = cached.get(s.id);
-        if (!r || !sameGrid(r) || r.forecast.date !== s.scheduled_on) return false;
-        return age(r) < (s.scheduled_on === profileNow.today ? FRESH_TODAY_MS : FRESH_MS);
-      });
-  if (throttled || fresh) {
-    const current = rows.filter((r) => r.forecast.date >= profileNow.today);
-    return json({ sessions: toResponse(current, locale), cached: true });
-  }
-
-  let forecast: Awaited<ReturnType<typeof fetchForecast>>;
-  try {
-    forecast = await fetchForecast(latGrid, lonGrid);
-  } catch (e) {
-    console.error('forecast failed', e instanceof Error ? e.message : e);
-    return json({ error: 'forecast_unavailable' }, 502);
-  }
-  const now = localNow(forecast.timezone);
-
-  const assessed: { session: SessionRow; weather: SessionWeather; key: string }[] = [];
-  const gone: string[] = [];
-  for (const s of upcoming) {
-    const weather =
-      s.scheduled_on >= now.today
-        ? assessSession({
-            date: s.scheduled_on,
-            durationMin: s.duration_min,
-            hours: forecast.hours,
-            nowHour: s.scheduled_on === now.today ? now.hour : null,
-          })
-        : null;
-    if (weather) assessed.push({ session: s, weather, key: weatherKey(weather) });
-    else if (cached.has(s.id)) gone.push(s.id);
-  }
-
-  // Porada od AI tylko tam, gdzie wynik reguł albo język się zmienił – reszta zostaje z poprzedniego razu.
-  const kept = (a: (typeof assessed)[number]) => {
-    const r = cached.get(a.session.id);
-    return r && r.advice && r.advice_key === a.key && r.advice_locale === locale ? r.advice : null;
+  const sameGrid = (r: WeatherRow, g: Grid) => Number(r.lat_grid) === g.lat && Number(r.lon_grid) === g.lon;
+  /** Zapis dla tego treningu i tego miejsca, który jeszcze można oddać bez pytania o prognozę. */
+  const usable = (u: (typeof upcoming)[number]) => {
+    const r = cached.get(u.session.id);
+    // Inne miejsce niż w zapisie = biegacz właśnie je zmienił – pobieramy od razu, bez limitu.
+    if (!r || !sameGrid(r, u.grid) || r.forecast.date !== u.session.scheduled_on) return null;
+    const today = u.session.scheduled_on === profileNow.today;
+    return age(r) < MIN_INTERVAL_MS || age(r) < (today ? FRESH_TODAY_MS : FRESH_MS) ? r : null;
   };
-  const needAdvice = assessed.filter((a) => !kept(a));
-  let advice: Record<string, string> = {};
-  const apiKey = claudeKey();
-  if (needAdvice.length > 0 && apiKey) {
-    const promptRes = await db.rpc('get_ai_prompt', { p_function: 'weather-advice' });
-    if (promptRes.error) console.error('get_ai_prompt failed', promptRes.error.message);
-    const outcome = await weatherAdviceWithAi({
-      sessions: needAdvice.map((a) => ({
-        type: a.session.type,
-        durationMin: a.session.duration_min,
-        intensity: a.session.intensity,
-        weather: a.weather,
-      })),
-      locale,
-      today: now.today,
-      nowHour: now.hour,
-      prompt: promptFromRow('weather-advice', promptRes.data),
-      call: claudeCaller(apiKey),
-      log: async (call: AiCallRecord, payload: AiCallPayload) => {
-        const { data, error } = await db.rpc('log_ai_call', { p_call: call, p_payload: payload });
-        if (error) console.error('log_ai_call failed', error.code, error.message);
-        return (data as number | null) ?? null;
-      },
-      meta: { userId, isTest: auth.user.user_metadata?.test_account === true },
-    });
-    advice = outcome.advice;
-  } else if (needAdvice.length > 0) {
-    console.warn('ANTHROPIC_API_KEY not set – weather without AI advice');
+  const stale = upcoming.filter((u) => {
+    const day = u.session.scheduled_on;
+    if (day < profileNow.today || day >= addDaysIso(profileNow.today, FORECAST_DAYS)) return false;
+    // Dziś po 21 nie ma już okna na trening – nie ma o co pytać.
+    if (day === profileNow.today && profileNow.hour >= WEATHER_RULES.dayEndHour - 1) return false;
+    return !usable(u);
+  });
+  const fromCache = () =>
+    upcoming
+      .filter((u) => !stale.includes(u))
+      .map((u) => cached.get(u.session.id))
+      .filter((r): r is WeatherRow => r !== undefined && r.forecast.date >= profileNow.today);
+  if (stale.length === 0) return json({ sessions: toResponse(fromCache(), locale), cached: true });
+
+  // Jedno zapytanie o prognozę na miejsce (zwykle jedno; najwyżej kilka, gdy treningi są w różnych miejscach).
+  const groups = new Map<string, { grid: Grid; items: typeof stale }>();
+  for (const u of stale) {
+    const key = `${u.grid.lat},${u.grid.lon}`;
+    const g = groups.get(key) ?? { grid: u.grid, items: [] };
+    g.items.push(u);
+    groups.set(key, g);
   }
 
+  const apiKey = claudeKey();
+  if (!apiKey) console.warn('ANTHROPIC_API_KEY not set – weather without AI advice');
   const fetchedAt = new Date(nowMs).toISOString();
-  const toSave = assessed.map((a) => {
-    const text = kept(a) ?? advice[a.weather.date] ?? null;
-    return {
-      session_id: a.session.id,
-      user_id: userId,
-      forecast: a.weather,
-      forecast_key: a.key,
-      advice: text,
-      advice_locale: text ? locale : null,
-      advice_key: text ? a.key : null,
-      lat_grid: latGrid,
-      lon_grid: lonGrid,
-      fetched_at: fetchedAt,
+  const toSave: SavedRow[] = [];
+  const gone: string[] = [];
+  let failed = 0;
+
+  for (const group of [...groups.values()].slice(0, MAX_PLACES)) {
+    let forecast: Awaited<ReturnType<typeof fetchForecast>>;
+    try {
+      forecast = await fetchForecast(group.grid.lat, group.grid.lon);
+    } catch (e) {
+      console.error('forecast failed', e instanceof Error ? e.message : e);
+      failed++;
+      continue;
+    }
+    const now = localNow(forecast.timezone);
+
+    const assessed: { session: SessionRow; weather: SessionWeather; key: string }[] = [];
+    for (const { session: s } of group.items) {
+      const weather =
+        s.scheduled_on >= now.today
+          ? assessSession({
+              date: s.scheduled_on,
+              durationMin: s.duration_min,
+              hours: forecast.hours,
+              nowHour: s.scheduled_on === now.today ? now.hour : null,
+            })
+          : null;
+      if (weather) assessed.push({ session: s, weather, key: weatherKey(weather) });
+      else if (cached.has(s.id)) gone.push(s.id);
+    }
+
+    // Porada od AI tylko tam, gdzie wynik reguł albo język się zmienił – reszta zostaje z poprzedniego razu.
+    const kept = (a: (typeof assessed)[number]) => {
+      const r = cached.get(a.session.id);
+      return r && r.advice && r.advice_key === a.key && r.advice_locale === locale ? r.advice : null;
     };
-  });
+    const needAdvice = assessed.filter((a) => !kept(a));
+    let advice: Record<string, string> = {};
+    if (needAdvice.length > 0 && apiKey) {
+      const promptRes = await db.rpc('get_ai_prompt', { p_function: 'weather-advice' });
+      if (promptRes.error) console.error('get_ai_prompt failed', promptRes.error.message);
+      const outcome = await weatherAdviceWithAi({
+        sessions: needAdvice.map((a) => ({
+          type: a.session.type,
+          durationMin: a.session.duration_min,
+          intensity: a.session.intensity,
+          weather: a.weather,
+        })),
+        locale,
+        today: now.today,
+        nowHour: now.hour,
+        prompt: promptFromRow('weather-advice', promptRes.data),
+        call: claudeCaller(apiKey),
+        log: async (call: AiCallRecord, payload: AiCallPayload) => {
+          const { data, error } = await db.rpc('log_ai_call', { p_call: call, p_payload: payload });
+          if (error) console.error('log_ai_call failed', error.code, error.message);
+          return (data as number | null) ?? null;
+        },
+        meta: { userId, isTest: auth.user.user_metadata?.test_account === true },
+      });
+      advice = outcome.advice;
+    }
+
+    for (const a of assessed) {
+      const text = kept(a) ?? advice[a.weather.date] ?? null;
+      toSave.push({
+        session_id: a.session.id,
+        user_id: userId,
+        forecast: a.weather,
+        forecast_key: a.key,
+        advice: text,
+        advice_locale: text ? locale : null,
+        advice_key: text ? a.key : null,
+        lat_grid: group.grid.lat,
+        lon_grid: group.grid.lon,
+        fetched_at: fetchedAt,
+      });
+    }
+  }
+
+  // Żadna prognoza się nie udała i nie ma nic w zapasie → aplikacja po prostu nie pokaże pogody.
+  const rest = fromCache();
+  if (toSave.length === 0 && rest.length === 0 && failed > 0) return json({ error: 'forecast_unavailable' }, 502);
+
   if (toSave.length > 0) {
     const { error } = await db.from('session_weather').upsert(toSave, { onConflict: 'session_id' });
     // Zapis to tylko pamięć podręczna – wynik i tak wraca do aplikacji.
@@ -272,5 +325,5 @@ Deno.serve(async (req) => {
     if (error) console.error('session_weather cleanup failed', error.code, error.message);
   }
 
-  return json({ sessions: toResponse(toSave, locale), cached: false });
+  return json({ sessions: toResponse([...rest, ...toSave], locale), cached: false });
 });

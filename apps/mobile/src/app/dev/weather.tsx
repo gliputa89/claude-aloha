@@ -93,7 +93,7 @@ export default function WeatherPreview() {
           <Text variant="label" color="textMuted">
             {s.label}
           </Text>
-          <WeatherCardView forecast={s.forecast} race={s.race} credit={i === 0} />
+          <WeatherCardView forecast={s.forecast} race={s.race} credit={i === 0} place={i % 2 === 0 ? 'Warszawa' : null} onChangePlace={() => {}} />
         </View>
       ))}
     </ScrollView>

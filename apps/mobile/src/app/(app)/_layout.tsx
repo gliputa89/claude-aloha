@@ -17,6 +17,7 @@ export default function AppLayout() {
           <Stack.Screen name="(tabs)" />
           {/* Natywny arkusz iOS na prawie cały ekran – zamykany też przeciągnięciem w dół. */}
           <Stack.Screen name="workout/[id]" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="weather-location" options={{ presentation: 'modal' }} />
         </Stack>
       </WeatherProvider>
     </PlanProvider>

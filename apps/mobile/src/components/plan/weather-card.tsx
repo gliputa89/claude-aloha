@@ -7,20 +7,25 @@ import {
   CloudRain,
   CloudSnow,
   CloudSun,
+  Drop,
+  MapPin,
   Moon,
   Sun,
+  Thermometer,
   WarningCircle,
+  Wind,
   type IconProps,
 } from 'phosphor-react-native';
+import { router } from 'expo-router';
 import { useState, type ComponentType } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
-import { radius, space } from '@/constants/theme';
+import { font, radius, space } from '@/constants/theme';
 import type { PlanSession } from '@/features/plan/api';
 import type { SessionForecast } from '@/features/weather/api';
-import { useSessionForecast, useWeather } from '@/features/weather/weather-provider';
+import { useSessionForecast, useSessionPlace, useWeather } from '@/features/weather/weather-provider';
 import { useColors } from '@/hooks/use-colors';
 import { useT } from '@/hooks/use-t';
 
@@ -53,7 +58,16 @@ function useFallbackAdvice(f: SessionForecast, race: boolean) {
  */
 export function WeatherCard({ session, credit = false }: { session: PlanSession; credit?: boolean }) {
   const forecast = useSessionForecast(session.id);
-  return forecast ? <WeatherCardView forecast={forecast} race={session.type === 'race'} credit={credit} /> : null;
+  const place = useSessionPlace(session.id);
+  return forecast ? (
+    <WeatherCardView
+      forecast={forecast}
+      race={session.type === 'race'}
+      credit={credit}
+      place={place?.name ?? null}
+      onChangePlace={() => router.push({ pathname: '/weather-location', params: { sessionId: session.id } })}
+    />
+  ) : null;
 }
 
 type WeatherCardViewProps = {
@@ -62,10 +76,14 @@ type WeatherCardViewProps = {
   race?: boolean;
   /** Podpis źródła danych (wymóg licencji) – tam, gdzie karta stoi sama. */
   credit?: boolean;
+  /** Nazwa miejsca prognozy (null – „Twoja okolica”). */
+  place?: string | null;
+  /** Otwiera wybór miejsca dla tego treningu; bez tego wiersz miejsca się nie pokazuje. */
+  onChangePlace?: () => void;
 };
 
 /** Sama karta – bez danych z serwera (używa jej też podgląd deweloperski). */
-export function WeatherCardView({ forecast: f, race = false, credit = false }: WeatherCardViewProps) {
+export function WeatherCardView({ forecast: f, race = false, credit = false, place = null, onChangePlace }: WeatherCardViewProps) {
   const c = useColors();
   const t = useT();
   const fallback = useFallbackAdvice(f, race);
@@ -79,28 +97,50 @@ export function WeatherCardView({ forecast: f, race = false, credit = false }: W
       : f.allDay
         ? t('weather.anytime')
         : t('weather.best', f.window);
-  const facts = [
-    `${t('weather.temp', { n: f.tempC })} ${t(`weather.condition.${f.condition}`).toLowerCase()}`,
-    Math.abs(f.feelsC - f.tempC) >= 2 ? t('weather.feels', { n: f.feelsC }) : null,
-    f.precipProb !== null && f.precipProb >= 10 ? t('weather.precip', { n: f.precipProb }) : null,
-    f.windKmh >= 10 ? t('weather.wind', { n: f.windKmh }) : null,
-  ]
-    .filter(Boolean)
-    .join(' · ');
+  const condition = t(`weather.condition.${f.condition}`);
+  const feels = Math.abs(f.feelsC - f.tempC) >= 2 ? t('weather.feels', { n: f.feelsC }) : null;
+  const metrics = [
+    {
+      Icon: Thermometer,
+      value: [t('weather.temp', { n: f.tempC }), feels].filter(Boolean).join(' · '),
+      label: [t('weather.a11yTemp', { n: f.tempC }), feels].filter(Boolean).join(', '),
+    },
+    f.precipProb !== null
+      ? { Icon: Drop, value: t('weather.percent', { n: f.precipProb }), label: t('weather.a11yPrecip', { n: f.precipProb }) }
+      : null,
+    { Icon: Wind, value: t('weather.kmh', { n: f.windKmh }), label: t('weather.a11yWind', { n: f.windKmh }) },
+  ].filter((m) => m !== null);
 
   return (
     <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
-      <View style={styles.row} accessible accessibilityLabel={`${headline}, ${facts}`}>
+      <View style={styles.row} accessible accessibilityLabel={`${headline}, ${condition}`}>
         <View style={[styles.icon, { backgroundColor: c.surfaceBrandSoft }]}>
           <Icon size={22} weight="bold" color={c.textBrand} />
         </View>
         <View style={styles.flex}>
-          <Text weight="bold">{headline}</Text>
-          <Text variant="caption">{facts}</Text>
+          <Text weight="bold" style={styles.headline}>
+            {headline}
+          </Text>
+          <Text variant="caption">{condition}</Text>
         </View>
       </View>
 
-      {advice ? <Text>{advice}</Text> : null}
+      {/* Temperatura, szansa opadów i wiatr w najlepszym oknie – każda wartość z ikoną. */}
+      <View style={styles.metrics}>
+        {metrics.map((m) => (
+          <View key={m.label} style={styles.metric} accessible accessibilityLabel={m.label}>
+            <m.Icon size={16} weight="bold" color={c.textMuted} />
+            <Text variant="label">{m.value}</Text>
+          </View>
+        ))}
+      </View>
+
+      {/* Karta jest dodatkiem do treningu – tekst o stopień mniejszy niż w karcie treningu. */}
+      {advice ? (
+        <Text variant="caption" color="text">
+          {advice}
+        </Text>
+      ) : null}
 
       {f.avoid.map((a) => (
         <View key={`${a.reason}-${a.from}`} style={[styles.avoid, { backgroundColor: c.surfaceAccentSoft }]}>
@@ -111,18 +151,43 @@ export function WeatherCardView({ forecast: f, race = false, credit = false }: W
         </View>
       ))}
 
-      {credit ? <Text variant="caption">{t('weather.credit')}</Text> : null}
+      {/* Dla jakiego miejsca jest prognoza – każdy trening może mieć własne (wyjazd, zawody). */}
+      {onChangePlace ? (
+        <Pressable
+          onPress={onChangePlace}
+          accessibilityRole="button"
+          accessibilityLabel={t('weather.location.a11y', { name: place ?? t('weather.location.here') })}
+          style={({ pressed }) => [styles.location, { borderTopColor: c.border, opacity: pressed ? 0.6 : 1 }]}>
+          <MapPin size={16} weight="bold" color={c.textMuted} />
+          <Text variant="label" color="textMuted" numberOfLines={1} style={styles.flex}>
+            {place ?? t('weather.location.here')}
+          </Text>
+          <Text variant="label" color="textBrand">
+            {t('weather.location.change')}
+          </Text>
+        </Pressable>
+      ) : null}
+
+      {credit ? (
+        <Text variant="caption" style={styles.small}>
+          {t('weather.credit')}
+        </Text>
+      ) : null}
     </View>
   );
 }
 
-/** Zachęta do włączenia pogody – tylko dopóki system jeszcze nie pytał o lokalizację. */
+/**
+ * Zachęta do włączenia pogody, dopóki nie znamy miejsca: system jeszcze nie pytał o lokalizację
+ * (zgoda albo wpisanie miejscowości) albo zgody nie ma (zostaje wpisanie miejscowości).
+ */
 export function WeatherPrompt() {
   const c = useColors();
   const t = useT();
-  const { access, enable } = useWeather();
+  const { access, place, enable } = useWeather();
   const [asking, setAsking] = useState(false);
-  if (access !== 'undetermined') return null;
+  if (place || access === null || access === 'granted') return null;
+  const canAsk = access === 'undetermined';
 
   return (
     <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
@@ -132,18 +197,25 @@ export function WeatherPrompt() {
         </View>
         <View style={styles.flex}>
           <Text weight="bold">{t('weather.enableTitle')}</Text>
-          <Text variant="caption">{t('weather.enableBody')}</Text>
+          <Text variant="caption">{t(canAsk ? 'weather.enableBody' : 'weather.deniedBody')}</Text>
         </View>
       </View>
+      {canAsk ? (
+        <Button
+          variant="secondary"
+          label={t('weather.enableCta')}
+          loading={asking}
+          onPress={async () => {
+            setAsking(true);
+            await enable();
+            setAsking(false);
+          }}
+        />
+      ) : null}
       <Button
-        variant="secondary"
-        label={t('weather.enableCta')}
-        loading={asking}
-        onPress={async () => {
-          setAsking(true);
-          await enable();
-          setAsking(false);
-        }}
+        variant={canAsk ? 'plain' : 'secondary'}
+        label={t('weather.enableManual')}
+        onPress={() => router.push('/weather-location')}
       />
     </View>
   );
@@ -151,9 +223,22 @@ export function WeatherPrompt() {
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
+  headline: { fontSize: font.size.md, lineHeight: 21 },
+  small: { fontSize: font.size.xs, lineHeight: 17 },
   card: { gap: space[3], padding: space[4], borderRadius: radius.card, borderWidth: 1.5 },
   row: { flexDirection: 'row', alignItems: 'center', gap: space[3] },
   icon: { width: 40, height: 40, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center' },
+  metrics: { flexDirection: 'row', flexWrap: 'wrap', columnGap: space[5], rowGap: space[2] },
+  metric: { flexDirection: 'row', alignItems: 'center', gap: space[2] },
+  location: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[2],
+    minHeight: 44,
+    marginBottom: -space[2],
+    paddingTop: space[1],
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
   avoid: {
     flexDirection: 'row',
     alignItems: 'flex-start',
