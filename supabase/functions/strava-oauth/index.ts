@@ -13,6 +13,7 @@
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 
+import { isServiceKey } from '../_shared/auth.ts';
 import { exchangeCode, RateLimited, saveConnection, STRAVA, stravaClient, Unauthorized } from '../_shared/strava.ts';
 
 const cors = {
@@ -101,7 +102,7 @@ Deno.serve(async (req) => {
   const body = await req.json().catch(() => null);
 
   // Panel admina (klucz service_role) wskazuje użytkownika; aplikacja działa tylko na własnym koncie.
-  const admin = token === serviceKey;
+  const admin = await isServiceKey(token);
   let userId: string;
   if (admin) {
     if (typeof body?.userId !== 'string' || !UUID.test(body.userId)) return json({ error: 'invalid_user' }, 400);

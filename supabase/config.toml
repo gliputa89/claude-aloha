@@ -428,3 +428,8 @@ enabled = true
 # funkcja sama sprawdza token (POST) albo podpisany `state` (GET).
 [functions.strava-oauth]
 verify_jwt = false
+
+# Panel admina woła funkcję kluczem tajnym projektu (sb_secret_…), który nie jest tokenem JWT –
+# funkcja sama sprawdza klucz administracyjny albo token zalogowanego użytkownika.
+[functions.strava-sync]
+verify_jwt = false

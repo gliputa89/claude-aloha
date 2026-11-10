@@ -25,6 +25,7 @@ import {
   type StravaActivityInput,
   type StravaMatchSession,
 } from '../_shared/plan-engine/index.ts';
+import { isServiceKey } from '../_shared/auth.ts';
 import {
   RateLimited,
   refreshTokens,
@@ -282,7 +283,7 @@ Deno.serve(async (req) => {
   const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
   const db = createClient(Deno.env.get('SUPABASE_URL')!, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
 
-  if (token === serviceKey) {
+  if (await isServiceKey(token)) {
     // Panel admina: jeden użytkownik, od razu (opcjonalnie z nowym tokenem do zapisania).
     const body = await req.json().catch(() => null);
     if (typeof body?.userId === 'string') {
