@@ -160,7 +160,7 @@ Osobną bazę rozważymy dopiero, gdy pojawi się realna potrzeba (np. hurtownia
 | Schemat | Zawartość | Kto ma dostęp |
 |---|---|---|
 | `auth` | konta (Supabase Auth) | Supabase |
-| `public` | dane aplikacji: `profiles`, `goals`, `availability`, `plans`, `weeks`, `sessions`, `session_weather` (pogoda i porada do treningu), `check_ins`, `adjustments`, `consents` | aplikacja mobilna przez API, **RLS: użytkownik widzi tylko swoje wiersze** |
+| `public` | dane aplikacji: `profiles`, `goals`, `availability`, `plans`, `weeks`, `sessions`, `session_weather` (pogoda i porada do treningu), `strava_connections` i `strava_activities` (połączenie ze Stravą i pobrane biegi), `check_ins`, `adjustments`, `consents` | aplikacja mobilna przez API, **RLS: użytkownik widzi tylko swoje wiersze** |
 | `marketing` | `waitlist_signups` (e-mail, cel, „co psuje plan”, zgoda marketingowa z datą, UTM, kod polecający), `referrals`, `beta_invites` | **niewystawiony w API**; zapis ze strony przez Server Action (serwer Next.js), odczyt tylko panel |
 | `ops` | `ai_calls` (model, tokeny, koszt, czas, wynik walidacji, błąd – **bez treści notatek**), `feature_flags`, `admins`, log działań administratora | Edge Functions i panel |
 | `analytics` | **widoki** (lub widoki zmaterializowane odświeżane przez pg_cron): aktywni dziennie/tygodniowo, kohorty retencji, % check-inów, % akceptacji propozycji, konwersja listy | tylko panel |

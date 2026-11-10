@@ -1,7 +1,9 @@
 import type { TranslationKey } from '@aloha/i18n';
 import { estimateDistanceM, formatApproxKm, stepsOf } from '@aloha/plan-engine';
+import { openURL } from 'expo-linking';
 import { router, useLocalSearchParams } from 'expo-router';
 import {
+  Check,
   FlagCheckered,
   Gauge,
   Lightning,
@@ -25,10 +27,11 @@ import { InfoCard } from '@/components/ui/info-card';
 import { Text } from '@/components/ui/text';
 import { EASE_BACK, EASE_OUT } from '@/constants/easing';
 import { radius, space } from '@/constants/theme';
-import { fromIsoDate, todayIso } from '@/features/onboarding/time';
+import { formatDuration, fromIsoDate, todayIso } from '@/features/onboarding/time';
 import type { PlanSession } from '@/features/plan/api';
 import { useCoachTip } from '@/features/plan/coach-tips';
 import { allSessions, usePlan } from '@/features/plan/plan-provider';
+import { paceMinPerKm, stravaActivityUrl } from '@/features/strava/api';
 import { useColors } from '@/hooks/use-colors';
 import { useLocale, useT } from '@/hooks/use-t';
 
@@ -119,6 +122,15 @@ function Detail({ session }: { session: PlanSession }) {
       : null,
   ].filter((s): s is { label: string; value: string } => s !== null);
 
+  const completed = session.status === 'done' || session.status === 'partial';
+  const pace = paceMinPerKm(session.actual_distance_m, session.actual_duration_s);
+  const actual = [
+    session.actual_distance_m ? { label: t('workoutDetail.distance'), value: km(session.actual_distance_m) } : null,
+    session.actual_duration_s ? { label: t('workoutDetail.duration'), value: formatDuration(session.actual_duration_s) } : null,
+    pace ? { label: t('workoutDetail.pace'), value: t('workoutDetail.paceValue', { pace }) } : null,
+  ].filter((s): s is { label: string; value: string } => s !== null);
+  const lastActivity = session.activities.at(-1);
+
   const Icon = TYPE_ICON[session.type];
   const typeColor = c[TYPE_COLOR[session.type]];
 
@@ -207,6 +219,50 @@ function Detail({ session }: { session: PlanSession }) {
             </PopIn>
           ))}
         </View>
+      ) : null}
+
+      {completed ? (
+        <FadeUp delay={T.stats + 200}>
+          <View style={[styles.done, { backgroundColor: c.surfaceBrandSoft }]}>
+            <View style={styles.doneHead}>
+              <View style={[styles.doneIcon, { backgroundColor: c.surfaceBrand }]}>
+                <Check size={16} weight="bold" color={c.textOnBrand} />
+              </View>
+              <Text weight="bold" style={styles.flex}>
+                {t(session.status === 'done' ? 'workoutDetail.done' : 'workoutDetail.donePartial')}
+              </Text>
+            </View>
+            {actual.length > 0 ? (
+              <View style={styles.stats}>
+                {actual.map((s) => (
+                  <View key={s.label} style={styles.statWrap}>
+                    <Text variant="caption" color="text" numberOfLines={1}>
+                      {s.label}
+                    </Text>
+                    <Text variant="heading" numberOfLines={1} adjustsFontSizeToFit>
+                      {s.value}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            ) : null}
+            {lastActivity ? (
+              <View style={styles.source}>
+                <Text variant="caption" color="text" style={styles.flex}>
+                  {t('workoutDetail.fromStrava')}
+                </Text>
+                <Pressable
+                  accessibilityRole="link"
+                  hitSlop={space[3]}
+                  onPress={() => openURL(stravaActivityUrl(lastActivity.id)).catch(() => {})}>
+                  <Text variant="label" color="textBrand" style={styles.link}>
+                    {t('workoutDetail.viewOnStrava')}
+                  </Text>
+                </Pressable>
+              </View>
+            ) : null}
+          </View>
+        </FadeUp>
       ) : null}
 
       {hasSteps ? (
@@ -303,6 +359,11 @@ const styles = StyleSheet.create({
   statWrap: { flex: 1 },
   stat: { gap: space[1], padding: space[3], borderRadius: radius.card, borderWidth: 1.5 },
   section: { gap: space[3] },
+  done: { gap: space[3], padding: space[4], borderRadius: radius.card },
+  doneHead: { flexDirection: 'row', alignItems: 'center', gap: space[3] },
+  doneIcon: { width: 28, height: 28, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center' },
+  source: { flexDirection: 'row', alignItems: 'center', gap: space[3] },
+  link: { textDecorationLine: 'underline' },
   card: { padding: space[4], borderRadius: radius.card, borderWidth: 1.5 },
   coach: {
     flexDirection: 'row',

@@ -1,5 +1,6 @@
 import type { SessionStructure, SessionType } from '@aloha/plan-engine';
 
+import { fetchSessionActivities, type StravaActivity } from '@/features/strava/api';
 import { supabase } from '@/lib/supabase';
 
 export type PlanSession = {
@@ -11,6 +12,11 @@ export type PlanSession = {
   intensity: 'easy' | 'moderate' | 'hard' | null;
   structure: SessionStructure | Record<string, never>;
   status: 'planned' | 'done' | 'partial' | 'missed';
+  /** Realizacja (na razie ze Stravy): faktyczny dystans i czas ruchu. */
+  actual_distance_m: number | null;
+  actual_duration_s: number | null;
+  /** Biegi ze Stravy przypisane do tego treningu. */
+  activities: StravaActivity[];
   /** Rada trenera od AI (przy układaniu tygodnia); null – brak, aplikacja bierze radę z bazy. */
   coach_tip: string | null;
 };
@@ -34,9 +40,10 @@ const plans = () => supabase.from('plans');
 
 /** Aktywny plan z tygodniami i treningami (RLS: tylko własne). `null` – planu jeszcze nie ma. */
 export async function fetchActivePlan(): Promise<ActivePlan | null> {
+  const activitiesPromise = fetchSessionActivities();
   let { data, error } = await plans()
     .select(
-      'id, starts_on, ends_on, weeks(id, week_index, starts_on, focus, sessions(id, scheduled_on, type, duration_min, distance_m, intensity, structure, status, coach_tip))',
+      'id, starts_on, ends_on, weeks(id, week_index, starts_on, focus, sessions(id, scheduled_on, type, duration_min, distance_m, intensity, structure, status, actual_distance_m, actual_duration_s, coach_tip))',
     )
     .eq('status', 'active')
     .maybeSingle();
@@ -44,19 +51,20 @@ export async function fetchActivePlan(): Promise<ActivePlan | null> {
   if (error?.code === '42703') {
     ({ data, error } = await plans()
       .select(
-        'id, starts_on, ends_on, weeks(id, week_index, starts_on, focus, sessions(id, scheduled_on, type, duration_min, distance_m, intensity, structure, status))',
+        'id, starts_on, ends_on, weeks(id, week_index, starts_on, focus, sessions(id, scheduled_on, type, duration_min, distance_m, intensity, structure, status, actual_distance_m, actual_duration_s))',
       )
       .eq('status', 'active')
       .maybeSingle());
   }
   if (error) throw error;
   if (!data) return null;
+  const activities = await activitiesPromise;
   const weeks = [...(data.weeks as PlanWeek[])]
     .sort((a, b) => a.week_index - b.week_index)
     .map((w) => ({
       ...w,
       sessions: [...w.sessions]
-        .map((s) => ({ ...s, coach_tip: s.coach_tip ?? null }))
+        .map((s) => ({ ...s, coach_tip: s.coach_tip ?? null, activities: activities.filter((a) => a.session_id === s.id) }))
         .sort((a, b) => a.scheduled_on.localeCompare(b.scheduled_on)),
     }));
   return { ...(data as Omit<ActivePlan, 'weeks'>), weeks };

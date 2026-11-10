@@ -1,7 +1,7 @@
 import Constants from 'expo-constants';
 import { Heart, Heartbeat, Lightning, Watch, type IconProps } from 'phosphor-react-native';
-import { useState, type ComponentType } from 'react';
-import { Alert, Platform, StyleSheet, View } from 'react-native';
+import { useEffect, useState, type ComponentType } from 'react';
+import { ActivityIndicator, Alert, Platform, Pressable, StyleSheet, View } from 'react-native';
 
 import { Button } from '@/components/ui/button';
 import { Chip } from '@/components/ui/chip';
@@ -9,15 +9,17 @@ import { FadeUp } from '@/components/ui/fade-up';
 import { Screen } from '@/components/ui/screen';
 import { Text } from '@/components/ui/text';
 import { radius, space } from '@/constants/theme';
+import { usePlan } from '@/features/plan/plan-provider';
+import { connectStrava, disconnectStrava, fetchStravaStatus, type StravaStatus } from '@/features/strava/api';
 import { useColors } from '@/hooks/use-colors';
-import { useT } from '@/hooks/use-t';
+import { useLocale, useT } from '@/hooks/use-t';
 import { signOut } from '@/lib/auth';
 import { getThemePreference, setThemePreference, THEME_PREFERENCES, type ThemePreference } from '@/lib/theme-preference';
 import { useAuth } from '@/providers/auth-provider';
 
 type Integration = { key: 'appleHealth' | 'healthConnect' | 'strava' | 'garmin'; Icon: ComponentType<IconProps> };
 
-/** Integracje są poza MVP – na razie pokazujemy, co będzie można połączyć. */
+/** Działa Strava (łączenie przez ekran zgody Stravy); reszta jest poza MVP – pokazujemy, co będzie można połączyć. */
 const INTEGRATIONS: Integration[] = [
   Platform.OS === 'android' ? { key: 'healthConnect', Icon: Heartbeat } : { key: 'appleHealth', Icon: Heart },
   { key: 'strava', Icon: Lightning },
@@ -31,6 +33,63 @@ export default function ProfileScreen() {
   const { profile, session } = useAuth();
   const [signingOut, setSigningOut] = useState(false);
   const [theme, setTheme] = useState(getThemePreference);
+  const locale = useLocale();
+  const [strava, setStrava] = useState<StravaStatus | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    fetchStravaStatus().then((status) => active && setStrava(status));
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const { reload } = usePlan();
+  const [stravaBusy, setStravaBusy] = useState(false);
+
+  const linkStrava = async () => {
+    setStravaBusy(true);
+    const result = await connectStrava();
+    if (result === 'connected') {
+      setStrava(await fetchStravaStatus());
+      // Pierwsze pobranie biegów i plan z odhaczonymi treningami; potem stan z czasem synchronizacji.
+      await reload();
+      setStrava(await fetchStravaStatus());
+    } else if (result !== 'cancelled') {
+      Alert.alert(t('profile.strava'), t(result === 'no_activity_scope' ? 'profile.stravaNoScope' : 'profile.stravaConnectFailed'));
+    }
+    setStravaBusy(false);
+  };
+
+  const unlinkStrava = () =>
+    Alert.alert(t('profile.stravaDisconnectTitle'), t('profile.stravaDisconnectBody'), [
+      { text: t('profile.cancel'), style: 'cancel' },
+      {
+        text: t('profile.stravaDisconnect'),
+        style: 'destructive',
+        onPress: async () => {
+          setStravaBusy(true);
+          if (await disconnectStrava()) setStrava(null);
+          else Alert.alert(t('profile.strava'), t('profile.stravaDisconnectFailed'));
+          setStravaBusy(false);
+        },
+      },
+    ]);
+
+  const stravaNote = !strava
+    ? null
+    : strava.needsReconnect
+      ? t('profile.stravaReconnect')
+      : strava.lastSyncedAt
+        ? t('profile.stravaSynced', {
+            when: new Date(strava.lastSyncedAt).toLocaleString(locale === 'en' ? 'en-GB' : 'pl-PL', {
+              day: 'numeric',
+              month: 'short',
+              hour: '2-digit',
+              minute: '2-digit',
+            }),
+          })
+        : t('profile.stravaWaiting');
 
   const chooseTheme = (next: ThemePreference) => {
     setTheme(next);
@@ -84,25 +143,63 @@ export default function ProfileScreen() {
           <Text variant="caption">{t('profile.integrationsHint')}</Text>
         </View>
         <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
-          {INTEGRATIONS.map(({ key, Icon }, i) => (
-            <View
-              key={key}
-              accessible
-              accessibilityLabel={`${t(`profile.${key}`)}, ${t('profile.soon')}`}
-              style={[styles.row, i > 0 && { borderTopColor: c.border, borderTopWidth: StyleSheet.hairlineWidth }]}>
-              <View style={[styles.icon, { backgroundColor: c.surfaceBrandSoft }]}>
-                <Icon size={20} weight="bold" color={c.textBrand} />
+          {INTEGRATIONS.map(({ key, Icon }, i) => {
+            const isStrava = key === 'strava';
+            const active = isStrava && strava !== null && !strava.needsReconnect;
+            const note = isStrava && strava ? stravaNote : null;
+            // Strava: niepołączona → „Połącz”, wygasła → „Połącz ponownie”, połączona → „Połączono” (tapnięcie: rozłącz).
+            const badge = !isStrava
+              ? t('profile.soon')
+              : active
+                ? t('profile.connected')
+                : t(strava ? 'profile.reconnect' : 'profile.connect');
+            const border = i > 0 && { borderTopColor: c.border, borderTopWidth: StyleSheet.hairlineWidth };
+            const content = (
+              <>
+                <View style={[styles.icon, { backgroundColor: c.surfaceBrandSoft }]}>
+                  <Icon size={20} weight="bold" color={c.textBrand} />
+                </View>
+                <View style={styles.name}>
+                  <Text weight="semibold">{t(`profile.${key}`)}</Text>
+                  {note ? <Text variant="caption">{note}</Text> : null}
+                </View>
+                {isStrava && stravaBusy ? (
+                  <ActivityIndicator color={c.textBrand} />
+                ) : (
+                  <View
+                    style={[
+                      styles.pill,
+                      { backgroundColor: !isStrava ? c.surfaceAccentSoft : active ? c.surfaceBrandSoft : c.surfaceBrand },
+                    ]}>
+                    <Text
+                      variant="caption"
+                      weight="semibold"
+                      color={!isStrava ? 'textAccentStrong' : active ? 'textBrand' : 'textOnBrand'}>
+                      {badge}
+                    </Text>
+                  </View>
+                )}
+              </>
+            );
+            const label = [t(`profile.${key}`), badge, note].filter(Boolean).join(', ');
+            return isStrava ? (
+              <Pressable
+                key={key}
+                accessibilityRole="button"
+                accessibilityLabel={label}
+                accessibilityHint={active ? t('profile.stravaManage') : undefined}
+                accessibilityState={{ busy: stravaBusy }}
+                disabled={stravaBusy}
+                onPress={active ? unlinkStrava : linkStrava}
+                style={({ pressed }) => [styles.row, border, { opacity: pressed ? 0.6 : 1 }]}>
+                {content}
+              </Pressable>
+            ) : (
+              <View key={key} accessible accessibilityLabel={label} style={[styles.row, border]}>
+                {content}
               </View>
-              <Text weight="semibold" style={styles.flex}>
-                {t(`profile.${key}`)}
-              </Text>
-              <View style={[styles.pill, { backgroundColor: c.surfaceAccentSoft }]}>
-                <Text variant="caption" weight="semibold" color="textAccentStrong">
-                  {t('profile.soon')}
-                </Text>
-              </View>
-            </View>
-          ))}
+            );
+          })}
         </View>
       </FadeUp>
 
@@ -146,7 +243,15 @@ const styles = StyleSheet.create({
   section: { gap: space[3] },
   sectionHeader: { gap: space[1] },
   themes: { flexDirection: 'row', gap: space[2] },
-  row: { flexDirection: 'row', alignItems: 'center', gap: space[3], paddingHorizontal: space[4], minHeight: 60 },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[3],
+    paddingHorizontal: space[4],
+    paddingVertical: space[2],
+    minHeight: 60,
+  },
+  name: { flex: 1, gap: 2 },
   icon: { width: 36, height: 36, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center' },
   pill: { paddingHorizontal: space[3], paddingVertical: space[1], borderRadius: radius.pill },
 });

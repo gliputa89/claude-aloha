@@ -31,6 +31,29 @@ Szczegóły: [`docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md), sekcja 3.
   użytek komercyjny) i wymaga podpisu źródła – aplikacja pokazuje „Dane pogodowe: Open-Meteo”. Przed płatnym wydaniem:
   wykup plan i ustaw `supabase secrets set OPEN_METEO_API_KEY=…` – funkcja sama przełączy się na adresy dla klientów.
 
+## Strava
+
+- `strava-sync` – pobiera biegi ze Stravy (od startu planu, najwyżej 30 dni wstecz), dopasowuje je do treningów z tego
+  samego dnia (`packages/plan-engine/strava.ts`) i zapisuje w treningu status, dystans i czas. Aplikacja woła ją po
+  otwarciu i przy pociągnięciu w dół; z kluczem `service_role` (cron) synchronizuje wszystkich połączonych.
+- **Konto Stravy dla Aloha**: login `gliputa+aloha@gmail.com` (hasło poza repo). Na tym koncie zakładamy aplikację API
+  Aloha – osobną, żeby nie dzielić kluczy, limitów ani refresh tokenów z innymi projektami.
+- Sekrety (raz na środowisko) – dane aplikacji z https://www.strava.com/settings/api:
+  `supabase secrets set STRAVA_CLIENT_ID=… STRAVA_CLIENT_SECRET=… --project-ref <ref>`.
+- `strava-oauth` – „Połącz przez Stravę” w aplikacji (Profil → Strava) i w panelu (tester → użytkownik → karta
+  „Strava”): otwiera ekran zgody Stravy, po powrocie wymienia kod na tokeny i zapisuje połączenie; tokeny nie
+  przechodzą przez telefon ani przeglądarkę. Obsługuje też rozłączenie (cofa dostęp w Stravie, usuwa pobrane biegi).
+  Prosimy o zakres `activity:read_all`, żeby liczyły się też biegi ustawione jako prywatne.
+- **W ustawieniach aplikacji Stravy** pole „Authorization Callback Domain” musi mieć host projektu Supabase,
+  np. `<ref>.supabase.co` (bez `https://`). Strava przyjmuje jedną domenę na aplikację, więc staging i produkcja
+  potrzebują osobnych aplikacji Stravy albo wspólnej własnej domeny dla funkcji.
+- Konto Stravy należy do jednego użytkownika naraz – nowe połączenie zabiera je poprzedniemu (razem z jego biegami).
+- Awaryjnie, bez ekranu zgody: w karcie „Strava” w panelu → „Ręcznie: wklej refresh token” (token z tej samej
+  aplikacji Stravy co sekrety, z zakresem `activity:read`). Funkcja zapisuje zawsze najnowszy refresh token.
+- Przed wydaniem: akceptacja aplikacji przez Stravę (nowe mają limit jednego sportowca),
+  oznaczenia wymagane przez Stravę (przycisk „Connect with Strava”) oraz sprawdzenie jej zasad API
+  (m.in. dane Stravy a AI – dziś biegi ze Stravy nie trafiają do Claude API).
+
 Przed `supabase functions serve` / deployem: `scripts/sync-plan-engine.sh` (kopia `packages/plan-engine`).
 
 ### Cron dla `generate-next-week` (raz na środowisko)

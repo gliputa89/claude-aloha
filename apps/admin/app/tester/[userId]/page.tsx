@@ -20,6 +20,7 @@ import { SurveyPanel } from '@/components/tester/survey-form';
 import { WorkoutChart, WorkoutSteps } from '@/components/workout/workout-chart';
 import { DeleteUserButton, RegeneratePlanButton } from '@/components/tester/user-actions';
 import { NextWeekWithReviewButton, SetLevelForm } from '@/components/tester/level-controls';
+import { StravaControls } from '@/components/tester/strava-controls';
 import { GenerateWeekForm, WeekActions } from '@/components/tester/week-controls';
 import { hasClaudeKey } from '@/lib/ai/claude';
 import { getAiCostByUser, listAiPrompts, listEngineConfigs } from '@/lib/ai/data';
@@ -27,6 +28,7 @@ import { loadAiRuntime } from '@/lib/ai/runtime';
 import { requireAdmin } from '@/lib/auth';
 import {
   formatDate,
+  formatDateTime,
   formatDistance,
   formatDuration,
   formatShortDate,
@@ -42,21 +44,25 @@ import {
   WEEK_FOCUS_LABEL,
 } from '@/lib/format';
 import { loadTesterUser, todayIn, type TesterUser, type TesterWeek } from '@/lib/plan-tester';
+import { loadStrava, type StravaData } from '@/lib/strava';
 import { createServiceClient } from '@/lib/supabase/server';
 import { surveyValuesFromRows } from '@/lib/survey';
 import { loadTrainingLevel, previewReview, surveyLevelOf, type TrainingLevelData } from '@/lib/training-level';
 
-export default function TesterUserPage({ params }: PageProps<'/tester/[userId]'>) {
+export default function TesterUserPage({ params, searchParams }: PageProps<'/tester/[userId]'>) {
   return (
     <Suspense fallback={<p className="text-text-muted">Wczytuję…</p>}>
-      <UserDetail params={params} />
+      <UserDetail params={params} searchParams={searchParams} />
     </Suspense>
   );
 }
 
-async function UserDetail({ params }: Pick<PageProps<'/tester/[userId]'>, 'params'>) {
+async function UserDetail({ params, searchParams }: Pick<PageProps<'/tester/[userId]'>, 'params' | 'searchParams'>) {
   const admin = await requireAdmin();
   const { userId } = await params;
+  // Wynik powrotu z ekranu zgody Stravy (strava-oauth odsyła tu z ?strava=…).
+  const stravaParam = (await searchParams).strava;
+  const stravaReturned = typeof stravaParam === 'string' ? stravaParam : undefined;
   if (!/^[0-9a-f-]{36}$/i.test(userId)) notFound();
   const user = await loadTesterUser(userId);
   if (!user) notFound();
@@ -70,12 +76,13 @@ async function UserDetail({ params }: Pick<PageProps<'/tester/[userId]'>, 'param
   });
 
   // Koszt AI użytkownika i wersje do wyboru w podglądzie z AI (brak migracji AI → puste, tester działa dalej).
-  const [aiCost, prompts, configs, levelData, runtime] = await Promise.all([
+  const [aiCost, prompts, configs, levelData, runtime, strava] = await Promise.all([
     getAiCostByUser(1, userId).then((r) => r[0] ?? null).catch(() => null),
     listAiPrompts('plan-weeks').catch(() => []),
     listEngineConfigs().catch(() => []),
     loadTrainingLevel(user),
     loadAiRuntime(createServiceClient()),
+    loadStrava(userId),
   ]);
 
   const nextIndex = user.plan?.weeks.length ? Math.max(...user.plan.weeks.map((w) => w.week_index)) + 1 : 0;
@@ -138,6 +145,8 @@ async function UserDetail({ params }: Pick<PageProps<'/tester/[userId]'>, 'param
       </div>
 
       <LevelCard user={user} data={levelData} params={runtime.engine.params} canGenerate={canGenerate} />
+
+      <StravaCard userId={user.id} data={strava} returned={stravaReturned} />
 
       <section className="flex flex-col gap-4">
         <div className="flex flex-wrap items-end justify-between gap-4">
@@ -354,6 +363,89 @@ function LevelCard({
       ) : (
         <p className="text-xs text-text-muted">Brak zmian poziomu w historii.</p>
       )}
+    </section>
+  );
+}
+
+/** Strava: stan połączenia, ręczne wstawienie tokenu z testem na żywo i ostatnio pobrane biegi. */
+function StravaCard({ userId, data, returned }: { userId: string; data: StravaData; returned?: string }) {
+  if (!data.available) {
+    return (
+      <section className="flex flex-col gap-2 rounded-card border border-border bg-surface p-5">
+        <h2 className="font-semibold">Strava</h2>
+        <p className="text-sm text-text-muted">
+          W tej bazie nie ma jeszcze migracji <code>20261110160000_strava</code> – wgraj ją, żeby łączyć konta.
+        </p>
+      </section>
+    );
+  }
+  const { connection, activities } = data;
+  return (
+    <section className="flex flex-col gap-4 rounded-card border border-border bg-surface p-5">
+      <div className="flex flex-col gap-1">
+        <h2 className="flex items-center gap-2 font-semibold">
+          Strava
+          {connection ? (
+            <span
+              className={`rounded-pill px-2 py-0.5 text-xs font-semibold ${
+                connection.last_error ? 'bg-surface-accent-soft text-text-accent-strong' : 'bg-surface-brand-soft text-text-brand'
+              }`}
+            >
+              {connection.last_error ? 'token odrzucony' : 'połączono'}
+            </span>
+          ) : null}
+        </h2>
+        {connection ? (
+          <p className="flex flex-wrap gap-x-3 text-sm text-text-muted">
+            <span className="font-medium text-text">{connection.athlete_name ?? 'bez nazwy'}</span>
+            <span>sportowiec {connection.athlete_id}</span>
+            <span>połączono {formatDateTime(connection.created_at)}</span>
+            <span>ostatnia synchronizacja: {connection.last_synced_at ? formatDateTime(connection.last_synced_at) : 'jeszcze nie było'}</span>
+            <span>
+              biegi: {data.total}, w tym {data.matched} przy treningach
+            </span>
+          </p>
+        ) : (
+          <p className="text-sm text-text-muted">
+            Niepołączone. „Połącz przez Stravę” otwiera ekran zgody Stravy i po powrocie od razu sprawdza, czy biegi się
+            pobierają. Konto Stravy należy do jednego użytkownika naraz – nowe połączenie zabiera je poprzedniemu.
+          </p>
+        )}
+      </div>
+
+      <StravaControls userId={userId} connected={!!connection} returned={returned} />
+
+      {activities.length ? (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[32rem] text-sm">
+            <caption className="pb-1 text-left text-xs text-text-muted">Ostatnio pobrane biegi</caption>
+            <thead>
+              <tr className="border-b border-border text-left text-xs text-text-muted">
+                <th scope="col" className="py-1 pr-3 font-normal">Dzień</th>
+                <th scope="col" className="py-1 pr-3 font-normal">Aktywność</th>
+                <th scope="col" className="py-1 pr-3 text-right font-normal">Dystans</th>
+                <th scope="col" className="py-1 pr-3 text-right font-normal">Czas ruchu</th>
+                <th scope="col" className="py-1 font-normal">Trening z planu</th>
+              </tr>
+            </thead>
+            <tbody>
+              {activities.map((a) => (
+                <tr key={a.id} className="border-b border-border last:border-b-0">
+                  <td className="py-1.5 pr-3 whitespace-nowrap">{formatDate(a.local_date)}</td>
+                  <td className="py-1.5 pr-3">
+                    {a.name ?? '–'} <span className="text-xs text-text-muted">{a.sport_type}</span>
+                  </td>
+                  <td className="py-1.5 pr-3 text-right tabular-nums">{formatDistance(a.distance_m)}</td>
+                  <td className="py-1.5 pr-3 text-right tabular-nums">{formatDuration(a.moving_time_s)}</td>
+                  <td className="py-1.5">{a.session_id ? 'dopasowany' : <span className="text-text-muted">poza planem</span>}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : connection ? (
+        <p className="text-xs text-text-muted">Brak pobranych biegów w oknie planu (od startu planu, najwyżej 30 dni wstecz).</p>
+      ) : null}
     </section>
   );
 }

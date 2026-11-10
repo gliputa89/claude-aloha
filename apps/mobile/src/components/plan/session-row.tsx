@@ -1,6 +1,7 @@
 import type { TranslationKey } from '@aloha/i18n';
 import { estimateDistanceM, formatApproxKm, stepsOf } from '@aloha/plan-engine';
 import { router } from 'expo-router';
+import { Check } from 'phosphor-react-native';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { WorkoutChart } from '@/components/plan/workout-intervals';
@@ -60,6 +61,13 @@ export function SessionRow({ session, today }: { session: PlanSession; today: bo
       ? `${(session.distance_m / 1000).toLocaleString(locale === 'en' ? 'en-GB' : 'pl-PL', { maximumFractionDigits: 1 })} km`
       : '';
   const hasSteps = steps.length > 0;
+  const completed = session.status === 'done' || session.status === 'partial';
+  // Zrobiony trening pokazuje to, co faktycznie wyszło (czas i dystans z biegu), zamiast planu.
+  const actualMin = completed && session.actual_duration_s ? t('workout.minutes', { n: Math.round(session.actual_duration_s / 60) }) : null;
+  const actualKm =
+    completed && session.actual_distance_m
+      ? `${(session.actual_distance_m / 1000).toLocaleString(locale === 'en' ? 'en-GB' : 'pl-PL', { maximumFractionDigits: 1 })} km`
+      : null;
   // Suma w km tylko orientacyjnie (z czasu i stref tempa); odcinki zostają na czas.
   const approxKm =
     session.duration_min && hasSteps ? formatApproxKm(estimateDistanceM(steps), locale === 'en' ? 'en' : 'pl') : null;
@@ -82,9 +90,10 @@ export function SessionRow({ session, today }: { session: PlanSession; today: bo
         today ? t('plan.today') : null,
         t(`onboarding.day.long${weekday}` as TranslationKey),
         title,
+        completed ? t('workout.doneLabel') : null,
         detail,
-        right,
-        approxKm,
+        actualMin ?? right,
+        actualMin || actualKm ? actualKm : approxKm,
       ]
         .filter(Boolean)
         .join(', ')}>
@@ -95,16 +104,26 @@ export function SessionRow({ session, today }: { session: PlanSession; today: bo
           </Text>
           <Text variant="heading">{date.getDate()}</Text>
         </View>
-        <View style={[styles.dot, { backgroundColor: c[TYPE_COLOR[session.type]] }]} />
+        {completed ? (
+          <View style={[styles.check, { backgroundColor: c[TYPE_COLOR[session.type]] }]}>
+            <Check size={12} weight="bold" color={c.textOnWorkout} />
+          </View>
+        ) : (
+          <View style={[styles.dot, { backgroundColor: c[TYPE_COLOR[session.type]] }]} />
+        )}
         <View style={styles.body}>
           <Text weight="bold">{title}</Text>
           {detail ? <Text variant="caption">{detail}</Text> : null}
         </View>
         <View style={styles.total}>
           <Text weight="semibold" color="textMuted">
-            {right}
+            {actualMin ?? (actualKm ? '' : right)}
           </Text>
-          {approxKm ? <Text variant="caption">{approxKm}</Text> : null}
+          {actualMin || actualKm ? (
+            actualKm ? <Text variant="caption">{actualKm}</Text> : null
+          ) : approxKm ? (
+            <Text variant="caption">{approxKm}</Text>
+          ) : null}
         </View>
       </View>
       {hasSteps ? (
@@ -130,6 +149,7 @@ const styles = StyleSheet.create({
   },
   date: { width: 44, alignItems: 'center' },
   dot: { width: 10, height: 10, borderRadius: radius.pill },
+  check: { width: 20, height: 20, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center', marginHorizontal: -5 },
   body: { flex: 1, gap: 2 },
   total: { alignItems: 'flex-end', gap: 2 },
   outline: { gap: space[3] },

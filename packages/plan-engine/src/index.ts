@@ -15,3 +15,4 @@ export * from './ai-config.ts';
 export * from './workout.ts';
 export * from './weather.ts';
 export * from './weather-advice.ts';
+export * from './strava.ts';
