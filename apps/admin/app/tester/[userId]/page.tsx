@@ -18,7 +18,7 @@ import { TextLink } from '@/components/ai/ui';
 import { AiPreviewPanel } from '@/components/tester/ai-preview';
 import { SurveyPanel } from '@/components/tester/survey-form';
 import { WorkoutChart, WorkoutSteps } from '@/components/workout/workout-chart';
-import { DeleteTestUserButton, RegeneratePlanButton } from '@/components/tester/user-actions';
+import { DeleteUserButton, RegeneratePlanButton } from '@/components/tester/user-actions';
 import { NextWeekWithReviewButton, SetLevelForm } from '@/components/tester/level-controls';
 import { GenerateWeekForm, WeekActions } from '@/components/tester/week-controls';
 import { hasClaudeKey } from '@/lib/ai/claude';
@@ -100,7 +100,7 @@ async function UserDetail({ params }: Pick<PageProps<'/tester/[userId]'>, 'param
               </span>
             ) : null}
           </h1>
-          {user.isTest ? <DeleteTestUserButton userId={user.id} /> : null}
+          <DeleteUserButton userId={user.id} email={user.email} isTest={user.isTest} />
         </div>
         <p className="flex flex-wrap gap-x-3 text-sm text-text-muted">
           {user.email ? <span>{user.email}</span> : null}

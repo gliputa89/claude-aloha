@@ -160,7 +160,6 @@ export async function createTestUsers(presetKeys: string[], withPlan: boolean): 
         created_by_admin: admin.id,
         display_name: values.displayName,
         locale: 'pl',
-        adult_confirmed: true,
       },
     });
     if (error || !data.user) {
@@ -195,24 +194,48 @@ export async function createTestUsers(presetKeys: string[], withPlan: boolean): 
 }
 
 /** Usuwa konto testowe (wszystkie dane kaskadowo). Prawdziwych kont nie da się tak usunąć. */
-export async function deleteTestUser(userId: string): Promise<SurveyResult> {
+/**
+ * Twarde usunięcie dowolnego użytkownika: konto i logowanie, ankieta, plan, kalendarz, treningi, check-iny,
+ * historia poziomu, wywołania AI, lista oczekujących (RPC admin_delete_user – jedna transakcja).
+ * Konto prawdziwe wymaga wpisania jego e-maila (`confirm`); testowe – tylko potwierdzenia na stronie.
+ */
+export async function deleteUser(userId: string, confirm = ''): Promise<SurveyResult> {
   const admin = await requireAdmin();
   if (!UUID.test(userId)) return { ok: false, message: 'Nieprawidłowy użytkownik.' };
+  if (userId === admin.id) return { ok: false, message: 'Nie możesz usunąć własnego konta.' };
   const db = createServiceClient();
   const { data, error } = await db.auth.admin.getUserById(userId);
   if (error || !data.user) return { ok: false, message: 'Nie ma takiego użytkownika.' };
-  if (data.user.user_metadata?.test_account !== true) {
-    return { ok: false, message: 'To nie jest konto testowe – nie usuwam.' };
+  const isTest = data.user.user_metadata?.test_account === true;
+  const expected = (data.user.email ?? data.user.id).trim().toLowerCase();
+  if (!isTest && confirm.trim().toLowerCase() !== expected) {
+    return { ok: false, message: 'Wpisz dokładnie e-mail użytkownika, żeby potwierdzić.' };
   }
-  const { error: deleteError } = await db.auth.admin.deleteUser(userId);
-  if (deleteError) return { ok: false, message: `Usuwanie nie powiodło się: ${deleteError.message}` };
-  await db.rpc('admin_log', {
-    p_admin_id: admin.id,
-    p_action: 'tester_delete_user',
-    p_target_type: 'user',
-    p_target_id: userId,
-    p_details: { email: data.user.email },
-  });
+
+  const { data: counts, error: deleteError } = await db.rpc('admin_delete_user', { p_admin_id: admin.id, p_user_id: userId });
+  if (deleteError) {
+    if (deleteError.code !== 'PGRST202') return { ok: false, message: `Usuwanie nie powiodło się: ${deleteError.message}` };
+    // Brak migracji 20261110110000_admin_delete_user: konto przez API (kaskada usuwa dane aplikacji),
+    // ale wywołania AI i lista oczekujących zostają – tylko odpięte od konta.
+    const { error: apiError } = await db.auth.admin.deleteUser(userId);
+    if (apiError) return { ok: false, message: `Usuwanie nie powiodło się: ${apiError.message}` };
+    await db.rpc('admin_log', {
+      p_admin_id: admin.id,
+      p_action: 'delete_user',
+      p_target_type: 'user',
+      p_target_id: userId,
+      p_details: { email: data.user.email, partial: true },
+    });
+    refresh();
+    return {
+      ok: true,
+      message: 'Konto i dane aplikacji usunięte. Logi AI i lista oczekujących zostały (odpięte) – brak migracji 20261110110000_admin_delete_user.',
+    };
+  }
   refresh();
-  return { ok: true, message: 'Konto testowe usunięte.' };
+  const c = (counts ?? {}) as Record<string, number>;
+  return {
+    ok: true,
+    message: `Usunięto: konto, ${c.plans ?? 0} plan., ${c.sessions ?? 0} tren., ${c.check_ins ?? 0} check-in., ${c.ai_calls ?? 0} wyw. AI.`,
+  };
 }
