@@ -1,6 +1,9 @@
 import type { AuthError } from '@supabase/supabase-js';
 import type { TranslationKey } from '@aloha/i18n';
+import * as AppleAuthentication from 'expo-apple-authentication';
+import * as Crypto from 'expo-crypto';
 import * as Linking from 'expo-linking';
+import { Platform } from 'react-native';
 
 import { isSupabaseConfigured, supabase } from './supabase';
 
@@ -76,7 +79,6 @@ export function signUp({ name, email, password, locale }: SignUpInput) {
         data: {
           display_name: name.trim(),
           locale,
-          adult_confirmed: true,
           terms_version: TERMS_VERSION,
         },
       },
@@ -114,6 +116,80 @@ export function updatePassword(password: string) {
     if (error) return { ok: false, error: mapError(error) };
     return { ok: true, data: undefined };
   });
+}
+
+/** Logowanie przez Apple jest natywne i dostępne tylko na iOS (wymaga development builda, nie Expo Go). */
+export const appleSignInAvailable = Platform.OS === 'ios';
+
+/**
+ * Logowanie / rejestracja przez Apple: systemowy arkusz → identityToken → sesja Supabase.
+ * `canceled: true` → użytkownik zamknął arkusz, nie pokazujemy błędu.
+ *
+ * Konto założone tą drogą nie przechodzi przez formularz rejestracji, więc przy pierwszym
+ * logowaniu dopisujemy tu to, co formularz przekazuje triggerowi handle_new_user:
+ * zgody (regulamin, prywatność – tekst pod przyciskiem Apple), język i imię.
+ */
+export function signInWithApple(locale: 'pl' | 'en') {
+  return run<{ canceled: boolean }>(async () => {
+    // Apple dostaje skrót nonce, Supabase – wartość jawną i sam porównuje ją z tokenem.
+    const rawNonce = Crypto.randomUUID();
+    const hashedNonce = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, rawNonce);
+
+    let credential: AppleAuthentication.AppleAuthenticationCredential;
+    try {
+      credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+        nonce: hashedNonce,
+      });
+    } catch (e) {
+      if (e instanceof Error && 'code' in e && e.code === 'ERR_REQUEST_CANCELED') {
+        return { ok: true, data: { canceled: true } };
+      }
+      return { ok: false, error: 'authErrors.appleFailed' };
+    }
+    if (!credential.identityToken) return { ok: false, error: 'authErrors.appleFailed' };
+
+    const { data, error } = await supabase.auth.signInWithIdToken({
+      provider: 'apple',
+      token: credential.identityToken,
+      nonce: rawNonce,
+    });
+    if (error || !data.user) {
+      const key = error ? mapError(error) : 'authErrors.generic';
+      return { ok: false, error: key === 'authErrors.generic' ? 'authErrors.appleFailed' : key };
+    }
+
+    // Uzupełnienie konta nie może zablokować logowania – przy błędzie ponowimy przy następnym.
+    await completeAppleAccount(data.user.id, locale, credential.fullName?.givenName ?? null).catch(() => {});
+    return { ok: true, data: { canceled: false } };
+  });
+}
+
+async function completeAppleAccount(userId: string, locale: 'pl' | 'en', givenName: string | null) {
+  const { data: accepted, error } = await supabase
+    .from('consents')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('kind', 'terms')
+    .limit(1);
+  if (error) return;
+
+  if (accepted.length === 0) {
+    await supabase.from('consents').insert([
+      { user_id: userId, kind: 'terms', granted: true, version: TERMS_VERSION },
+      { user_id: userId, kind: 'privacy', granted: true, version: TERMS_VERSION },
+    ]);
+    await supabase.from('profiles').update({ locale }).eq('id', userId);
+  }
+
+  // Apple podaje imię tylko przy pierwszej autoryzacji – zapisujemy je, jeśli profil go nie ma.
+  const name = givenName?.trim().slice(0, 80);
+  if (name) {
+    await supabase.from('profiles').update({ display_name: name }).eq('id', userId).is('display_name', null);
+  }
 }
 
 /** Wymienia `code` z linku e-mailowego (PKCE) na sesję. */

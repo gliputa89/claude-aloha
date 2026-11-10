@@ -6,3 +6,5 @@ export const EASE_OUT = cubicBezier(0.23, 1, 0.32, 1);
 export const EASE_IN_OUT = cubicBezier(0.77, 0, 0.175, 1);
 /** Delikatne falowanie (sinusoidalne) – pętle tła. */
 export const EASE_SINE = cubicBezier(0.37, 0, 0.63, 1);
+/** Wejście z lekkim „przestrzeleniem” – sprężyste pojawienie się liter, ikon. */
+export const EASE_BACK = cubicBezier(0.34, 1.56, 0.64, 1);

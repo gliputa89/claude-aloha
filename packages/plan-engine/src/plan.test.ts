@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import { isoWeekday } from './dates.ts';
-import { generateInitialPlan, pickTrainingDays, type PlanInput, type PlannedSession } from './plan.ts';
+import { generateInitialPlan, generatePlanWeek, pickTrainingDays, type PlanInput, type PlannedSession } from './plan.ts';
 
 // 2026-11-09 to poniedziałek.
 const base: PlanInput = {
@@ -137,4 +137,28 @@ test('start w niedzielę, gdy niedziela jest dniem treningowym → plan od niedz
   const plan = generateInitialPlan({ ...base, startDate: '2026-11-08', preferredDays: [2, 4, 7] });
   assert.equal(plan.startsOn, '2026-11-08');
   assert.equal(plan.weeks[0]?.sessions.length, 1);
+});
+
+test('generatePlanWeek: tydzień N taki sam jak w pełnym planie', () => {
+  const full = generateInitialPlan({ ...base, weeks: 6 });
+  for (let i = 0; i < 6; i++) assert.deepEqual(generatePlanWeek(base, i), full.weeks[i]);
+});
+
+test('generatePlanWeek: start planu w środku tygodnia → kolejne tygodnie pon–nd', () => {
+  const start = '2026-11-12'; // czwartek
+  assert.deepEqual([generatePlanWeek({ ...base, startDate: start }, 0).startsOn], [start]);
+  const w3 = generatePlanWeek({ ...base, startDate: start }, 3);
+  assert.deepEqual([w3.startsOn, w3.endsOn], ['2026-11-30', '2026-12-06']);
+});
+
+test('generatePlanWeek: nie przesuwa startu istniejącego planu (keepStartDate)', () => {
+  // Niedziela, a biegasz wt/czw/sb → pełny plan zaczyna się w poniedziałek, ale tydzień 0 istniejącego planu zostaje.
+  const input = { ...base, startDate: '2026-11-15' };
+  assert.equal(generateInitialPlan(input).startsOn, '2026-11-16');
+  const w0 = generatePlanWeek(input, 0);
+  assert.deepEqual([w0.startsOn, w0.endsOn, w0.sessions.length], ['2026-11-15', '2026-11-15', 0]);
+});
+
+test('generatePlanWeek: odrzuca ujemny numer tygodnia', () => {
+  assert.throws(() => generatePlanWeek(base, -1), RangeError);
 });

@@ -14,7 +14,9 @@ npx expo install <pakiet>   # dodawanie zależności (dobiera wersje zgodne z SD
 cp .env.example .env.local   # URL i klucz anon z projektu Supabase (staging do dev)
 ```
 
-**Supabase (hosted):** w Authentication → URL Configuration dodaj `aloha://**` do Redirect URLs, inaczej linki potwierdzenia i resetu hasła nie wrócą do aplikacji. Profil i zgody (regulamin, prywatność, 18+) zapisuje trigger `handle_new_user` (migracja `20261108130000_signup_consents.sql`).
+**Supabase (hosted):** w Authentication → URL Configuration dodaj `aloha://**` do Redirect URLs, inaczej linki potwierdzenia i resetu hasła nie wrócą do aplikacji. Profil i zgody (regulamin, prywatność) zapisuje trigger `handle_new_user` (migracje `20261108130000_signup_consents.sql` i `20261110120000_drop_adult_confirmation.sql`).
+
+**Logowanie przez Apple (tylko iOS):** natywny arkusz (`expo-apple-authentication`) → `supabase.auth.signInWithIdToken`. Wymaga development builda (nie działa w Expo Go) i włączonego dostawcy Apple w Supabase z Client ID `app.alohatraining` – lokalnie robi to `supabase/config.toml`, na staging i prod trzeba to ustawić w panelu (Authentication → Providers → Apple). Zgody, język i imię dla takich kont dopisuje `signInWithApple` w `src/lib/auth.ts`.
 
 **EAS:** `npx eas-cli@latest init` (połączenie z kontem Expo), potem `eas build --profile preview`.
 Przed pierwszym buildem do sklepów: `ios.bundleIdentifier` i `android.package` w `app.json` (zależą od domeny/nazwy).

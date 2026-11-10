@@ -5,6 +5,7 @@ import { EnvelopeSimple } from 'phosphor-react-native';
 import { useRef, useState } from 'react';
 import { StyleSheet, View, type TextInputInstance } from 'react-native';
 
+import { AppleSignIn } from '@/components/auth/apple-sign-in';
 import { AuthFormScreen } from '@/components/auth/auth-form-screen';
 import { SwitchPrompt } from '@/components/auth/switch-prompt';
 import { Button } from '@/components/ui/button';
@@ -15,10 +16,10 @@ import { TextField } from '@/components/ui/text-field';
 import { radius, space } from '@/constants/theme';
 import { useColors } from '@/hooks/use-colors';
 import { useLocale, useT } from '@/hooks/use-t';
-import { isValidEmail, MIN_PASSWORD_LENGTH, signUp } from '@/lib/auth';
+import { appleSignInAvailable, isValidEmail, MIN_PASSWORD_LENGTH, signUp } from '@/lib/auth';
 import { legalUrl } from '@/lib/links';
 
-type Field = 'name' | 'email' | 'password' | 'adult' | 'terms';
+type Field = 'name' | 'email' | 'password' | 'terms';
 type Errors = Partial<Record<Field, TranslationKey>>;
 
 export default function SignUpScreen() {
@@ -29,7 +30,6 @@ export default function SignUpScreen() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [adult, setAdult] = useState(false);
   const [terms, setTerms] = useState(false);
   const [errors, setErrors] = useState<Errors>({});
   const [formError, setFormError] = useState<TranslationKey | null>(null);
@@ -48,7 +48,6 @@ export default function SignUpScreen() {
     name: name.trim() ? undefined : 'authErrors.nameRequired',
     email: isValidEmail(email) ? undefined : 'authErrors.emailInvalid',
     password: password.length >= MIN_PASSWORD_LENGTH ? undefined : 'authErrors.passwordShort',
-    adult: adult ? undefined : 'authErrors.adultRequired',
     terms: terms ? undefined : 'authErrors.termsRequired',
   });
 
@@ -155,15 +154,6 @@ export default function SignUpScreen() {
 
       <View style={styles.checks}>
         <Checkbox
-          checked={adult}
-          onChange={(v) => {
-            setAdult(v);
-            clear('adult');
-          }}
-          label={t('signUp.adult')}
-          invalid={!!errors.adult}
-        />
-        <Checkbox
           checked={terms}
           onChange={(v) => {
             setTerms(v);
@@ -184,14 +174,14 @@ export default function SignUpScreen() {
             </Text>
           }
         />
-        {errors.adult || errors.terms ? (
-          <Notice message={t((errors.adult ?? errors.terms) as TranslationKey)} />
-        ) : null}
+        {errors.terms ? <Notice message={t(errors.terms)} /> : null}
       </View>
 
       {formError ? <Notice message={t(formError)} /> : null}
 
       <Button label={t('signUp.submit')} loading={submitting} onPress={onSubmit} />
+
+      {appleSignInAvailable ? <AppleSignIn divider /> : null}
     </AuthFormScreen>
   );
 }

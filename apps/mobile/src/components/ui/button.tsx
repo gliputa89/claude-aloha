@@ -1,7 +1,15 @@
 import { ActivityIndicator, Pressable, StyleSheet, View, type PressableProps } from 'react-native';
+import Animated, {
+  FadeIn,
+  FadeOut,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withSpring,
+} from 'react-native-reanimated';
 
 import { Text } from '@/components/ui/text';
-import { radius, space, type ColorRole } from '@/constants/theme';
+import { motion, radius, space, type ColorRole } from '@/constants/theme';
 import { useColors } from '@/hooks/use-colors';
 
 type Variant = 'primary' | 'secondary' | 'plain';
@@ -12,46 +20,90 @@ const look: Record<Variant, { bg?: ColorRole; text: ColorRole; border?: ColorRol
   plain: { text: 'textBrand' },
 };
 
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
+/** Sprężyna wciśnięcia: szybka, bez przesadnego odbicia. */
+const PRESS_SPRING = { damping: 18, stiffness: 420, mass: 0.6 };
+
 type ButtonProps = Omit<PressableProps, 'children'> & {
   label: string;
   variant?: Variant;
   loading?: boolean;
 };
 
-export function Button({ label, variant = 'primary', loading = false, disabled, style, ...rest }: ButtonProps) {
+export function Button({
+  label,
+  variant = 'primary',
+  loading = false,
+  disabled,
+  style,
+  onPressIn,
+  onPressOut,
+  ...rest
+}: ButtonProps) {
   const c = useColors();
+  const reduced = useReducedMotion();
   const l = look[variant];
   const inactive = disabled || loading;
+  const pressed = useSharedValue(0);
+
+  const baseOpacity = disabled && !loading ? 0.5 : 1;
+  const pressStyle = useAnimatedStyle(() =>
+    variant === 'plain'
+      ? { opacity: baseOpacity * (1 - pressed.value * 0.45) }
+      : { transform: [{ scale: 1 - pressed.value * 0.035 }], opacity: baseOpacity * (1 - pressed.value * 0.1) },
+  );
+  const press = (to: number) => {
+    pressed.value = reduced ? to : withSpring(to, PRESS_SPRING);
+  };
 
   return (
-    <Pressable
+    <AnimatedPressable
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityState={{ disabled: !!inactive, busy: loading }}
       disabled={inactive}
       hitSlop={variant === 'plain' ? space[2] : undefined}
-      style={(state) => [
+      onPressIn={(e) => {
+        press(1);
+        onPressIn?.(e);
+      }}
+      onPressOut={(e) => {
+        press(0);
+        onPressOut?.(e);
+      }}
+      style={[
         styles.base,
         variant === 'plain' ? styles.plain : styles.filled,
         {
           backgroundColor: l.bg ? c[l.bg] : 'transparent',
           borderColor: l.border ? c[l.border] : 'transparent',
-          opacity: disabled && !loading ? 0.5 : state.pressed ? 0.85 : 1,
-          transform: [{ scale: state.pressed && variant !== 'plain' ? 0.98 : 1 }],
         },
-        typeof style === 'function' ? style(state) : style,
+        typeof style === 'function' ? undefined : style,
+        pressStyle,
       ]}
       {...rest}>
       <View style={styles.content}>
+        {/* Etykieta i wskaźnik ładowania płynnie się wymieniają. */}
         {loading ? (
-          <ActivityIndicator color={c[l.text]} />
+          <Animated.View
+            key="loading"
+            entering={reduced ? undefined : FadeIn.duration(motion.duration.normal)}
+            exiting={reduced ? undefined : FadeOut.duration(motion.duration.fast)}>
+            <ActivityIndicator color={c[l.text]} />
+          </Animated.View>
         ) : (
-          <Text variant="bodyStrong" weight="bold" color={l.text} align="center">
-            {label}
-          </Text>
+          <Animated.View
+            key="label"
+            entering={reduced ? undefined : FadeIn.duration(motion.duration.normal)}
+            exiting={reduced ? undefined : FadeOut.duration(motion.duration.fast)}>
+            <Text variant="bodyStrong" weight="bold" color={l.text} align="center">
+              {label}
+            </Text>
+          </Animated.View>
         )}
       </View>
-    </Pressable>
+    </AnimatedPressable>
   );
 }
 

@@ -2,6 +2,7 @@
   "expo": {
     "name": "Aloha Training",
     "slug": "aloha-training",
+    "owner": "posadzimy",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -9,9 +10,15 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "icon": "./assets/expo.icon",
-      "bundleIdentifier": "com.gliputa89.aloha-training"
+      "bundleIdentifier": "app.alohatraining",
+      "usesAppleSignIn": true,
+      "appleTeamId": "N99V2PD399",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
+      "package": "app.alohatraining",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4F1",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -35,11 +42,28 @@
         }
       ],
       "expo-sqlite",
-      "expo-localization"
+      "expo-localization",
+      "expo-apple-authentication"
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {
+        "asyncRoutes": {
+          "web": true
+        }
+      },
+      "eas": {
+        "projectId": "d2b6cfeb-6668-42c3-86ac-90744e3dde7a"
+      }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/d2b6cfeb-6668-42c3-86ac-90744e3dde7a"
     }
   }
 }

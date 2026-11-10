@@ -1,0 +1,29 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "admin",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--filter",
+        "@aloha/admin",
+        "dev"
+      ],
+      "port": 3001
+    },
+    {
+      "name": "admin-alt",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--filter",
+        "@aloha/admin",
+        "exec",
+        "next",
+        "dev",
+        "--port",
+        "3011"
+      ],
+      "port": 3011
+    }
+  ]
+}

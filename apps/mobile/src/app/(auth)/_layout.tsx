@@ -1,3 +1,4 @@
+import Constants, { ExecutionEnvironment } from 'expo-constants';
 import { Stack } from 'expo-router';
 
 import { fontFamily } from '@/components/ui/text';
@@ -8,6 +9,12 @@ import { useT } from '@/hooks/use-t';
 export const unstable_settings = {
   anchor: 'welcome',
 };
+
+/**
+ * Expo Go ma w Info.plist `UIViewControllerBasedStatusBarAppearance = NO`, a wtedy opcja ekranu
+ * `statusBarStyle` (react-native-screens) kończy się czerwonym błędem. W Expo Go zostawiamy domyślny pasek.
+ */
+const canStyleStatusBar = Constants.executionEnvironment !== ExecutionEnvironment.StoreClient;
 
 export default function AuthLayout() {
   const c = useColors();
@@ -26,7 +33,10 @@ export default function AuthLayout() {
         headerTitleStyle: { fontFamily: fontFamily.bold },
         contentStyle: { backgroundColor: c.background },
       }}>
-      <Stack.Screen name="welcome" options={{ headerShown: false, statusBarStyle: welcomeStatusBar }} />
+      <Stack.Screen
+        name="welcome"
+        options={{ headerShown: false, ...(canStyleStatusBar && { statusBarStyle: welcomeStatusBar }) }}
+      />
       <Stack.Screen name="sign-up" />
       <Stack.Screen name="sign-in" />
       <Stack.Screen name="forgot-password" />

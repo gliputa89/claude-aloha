@@ -65,7 +65,8 @@ export const colors = {
     "workoutIntervals": "#F08A3C",
     "workoutTempo": "#D9534F",
     "workoutWalkRun": "#8E7CC3",
-    "workoutRest": "#C5D2D0"
+    "workoutRest": "#C5D2D0",
+    "textOnWorkout": "#0C1514"
   },
   "dark": {
     "background": "#0C1514",
@@ -90,7 +91,8 @@ export const colors = {
     "workoutIntervals": "#F08A3C",
     "workoutTempo": "#D9534F",
     "workoutWalkRun": "#8E7CC3",
-    "workoutRest": "#5B6B69"
+    "workoutRest": "#5B6B69",
+    "textOnWorkout": "#0C1514"
   }
 } as const;
 

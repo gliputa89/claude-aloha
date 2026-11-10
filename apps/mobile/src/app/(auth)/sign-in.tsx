@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import { useRef, useState } from 'react';
 import { StyleSheet, View, type TextInputInstance } from 'react-native';
 
+import { AppleSignIn } from '@/components/auth/apple-sign-in';
 import { AuthFormScreen } from '@/components/auth/auth-form-screen';
 import { SwitchPrompt } from '@/components/auth/switch-prompt';
 import { Button } from '@/components/ui/button';
@@ -10,7 +11,7 @@ import { Notice } from '@/components/ui/notice';
 import { TextField } from '@/components/ui/text-field';
 import { space } from '@/constants/theme';
 import { useT } from '@/hooks/use-t';
-import { isValidEmail, signIn } from '@/lib/auth';
+import { appleSignInAvailable, isValidEmail, signIn } from '@/lib/auth';
 
 type Errors = { email?: TranslationKey; password?: TranslationKey };
 
@@ -101,6 +102,8 @@ export default function SignInScreen() {
       {formError ? <Notice message={t(formError)} /> : null}
 
       <Button label={t('signIn.submit')} loading={submitting} onPress={onSubmit} />
+
+      {appleSignInAvailable ? <AppleSignIn mode="signIn" divider /> : null}
     </AuthFormScreen>
   );
 }

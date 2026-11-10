@@ -12,11 +12,9 @@ import { Text } from '@/components/ui/text';
 import { radius, space } from '@/constants/theme';
 import { LEVEL_TO_DB, recentTimeS, startBeforeRace, targetTimeS, useOnboardingDraft } from '@/features/onboarding/draft';
 import { completeOnboarding } from '@/features/onboarding/save';
-import { generatePlan } from '@/features/plan/api';
 import { formatDuration, fromIsoDate } from '@/features/onboarding/time';
 import { useColors } from '@/hooks/use-colors';
 import { useLocale, useT } from '@/hooks/use-t';
-import { useAuth } from '@/providers/auth-provider';
 
 const GOAL_TITLE = {
   start_running: 'onboarding.goal.startTitle',
@@ -35,7 +33,6 @@ export default function SummaryStep() {
   const t = useT();
   const c = useColors();
   const locale = useLocale();
-  const { refreshProfile } = useAuth();
   const { draft, update } = useOnboardingDraft();
   const [dismissed, setDismissed] = useState(false);
   const [adjusted, setAdjusted] = useState(false);
@@ -119,10 +116,8 @@ export default function SummaryStep() {
     setError(false);
     try {
       await completeOnboarding(draft);
-      // Plan od razu z odpowiedzi. Błąd nie blokuje – ekran główny spróbuje jeszcze raz.
-      await generatePlan().catch(() => {});
-      // Profil z onboarding_completed_at → nawigator sam przełączy na aplikację.
-      await refreshProfile();
+      // Plan układa się na ekranie „generating” (wschód słońca), który potem przełącza na aplikację.
+      router.replace('/generating');
     } catch {
       setError(true);
       setSaving(false);
