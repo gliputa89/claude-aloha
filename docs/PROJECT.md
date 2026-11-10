@@ -93,7 +93,7 @@ Ankieta startowa ──► Generowanie planu (1–2 tyg. do przodu, cel w tle)
 ## 4. Funkcje MVP
 
 ### 4.1 Rejestracja i logowanie
-- Tylko e-mail + hasło (z resetem hasła). Logowanie przez Google/Apple – później.
+- E-mail + hasło (z resetem hasła) oraz logowanie przez Apple na iOS. Logowanie przez Google – później.
 
 ### 4.2 Ankieta startowa (onboarding)
 Krótka, ok. 1–2 minuty, maksymalnie kilka ekranów:
@@ -233,7 +233,6 @@ Uwzględniamy od pierwszego dnia projektowania (privacy by design). *Poniższe t
 ### 6.4 Prawa użytkownika
 - **Eksport danych** (JSON) i **usunięcie konta z poziomu aplikacji** – wymagane przez RODO oraz przez App Store i Google Play.
 - Polityka prywatności i regulamin w PL i EN, dostępne przed rejestracją i w ustawieniach.
-- Minimalny wiek użytkownika: **18 lat** (deklaracja przy rejestracji).
 
 ### 6.5 Bezpieczeństwo zdrowotne
 - **Disclaimer medyczny** w onboardingu i w regulaminie: aplikacja nie jest wyrobem medycznym i nie zastępuje lekarza.
@@ -310,7 +309,7 @@ Pomysł na później: **14-dniowy darmowy okres Premium** po rejestracji – uż
 
 - Integracje: Garmin, Strava, Apple Health, Health Connect
 - Integracja z kalendarzem telefonu
-- Logowanie przez Google / Apple
+- Logowanie przez Google (oraz Apple na Androidzie i w przeglądarce)
 - Moduł regeneracji (rozciąganie, oddech, sen)
 - Inne dyscypliny (rower, pływanie, siłownia)
 - Śledzenie GPS w aplikacji

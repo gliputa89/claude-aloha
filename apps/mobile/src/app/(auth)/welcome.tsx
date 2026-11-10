@@ -4,6 +4,7 @@ import { StyleSheet, useWindowDimensions, View } from 'react-native';
 import Animated, { useReducedMotion } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { AppleSignIn } from '@/components/auth/apple-sign-in';
 import { BouncyTitle } from '@/components/brand/bouncy-title';
 import { FloatingPetals } from '@/components/brand/floating-petals';
 import { PlumeriaPattern } from '@/components/brand/plumeria-pattern';
@@ -16,6 +17,7 @@ import { EASE_OUT } from '@/constants/easing';
 import { space } from '@/constants/theme';
 import { useColors } from '@/hooks/use-colors';
 import { useT } from '@/hooks/use-t';
+import { appleSignInAvailable } from '@/lib/auth';
 
 /** Rozmiar kafelka wzoru plumerii – przesunięcie o tyle daje bezszwową pętlę. */
 const PATTERN_TILE = 56;
@@ -130,6 +132,11 @@ export default function WelcomeScreen() {
         <FadeUp delay={afterGreeting + 160}>
           <Button variant="secondary" label={t('welcome.haveAccount')} onPress={() => router.push('/sign-in')} />
         </FadeUp>
+        {appleSignInAvailable ? (
+          <FadeUp delay={afterGreeting + 240}>
+            <AppleSignIn />
+          </FadeUp>
+        ) : null}
       </Animated.View>
     </View>
   );

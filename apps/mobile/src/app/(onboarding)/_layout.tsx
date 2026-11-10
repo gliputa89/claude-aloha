@@ -2,6 +2,7 @@ import { Stack } from 'expo-router';
 
 import { fontFamily } from '@/components/ui/text';
 import { OnboardingDraftProvider } from '@/features/onboarding/draft';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useColors } from '@/hooks/use-colors';
 import { useT } from '@/hooks/use-t';
 
@@ -13,6 +14,8 @@ export const unstable_settings = {
 export default function OnboardingLayout() {
   const c = useColors();
   const t = useT();
+  // Na turkusie tekst paska stanu jak na ekranie startowym (jasny w trybie jasnym, ciemny w ciemnym).
+  const brandStatusBar = useColorScheme() === 'dark' ? 'dark' : 'light';
   return (
     <OnboardingDraftProvider>
       <Stack
@@ -31,6 +34,10 @@ export default function OnboardingLayout() {
         <Stack.Screen name="availability" />
         <Stack.Screen name="health" />
         <Stack.Screen name="summary" />
+        <Stack.Screen
+          name="generating"
+          options={{ headerShown: false, gestureEnabled: false, animation: 'fade', statusBarStyle: brandStatusBar }}
+        />
       </Stack>
     </OnboardingDraftProvider>
   );

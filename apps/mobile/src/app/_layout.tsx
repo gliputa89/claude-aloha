@@ -1,3 +1,5 @@
+import '@/lib/theme-preference';
+
 import {
   PlusJakartaSans_400Regular,
   PlusJakartaSans_500Medium,
@@ -87,6 +89,8 @@ function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
         {/* Linki z e-maili – dostępne z sesją i bez niej. */}
         <Stack.Screen name="auth/callback" options={{ headerShown: false, gestureEnabled: false }} />
         <Stack.Screen name="auth/reset-password" />
+        {/* Podglądy deweloperskie – poza development buildem trasa przekierowuje na start. */}
+        <Stack.Screen name="dev/plan-loader" options={{ headerShown: false }} />
       </Stack>
     </ThemeProvider>
   );

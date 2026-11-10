@@ -62,8 +62,20 @@ export async function fetchActivePlan(): Promise<ActivePlan | null> {
   return { ...(data as Omit<ActivePlan, 'weeks'>), weeks };
 }
 
+/** Odpowiedź funkcji generate-plan – do finału ekranu generowania. */
+export type GeneratedPlan = {
+  startsOn: string;
+  endsOn: string;
+  /** Liczba treningów w wygenerowanych tygodniach. */
+  sessions: number;
+  source: 'ai' | 'rules';
+  /** Krótkie uzasadnienie od trenera (AI) w języku użytkownika. */
+  summary: string | null;
+};
+
 /** Generuje plan na serwerze (Edge Function generate-plan) z odpowiedzi z ankiety. */
-export async function generatePlan() {
-  const { error } = await supabase.functions.invoke('generate-plan', { method: 'POST' });
+export async function generatePlan(): Promise<GeneratedPlan | null> {
+  const { data, error } = await supabase.functions.invoke<GeneratedPlan>('generate-plan', { method: 'POST' });
   if (error) throw error;
+  return data ?? null;
 }

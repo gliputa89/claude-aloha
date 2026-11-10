@@ -4,6 +4,7 @@ import { useState, type ComponentType } from 'react';
 import { Alert, Platform, StyleSheet, View } from 'react-native';
 
 import { Button } from '@/components/ui/button';
+import { Chip } from '@/components/ui/chip';
 import { FadeUp } from '@/components/ui/fade-up';
 import { Screen } from '@/components/ui/screen';
 import { Text } from '@/components/ui/text';
@@ -11,6 +12,7 @@ import { radius, space } from '@/constants/theme';
 import { useColors } from '@/hooks/use-colors';
 import { useT } from '@/hooks/use-t';
 import { signOut } from '@/lib/auth';
+import { getThemePreference, setThemePreference, THEME_PREFERENCES, type ThemePreference } from '@/lib/theme-preference';
 import { useAuth } from '@/providers/auth-provider';
 
 type Integration = { key: 'appleHealth' | 'healthConnect' | 'strava' | 'garmin'; Icon: ComponentType<IconProps> };
@@ -28,6 +30,12 @@ export default function ProfileScreen() {
   const t = useT();
   const { profile, session } = useAuth();
   const [signingOut, setSigningOut] = useState(false);
+  const [theme, setTheme] = useState(getThemePreference);
+
+  const chooseTheme = (next: ThemePreference) => {
+    setTheme(next);
+    setThemePreference(next);
+  };
 
   const name = profile?.display_name?.trim();
   const email = session?.user.email;
@@ -100,6 +108,23 @@ export default function ProfileScreen() {
 
       <FadeUp delay={200} style={styles.section}>
         <Text variant="heading" accessibilityRole="header">
+          {t('profile.appearance')}
+        </Text>
+        <View accessibilityRole="radiogroup" accessibilityLabel={t('profile.appearance')} style={styles.themes}>
+          {THEME_PREFERENCES.map((option) => (
+            <Chip
+              key={option}
+              fill
+              label={t(`profile.theme.${option}`)}
+              selected={theme === option}
+              onPress={() => chooseTheme(option)}
+            />
+          ))}
+        </View>
+      </FadeUp>
+
+      <FadeUp delay={280} style={styles.section}>
+        <Text variant="heading" accessibilityRole="header">
           {t('profile.account')}
         </Text>
         <Button variant="secondary" label={t('profile.signOut')} loading={signingOut} onPress={confirmSignOut} />
@@ -120,6 +145,7 @@ const styles = StyleSheet.create({
   avatar: { width: 52, height: 52, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center' },
   section: { gap: space[3] },
   sectionHeader: { gap: space[1] },
+  themes: { flexDirection: 'row', gap: space[2] },
   row: { flexDirection: 'row', alignItems: 'center', gap: space[3], paddingHorizontal: space[4], minHeight: 60 },
   icon: { width: 36, height: 36, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center' },
   pill: { paddingHorizontal: space[3], paddingVertical: space[1], borderRadius: radius.pill },
