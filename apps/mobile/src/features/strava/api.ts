@@ -52,6 +52,38 @@ export async function fetchSessionActivities(): Promise<StravaActivity[]> {
   return error ? [] : ((data ?? []) as StravaActivity[]);
 }
 
+/** Bieg z innego dnia niż trening w planie – czeka na odpowiedź „to był ten trening?”. */
+export type StravaSuggestion = {
+  id: number;
+  suggested_session_id: string;
+  local_date: string;
+  distance_m: number;
+  moving_time_s: number;
+};
+
+/** Pytania o przesunięte treningi. Błąd (np. baza bez tych kolumn) = brak pytań, plan działa dalej. */
+export async function fetchMatchSuggestions(): Promise<StravaSuggestion[]> {
+  const { data, error } = await supabase
+    .from('strava_activities')
+    .select('id, suggested_session_id, local_date, distance_m, moving_time_s')
+    .not('suggested_session_id', 'is', null)
+    .order('started_at');
+  return error ? [] : ((data ?? []) as StravaSuggestion[]);
+}
+
+/** Odpowiedź na „to był ten trening?”: tak → trening odhaczony tym biegiem; nie → nie pytamy więcej. */
+export async function answerStravaMatch(activityId: number, accept: boolean): Promise<boolean> {
+  try {
+    const { data, error } = await supabase.functions.invoke<{ error?: string }>('strava-sync', {
+      method: 'POST',
+      body: { answer: { activityId, accept } },
+    });
+    return !error && !!data && !data.error;
+  } catch {
+    return false;
+  }
+}
+
 /** Po odpowiedzi „niepołączone” nie pytamy ponownie do końca tej sesji aplikacji. */
 let disconnected = false;
 

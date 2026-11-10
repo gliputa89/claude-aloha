@@ -1,6 +1,6 @@
 import type { SessionStructure, SessionType } from '@aloha/plan-engine';
 
-import { fetchSessionActivities, type StravaActivity } from '@/features/strava/api';
+import { fetchMatchSuggestions, fetchSessionActivities, type StravaActivity, type StravaSuggestion } from '@/features/strava/api';
 import { supabase } from '@/lib/supabase';
 
 export type PlanSession = {
@@ -34,6 +34,8 @@ export type ActivePlan = {
   starts_on: string;
   ends_on: string | null;
   weeks: PlanWeek[];
+  /** Biegi ze Stravy z innego dnia niż trening – do pytania „to był ten trening?”. */
+  suggestions: StravaSuggestion[];
 };
 
 const plans = () => supabase.from('plans');
@@ -41,6 +43,7 @@ const plans = () => supabase.from('plans');
 /** Aktywny plan z tygodniami i treningami (RLS: tylko własne). `null` – planu jeszcze nie ma. */
 export async function fetchActivePlan(): Promise<ActivePlan | null> {
   const activitiesPromise = fetchSessionActivities();
+  const suggestionsPromise = fetchMatchSuggestions();
   let { data, error } = await plans()
     .select(
       'id, starts_on, ends_on, weeks(id, week_index, starts_on, focus, sessions(id, scheduled_on, type, duration_min, distance_m, intensity, structure, status, actual_distance_m, actual_duration_s, coach_tip))',
@@ -67,7 +70,7 @@ export async function fetchActivePlan(): Promise<ActivePlan | null> {
         .map((s) => ({ ...s, coach_tip: s.coach_tip ?? null, activities: activities.filter((a) => a.session_id === s.id) }))
         .sort((a, b) => a.scheduled_on.localeCompare(b.scheduled_on)),
     }));
-  return { ...(data as Omit<ActivePlan, 'weeks'>), weeks };
+  return { ...(data as Omit<ActivePlan, 'weeks' | 'suggestions'>), weeks, suggestions: await suggestionsPromise };
 }
 
 /** Odpowiedź funkcji generate-plan – do finału ekranu generowania. */

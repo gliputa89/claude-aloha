@@ -256,6 +256,14 @@ export const pl = {
     plan: 'Plan',
     profile: 'Profil',
   },
+  match: {
+    title: 'To był ten trening?',
+    run: 'Twój bieg: {details}',
+    planned: 'W planie: {details}',
+    yes: 'Tak, to ten',
+    no: 'Nie, to dodatkowy bieg',
+    failed: 'Nie udało się zapisać odpowiedzi. Spróbuj jeszcze raz.',
+  },
   today: {
     title: 'Dzisiaj',
     restTitle: 'Dziś wolne',

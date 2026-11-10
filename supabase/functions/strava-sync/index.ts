@@ -8,6 +8,9 @@
 // Aktywność usunięta w Stravie znika też u nas przy kolejnej synchronizacji.
 //
 // Wywołania:
+// Bieg z innego dnia niż trening (np. środowy zrobiony w czwartek) reguły tylko proponują (suggested_session_id);
+// przypisuje go odpowiedź biegacza: { answer: { activityId, accept } } – bez pytania Stravy.
+//
 //   * aplikacja – token zalogowanego użytkownika → tylko on; nie częściej niż co 10 min (chyba że `force`);
 //     z { manual: true } („Pobierz biegi” w Profilu) – od razu, ostatnie 3 dni, najwyżej raz na 3 godziny,
 //   * cron – Authorization: Bearer <SERVICE_ROLE_KEY> → wszyscy połączeni,
@@ -68,6 +71,20 @@ type Connection = {
 
 type SessionRow = StravaMatchSession & { actual_distance_m: number | null; actual_duration_s: number | null };
 
+type StoredActivity = {
+  id: number;
+  sport_type: string;
+  local_date: string;
+  started_at: string;
+  distance_m: number;
+  moving_time_s: number;
+  elapsed_time_s: number;
+  session_id: string | null;
+  suggested_session_id: string | null;
+  match_confirmed: boolean;
+  match_declined: boolean;
+};
+
 type StravaActivity = {
   id: number;
   name?: string;
@@ -94,7 +111,9 @@ type Outcome = {
   lastSyncedAt?: string | null;
   /** Ręczne pobranie: od kiedy będzie można wymusić kolejne (także gdy to wywołanie zostało odrzucone limitem). */
   nextManualAt?: string;
-  error?: 'reauthorize' | 'rate_limited' | 'strava_unavailable' | 'not_configured' | 'save_failed';
+  /** Ile biegów czeka na odpowiedź „to był ten trening?”. */
+  suggested?: number;
+  error?: 'reauthorize' | 'rate_limited' | 'strava_unavailable' | 'not_configured' | 'save_failed' | 'no_suggestion';
   /** Przy 'reauthorize': co Strava odrzuciła – sam token czy odczyt aktywności (zwykle brak zakresu activity:read). */
   stage?: 'token' | 'activities';
 };
@@ -157,6 +176,108 @@ async function fetchActivities(token: string, afterEpochS: number) {
   return { activities: all, complete: false };
 }
 
+/** Treningi aktywnego planu (z tygodniem) i początek okna aktywności: dzień przed startem planu, najwyżej 30 dni wstecz. */
+async function loadPlan(db: SupabaseClient, userId: string) {
+  const planRes = await db
+    .from('plans')
+    .select('starts_on, weeks(id, sessions(id, scheduled_on, type, duration_min, distance_m, status, actual_distance_m, actual_duration_s))')
+    .eq('user_id', userId)
+    .eq('status', 'active')
+    .maybeSingle();
+  if (planRes.error) throw new Error(planRes.error.message);
+  const sessions = ((planRes.data?.weeks ?? []) as { id: string; sessions: SessionRow[] }[]).flatMap((w) =>
+    w.sessions.map((s) => ({ ...s, week: w.id })),
+  );
+  const today = new Date().toISOString().slice(0, 10);
+  const planStart = planRes.data?.starts_on ? addDaysIso(planRes.data.starts_on as string, -1) : null;
+  const windowStart = (lookbackDays: number) => {
+    const earliest = addDaysIso(today, -lookbackDays);
+    return `${planStart && planStart > earliest ? planStart : earliest}T00:00:00Z`;
+  };
+  return { sessions, windowStart };
+}
+
+/**
+ * Dopasowuje zapisane biegi do treningów i zapisuje wynik: pary, propozycje („to był ten trening?”) i realizację
+ * treningów. Liczy z bazy, nie z odpowiedzi Stravy – dzięki temu działa też po samej odpowiedzi biegacza.
+ */
+async function applyMatches(db: SupabaseClient, userId: string, sessions: SessionRow[], sinceIso: string) {
+  const stored = await db
+    .from('strava_activities')
+    .select('id, sport_type, local_date, started_at, distance_m, moving_time_s, elapsed_time_s, session_id, suggested_session_id, match_confirmed, match_declined')
+    .eq('user_id', userId)
+    .gte('started_at', sinceIso);
+  if (stored.error) throw new Error(stored.error.message);
+  const rows = (stored.data ?? []) as StoredActivity[];
+  const inputs: StravaActivityInput[] = rows.map((r) => ({
+    id: Number(r.id),
+    sportType: r.sport_type,
+    localDate: r.local_date,
+    startedAt: r.started_at,
+    distanceM: r.distance_m,
+    movingTimeS: r.moving_time_s,
+    elapsedTimeS: r.elapsed_time_s,
+  }));
+  const { links, suggestions, completions } = matchStravaActivities(sessions, inputs, {
+    confirmed: new Map(rows.filter((r) => r.match_confirmed && r.session_id).map((r) => [Number(r.id), r.session_id!])),
+    declined: new Set(rows.filter((r) => r.match_declined).map((r) => Number(r.id))),
+  });
+
+  for (const r of rows) {
+    const id = Number(r.id);
+    const sessionId = links.get(id) ?? null;
+    const suggestedId = suggestions.get(id) ?? null;
+    if (sessionId === r.session_id && suggestedId === r.suggested_session_id) continue;
+    const { error } = await db.from('strava_activities').update({ session_id: sessionId, suggested_session_id: suggestedId }).eq('id', id);
+    if (error) console.error('strava_activities link failed', id, error.code, error.message);
+  }
+
+  let updated = 0;
+  const byId = new Map(sessions.map((s) => [s.id, s]));
+  for (const c of completions) {
+    const s = byId.get(c.sessionId);
+    if (!s || (s.status === c.status && s.actual_distance_m === c.actualDistanceM && s.actual_duration_s === c.actualDurationS)) {
+      continue;
+    }
+    const { error } = await db
+      .from('sessions')
+      .update({
+        status: c.status,
+        actual_distance_m: c.actualDistanceM,
+        actual_duration_s: c.actualDurationS,
+        completed_at: c.completedAt,
+      })
+      .eq('id', c.sessionId);
+    if (error) console.error('session update failed', c.sessionId, error.code, error.message);
+    else updated++;
+  }
+  return { updated, matched: [...links.values()].filter(Boolean).length, suggested: suggestions.size };
+}
+
+/** Odpowiedź biegacza na „to był ten trening?”: tak → bieg zostaje przy treningu z innego dnia; nie → nie pytamy więcej. */
+async function answerMatch(db: SupabaseClient, userId: string, activityId: number, accept: boolean): Promise<Outcome> {
+  const found = await db
+    .from('strava_activities')
+    .select('id, suggested_session_id')
+    .eq('user_id', userId)
+    .eq('id', activityId)
+    .not('suggested_session_id', 'is', null)
+    .maybeSingle();
+  if (found.error) throw new Error(found.error.message);
+  if (!found.data) return { connected: true, updated: 0, error: 'no_suggestion' };
+  const change = accept
+    ? { session_id: found.data.suggested_session_id, suggested_session_id: null, match_confirmed: true }
+    : { suggested_session_id: null, match_declined: true };
+  const { error } = await db.from('strava_activities').update(change).eq('id', activityId);
+  if (error) {
+    console.error('strava match answer failed', activityId, error.code, error.message);
+    return { connected: true, updated: 0, error: 'save_failed' };
+  }
+  const { sessions, windowStart } = await loadPlan(db, userId);
+  const result = await applyMatches(db, userId, sessions, windowStart(LOOKBACK_DAYS));
+  return { connected: true, ...result };
+}
+
 async function syncUser(db: SupabaseClient, userId: string, opts: { force: boolean; manual?: boolean }): Promise<Outcome> {
   const connRes = await db
     .from('strava_connections')
@@ -182,20 +303,9 @@ async function syncUser(db: SupabaseClient, userId: string, opts: { force: boole
     return { ...state, updated: 0, error: 'not_configured' };
   }
 
-  const planRes = await db
-    .from('plans')
-    .select('starts_on, weeks(sessions(id, scheduled_on, type, duration_min, distance_m, status, actual_distance_m, actual_duration_s))')
-    .eq('user_id', userId)
-    .eq('status', 'active')
-    .maybeSingle();
-  if (planRes.error) throw new Error(planRes.error.message);
-  const sessions = ((planRes.data?.weeks ?? []) as { sessions: SessionRow[] }[]).flatMap((w) => w.sessions);
-
   // Okno: od dnia przed startem planu (różnica stref), ale nie dalej niż 30 dni wstecz (ręczne pobranie: 3 dni).
-  const today = new Date().toISOString().slice(0, 10);
-  const earliest = addDaysIso(today, -(opts.manual ? MANUAL_LOOKBACK_DAYS : LOOKBACK_DAYS));
-  const planStart = planRes.data?.starts_on ? addDaysIso(planRes.data.starts_on as string, -1) : earliest;
-  const afterIso = `${planStart > earliest ? planStart : earliest}T00:00:00Z`;
+  const { sessions, windowStart } = await loadPlan(db, userId);
+  const afterIso = windowStart(opts.manual ? MANUAL_LOOKBACK_DAYS : LOOKBACK_DAYS);
 
   let fetched: Awaited<ReturnType<typeof fetchActivities>>;
   try {
@@ -216,30 +326,18 @@ async function syncUser(db: SupabaseClient, userId: string, opts: { force: boole
     const sport = a.sport_type ?? a.type ?? '';
     return (isStravaRun(sport) || isStravaWalk(sport)) && (a.athlete?.id === undefined || a.athlete.id === Number(conn.athlete_id));
   });
-  const inputs: StravaActivityInput[] = own.map((a) => ({
-    id: a.id,
-    sportType: a.sport_type ?? a.type ?? '',
-    localDate: a.start_date_local.slice(0, 10),
-    startedAt: a.start_date,
-    distanceM: a.distance ?? 0,
-    movingTimeS: a.moving_time ?? 0,
-    elapsedTimeS: a.elapsed_time ?? a.moving_time ?? 0,
-  }));
-  const { links, completions } = matchStravaActivities(sessions, inputs);
-
   if (own.length > 0) {
     const { error } = await db.from('strava_activities').upsert(
-      own.map((a, i) => ({
+      own.map((a) => ({
         id: a.id,
         user_id: userId,
-        session_id: links.get(a.id) ?? null,
-        sport_type: inputs[i]!.sportType,
+        sport_type: a.sport_type ?? a.type ?? '',
         name: a.name?.slice(0, 300) ?? null,
         started_at: a.start_date,
-        local_date: inputs[i]!.localDate,
-        distance_m: Math.round(inputs[i]!.distanceM),
-        moving_time_s: Math.round(inputs[i]!.movingTimeS),
-        elapsed_time_s: Math.round(inputs[i]!.elapsedTimeS),
+        local_date: a.start_date_local.slice(0, 10),
+        distance_m: Math.round(a.distance ?? 0),
+        moving_time_s: Math.round(a.moving_time ?? 0),
+        elapsed_time_s: Math.round(a.elapsed_time ?? a.moving_time ?? 0),
         elevation_gain_m: a.total_elevation_gain === undefined ? null : Math.round(a.total_elevation_gain),
       })),
       { onConflict: 'id' },
@@ -258,25 +356,8 @@ async function syncUser(db: SupabaseClient, userId: string, opts: { force: boole
     if (error) console.error('strava_activities cleanup failed', error.code, error.message);
   }
 
-  let updated = 0;
-  const byId = new Map(sessions.map((s) => [s.id, s]));
-  for (const c of completions) {
-    const s = byId.get(c.sessionId);
-    if (!s || (s.status === c.status && s.actual_distance_m === c.actualDistanceM && s.actual_duration_s === c.actualDurationS)) {
-      continue;
-    }
-    const { error } = await db
-      .from('sessions')
-      .update({
-        status: c.status,
-        actual_distance_m: c.actualDistanceM,
-        actual_duration_s: c.actualDurationS,
-        completed_at: c.completedAt,
-      })
-      .eq('id', c.sessionId);
-    if (error) console.error('session update failed', c.sessionId, error.code, error.message);
-    else updated++;
-  }
+  // Pary i propozycje liczymy ze wszystkich zapisanych biegów planu (nie tylko z pobranego okna).
+  const { updated, matched, suggested } = await applyMatches(db, userId, sessions, windowStart(LOOKBACK_DAYS));
 
   const lastSyncedAt = new Date().toISOString();
   // Ręczne pobranie liczy się do limitu dopiero, gdy się udało – nieudana próba nie blokuje na 3 godziny.
@@ -285,7 +366,7 @@ async function syncUser(db: SupabaseClient, userId: string, opts: { force: boole
   if (error) console.error('strava_connections update failed', error.code, error.message);
   const nextManualAt = opts.manual ? { nextManualAt: new Date(Date.parse(lastSyncedAt) + MANUAL_INTERVAL_MS).toISOString() } : {};
 
-  return { ...state, ...nextManualAt, lastSyncedAt, updated, imported: own.length, matched: own.filter((a) => links.get(a.id)).length };
+  return { ...state, ...nextManualAt, lastSyncedAt, updated, imported: own.length, matched, suggested };
 }
 
 Deno.serve(async (req) => {
@@ -336,6 +417,10 @@ Deno.serve(async (req) => {
   if (authError || !auth.user) return json({ error: 'unauthorized' }, 401);
   const body = await req.json().catch(() => null);
   try {
+    const answer = body?.answer;
+    if (answer && typeof answer.activityId === 'number' && typeof answer.accept === 'boolean') {
+      return json(await answerMatch(db, auth.user.id, answer.activityId, answer.accept));
+    }
     return json(await syncUser(db, auth.user.id, { force: body?.force === true, manual: body?.manual === true }));
   } catch (e) {
     console.error('strava-sync failed', auth.user.id, e);

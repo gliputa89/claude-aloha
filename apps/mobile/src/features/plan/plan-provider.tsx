@@ -14,6 +14,8 @@ type PlanContextValue = {
   state: PlanState;
   /** Ponowne wczytanie (np. pociągnięcie w dół). */
   reload: () => Promise<void>;
+  /** Sam plan z bazy, bez pytania Stravy (np. po odpowiedzi „to był ten trening?”). */
+  refresh: () => Promise<void>;
   /** Ponowne ułożenie planu po nieudanej próbie. */
   generate: () => Promise<void>;
 };
@@ -21,6 +23,7 @@ type PlanContextValue = {
 const PlanContext = createContext<PlanContextValue>({
   state: { kind: 'loading' },
   reload: async () => {},
+  refresh: async () => {},
   generate: async () => {},
 });
 
@@ -58,6 +61,11 @@ export function PlanProvider({ children }: PropsWithChildren) {
     }
   }, [generate]);
 
+  const refresh = useCallback(async () => {
+    const plan = await fetchActivePlan().catch(() => null);
+    if (plan) setState({ kind: 'ready', plan });
+  }, []);
+
   // Pierwsze wczytanie: stan zmieniamy dopiero w callbacku zapytania.
   useEffect(() => {
     let active = true;
@@ -66,9 +74,9 @@ export function PlanProvider({ children }: PropsWithChildren) {
         if (!active) return;
         if (plan) {
           setState({ kind: 'ready', plan });
-          // Plan pokazujemy od razu; biegi ze Stravy dociągamy w tle i odświeżamy tylko, gdy coś odhaczyły.
+          // Plan pokazujemy od razu; biegi ze Stravy dociągamy w tle (odhaczone treningi i pytania o przesunięte).
           syncStrava()
-            .then((updated) => (updated > 0 ? fetchActivePlan() : null))
+            .then(() => fetchActivePlan())
             .then((fresh) => active && fresh && setState({ kind: 'ready', plan: fresh }))
             .catch(() => {});
         } else {
@@ -83,7 +91,7 @@ export function PlanProvider({ children }: PropsWithChildren) {
     };
   }, [generate]);
 
-  return <PlanContext value={{ state, reload, generate }}>{children}</PlanContext>;
+  return <PlanContext value={{ state, reload, refresh, generate }}>{children}</PlanContext>;
 }
 
 export function usePlan() {

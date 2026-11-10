@@ -90,3 +90,48 @@ test('dwa treningi jednego dnia → aktywność do bliższego czasem', () => {
   );
   assert.equal(links.get(1), 'long');
 });
+
+test('środowy trening zrobiony w czwartek → propozycja, bez przypisania', () => {
+  const wed = session({ scheduled_on: '2026-11-11' });
+  const run = activity({ localDate: '2026-11-12', startedAt: '2026-11-12T06:00:00Z' });
+  const { links, suggestions, completions } = matchStravaActivities([wed], [run]);
+  assert.equal(links.get(1), null);
+  assert.equal(suggestions.get(1), 's1');
+  assert.deepEqual(completions, []);
+});
+
+test('potwierdzona propozycja → trening zrobiony biegiem z innego dnia', () => {
+  const wed = session({ scheduled_on: '2026-11-11' });
+  const run = activity({ localDate: '2026-11-12', startedAt: '2026-11-12T06:00:00Z' });
+  const { links, suggestions, completions } = matchStravaActivities([wed], [run], { confirmed: new Map([[1, 's1']]) });
+  assert.equal(links.get(1), 's1');
+  assert.equal(suggestions.size, 0);
+  assert.equal(completions[0]?.status, 'done');
+});
+
+test('odrzucona propozycja nie wraca', () => {
+  const wed = session({ scheduled_on: '2026-11-11' });
+  const run = activity({ localDate: '2026-11-12', startedAt: '2026-11-12T06:00:00Z' });
+  assert.equal(matchStravaActivities([wed], [run], { declined: new Set([1]) }).suggestions.size, 0);
+});
+
+test('bez propozycji: za daleko, inny tydzień, niepodobny bieg, trening już zrobiony', () => {
+  const run = activity({ localDate: '2026-11-12', startedAt: '2026-11-12T06:00:00Z' });
+  const none = (sessions: StravaMatchSession[], a = run) => assert.equal(matchStravaActivities(sessions, [a]).suggestions.size, 0);
+  none([session({ scheduled_on: '2026-11-09' })]);
+  none([session({ scheduled_on: '2026-11-11', status: 'done' })]);
+  none([session({ scheduled_on: '2026-11-11' })], { ...run, movingTimeS: 10 * 60, distanceM: 1500 });
+  // Bieg w dniu z własnym treningiem z innego tygodnia planu niż sąsiedni niezrobiony.
+  const own = session({ id: 'own', scheduled_on: '2026-11-12', week: 2 });
+  const { links, suggestions } = matchStravaActivities([session({ scheduled_on: '2026-11-11', week: 1 }), own], [run]);
+  assert.equal(links.get(1), 'own');
+  assert.equal(suggestions.size, 0);
+});
+
+test('dwa biegi bez pary i jeden niezrobiony trening → pytamy o bliższy planowi', () => {
+  const wed = session({ scheduled_on: '2026-11-11' });
+  const close = activity({ id: 1, localDate: '2026-11-12', startedAt: '2026-11-12T06:00:00Z', movingTimeS: 39 * 60 });
+  const far = activity({ id: 2, localDate: '2026-11-13', startedAt: '2026-11-13T06:00:00Z', movingTimeS: 55 * 60 });
+  const { suggestions } = matchStravaActivities([wed], [far, close]);
+  assert.deepEqual([...suggestions], [[1, 's1']]);
+});

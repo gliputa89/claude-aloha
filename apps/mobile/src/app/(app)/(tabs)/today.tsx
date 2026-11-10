@@ -2,6 +2,7 @@ import { router } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 
 import { Mark } from '@/components/brand/mark';
+import { MatchPrompts } from '@/components/plan/match-prompt';
 import { SessionRow } from '@/components/plan/session-row';
 import { WeatherCard, WeatherPrompt } from '@/components/plan/weather-card';
 import { Button } from '@/components/ui/button';
@@ -62,6 +63,7 @@ export default function TodayScreen() {
 
       {state.kind === 'ready' ? (
         <>
+          <MatchPrompts />
           <FadeUp delay={60} style={styles.section}>
             <Text variant="heading" accessibilityRole="header">
               {t('today.title')}

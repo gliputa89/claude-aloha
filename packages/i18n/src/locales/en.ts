@@ -255,6 +255,14 @@ export const en: Dictionary = {
     plan: 'Plan',
     profile: 'Profile',
   },
+  match: {
+    title: 'Was this the workout?',
+    run: 'Your run: {details}',
+    planned: 'In the plan: {details}',
+    yes: 'Yes, that’s it',
+    no: 'No, it was an extra run',
+    failed: 'Couldn’t save your answer. Try again.',
+  },
   today: {
     title: 'Today',
     restTitle: 'Rest day',

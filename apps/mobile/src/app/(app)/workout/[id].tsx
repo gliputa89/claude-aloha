@@ -22,6 +22,7 @@ import { Mark } from '@/components/brand/mark';
 import { TYPE_COLOR, useDetail } from '@/components/plan/session-row';
 import { WeatherCard } from '@/components/plan/weather-card';
 import { WorkoutChart, WorkoutSteps } from '@/components/plan/workout-intervals';
+import { MatchPrompts } from '@/components/plan/match-prompt';
 import { FadeUp } from '@/components/ui/fade-up';
 import { InfoCard } from '@/components/ui/info-card';
 import { Text } from '@/components/ui/text';
@@ -203,6 +204,8 @@ function Detail({ session }: { session: PlanSession }) {
           ) : null}
         </View>
       </View>
+
+      <MatchPrompts sessionId={session.id} />
 
       {stats.length > 0 ? (
         <View style={styles.stats}>
