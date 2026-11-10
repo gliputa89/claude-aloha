@@ -40,6 +40,8 @@ Szczegóły: [`docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md), sekcja 3.
   Aloha – osobną, żeby nie dzielić kluczy, limitów ani refresh tokenów z innymi projektami.
 - Sekrety (raz na środowisko) – dane aplikacji z https://www.strava.com/settings/api:
   `supabase secrets set STRAVA_CLIENT_ID=… STRAVA_CLIENT_SECRET=… --project-ref <ref>`.
+- Ręczne pobranie: Profil → Strava → „Pobierz biegi z 3 dni” wywołuje `strava-sync` z `{ manual: true }` – od razu,
+  okno 3 dni, najwyżej raz na 3 godziny na użytkownika (`strava_connections.last_manual_sync_at`).
 - `strava-oauth` – „Połącz przez Stravę” w aplikacji (Profil → Strava) i w panelu (tester → użytkownik → karta
   „Strava”): otwiera ekran zgody Stravy, po powrocie wymienia kod na tokeny i zapisuje połączenie; tokeny nie
   przechodzą przez telefon ani przeglądarkę. Obsługuje też rozłączenie (cofa dostęp w Stravie, usuwa pobrane biegi).

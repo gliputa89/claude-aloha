@@ -92,6 +92,7 @@ export async function saveConnection(
       ...tokens,
       scope,
       last_synced_at: null,
+      last_manual_sync_at: null,
       last_error: null,
     },
     { onConflict: 'user_id' },

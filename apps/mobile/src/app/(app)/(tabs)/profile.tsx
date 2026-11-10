@@ -10,7 +10,7 @@ import { Screen } from '@/components/ui/screen';
 import { Text } from '@/components/ui/text';
 import { radius, space } from '@/constants/theme';
 import { usePlan } from '@/features/plan/plan-provider';
-import { connectStrava, disconnectStrava, fetchStravaStatus, type StravaStatus } from '@/features/strava/api';
+import { connectStrava, disconnectStrava, fetchRecentStravaRuns, fetchStravaStatus, type StravaStatus } from '@/features/strava/api';
 import { useColors } from '@/hooks/use-colors';
 import { useLocale, useT } from '@/hooks/use-t';
 import { signOut } from '@/lib/auth';
@@ -76,6 +76,39 @@ export default function ProfileScreen() {
         },
       },
     ]);
+
+  const clock = (iso: string) =>
+    new Date(iso).toLocaleTimeString(locale === 'en' ? 'en-GB' : 'pl-PL', { hour: '2-digit', minute: '2-digit' });
+
+  /** Wymuszone pobranie biegów z ostatnich 3 dni – serwer pozwala na nie raz na 3 godziny. */
+  const fetchRecent = async () => {
+    setStravaBusy(true);
+    const result = await fetchRecentStravaRuns();
+    if (result.status === 'done') {
+      if (result.updated > 0) await reload();
+      Alert.alert(t('profile.strava'), t(result.imported > 0 ? 'profile.stravaFetchDone' : 'profile.stravaFetchNone'));
+    } else if (result.status === 'limited') {
+      Alert.alert(t('profile.strava'), t('profile.stravaFetchWait', { time: clock(result.nextAt) }));
+    } else {
+      Alert.alert(t('profile.strava'), t('profile.stravaFetchFailed'));
+    }
+    setStrava(await fetchStravaStatus());
+    setStravaBusy(false);
+  };
+
+  /** Połączona Strava: pobranie biegów (gdy minęły 3 godziny od poprzedniego ręcznego) albo rozłączenie. */
+  const manageStrava = () => {
+    const waitUntil = strava?.nextManualAt && Date.parse(strava.nextManualAt) > Date.now() ? strava.nextManualAt : null;
+    Alert.alert(
+      t('profile.strava'),
+      waitUntil ? t('profile.stravaOptionsWait', { time: clock(waitUntil) }) : t('profile.stravaOptionsBody'),
+      [
+        ...(waitUntil ? [] : [{ text: t('profile.stravaFetch'), onPress: fetchRecent }]),
+        { text: t('profile.stravaDisconnect'), style: 'destructive' as const, onPress: unlinkStrava },
+        { text: t('profile.cancel'), style: 'cancel' as const },
+      ],
+    );
+  };
 
   const stravaNote = !strava
     ? null
@@ -148,7 +181,7 @@ export default function ProfileScreen() {
             const isStrava = key === 'strava';
             const active = isStrava && strava !== null && !strava.needsReconnect;
             const note = isStrava && strava ? stravaNote : null;
-            // Strava: niepołączona → „Połącz”, wygasła → „Połącz ponownie”, połączona → „Połączono” (tapnięcie: rozłącz).
+            // Strava: niepołączona → „Połącz”, wygasła → „Połącz ponownie”, połączona → „Połączono” (tapnięcie: pobierz biegi / rozłącz).
             const badge = !isStrava
               ? t('profile.soon')
               : active
@@ -191,7 +224,7 @@ export default function ProfileScreen() {
                 accessibilityHint={active ? t('profile.stravaManage') : undefined}
                 accessibilityState={{ busy: stravaBusy }}
                 disabled={stravaBusy}
-                onPress={active ? unlinkStrava : linkStrava}
+                onPress={active ? manageStrava : linkStrava}
                 style={({ pressed }) => [styles.row, border, { opacity: pressed ? 0.6 : 1 }]}>
                 {content}
               </Pressable>

@@ -8,7 +8,8 @@
 // Aktywność usunięta w Stravie znika też u nas przy kolejnej synchronizacji.
 //
 // Wywołania:
-//   * aplikacja – token zalogowanego użytkownika → tylko on; nie częściej niż co 10 min (chyba że `force`),
+//   * aplikacja – token zalogowanego użytkownika → tylko on; nie częściej niż co 10 min (chyba że `force`);
+//     z { manual: true } („Pobierz biegi” w Profilu) – od razu, ostatnie 3 dni, najwyżej raz na 3 godziny,
 //   * cron – Authorization: Bearer <SERVICE_ROLE_KEY> → wszyscy połączeni,
 //   * panel admina – klucz service_role + { userId } → ten jeden użytkownik, od razu; z { refreshToken } najpierw
 //     łączy konto: sprawdza token w Stravie, pobiera dane sportowca i zapisuje wiersz w strava_connections.
@@ -48,6 +49,9 @@ const json = (body: unknown, status = 200) =>
 
 const MIN_INTERVAL_MS = 10 * 60 * 1000;
 const LOOKBACK_DAYS = 30;
+/** Ręczne pobranie z Profilu: krótkie okno i rzadko – limity Stravy są wspólne dla wszystkich użytkowników. */
+const MANUAL_INTERVAL_MS = 3 * 60 * 60 * 1000;
+const MANUAL_LOOKBACK_DAYS = 3;
 const PER_PAGE = 100;
 const MAX_PAGES = 3;
 
@@ -59,6 +63,7 @@ type Connection = {
   access_token: string | null;
   access_token_expires_at: string | null;
   last_synced_at: string | null;
+  last_manual_sync_at: string | null;
 };
 
 type SessionRow = StravaMatchSession & { actual_distance_m: number | null; actual_duration_s: number | null };
@@ -87,6 +92,8 @@ type Outcome = {
   skipped?: boolean;
   athleteName?: string | null;
   lastSyncedAt?: string | null;
+  /** Ręczne pobranie: od kiedy będzie można wymusić kolejne (także gdy to wywołanie zostało odrzucone limitem). */
+  nextManualAt?: string;
   error?: 'reauthorize' | 'rate_limited' | 'strava_unavailable' | 'not_configured' | 'save_failed';
   /** Przy 'reauthorize': co Strava odrzuciła – sam token czy odczyt aktywności (zwykle brak zakresu activity:read). */
   stage?: 'token' | 'activities';
@@ -150,10 +157,10 @@ async function fetchActivities(token: string, afterEpochS: number) {
   return { activities: all, complete: false };
 }
 
-async function syncUser(db: SupabaseClient, userId: string, opts: { force: boolean }): Promise<Outcome> {
+async function syncUser(db: SupabaseClient, userId: string, opts: { force: boolean; manual?: boolean }): Promise<Outcome> {
   const connRes = await db
     .from('strava_connections')
-    .select('user_id, athlete_id, athlete_name, refresh_token, access_token, access_token_expires_at, last_synced_at')
+    .select('user_id, athlete_id, athlete_name, refresh_token, access_token, access_token_expires_at, last_synced_at, last_manual_sync_at')
     .eq('user_id', userId)
     .maybeSingle();
   if (connRes.error) throw new Error(connRes.error.message);
@@ -161,7 +168,11 @@ async function syncUser(db: SupabaseClient, userId: string, opts: { force: boole
   if (!conn) return { connected: false, updated: 0 };
 
   const state = { connected: true, athleteName: conn.athlete_name, lastSyncedAt: conn.last_synced_at };
-  if (!opts.force && conn.last_synced_at && Date.now() - Date.parse(conn.last_synced_at) < MIN_INTERVAL_MS) {
+  if (opts.manual && conn.last_manual_sync_at) {
+    const next = Date.parse(conn.last_manual_sync_at) + MANUAL_INTERVAL_MS;
+    if (next > Date.now()) return { ...state, updated: 0, skipped: true, nextManualAt: new Date(next).toISOString() };
+  }
+  if (!opts.force && !opts.manual && conn.last_synced_at && Date.now() - Date.parse(conn.last_synced_at) < MIN_INTERVAL_MS) {
     return { ...state, updated: 0, skipped: true };
   }
 
@@ -180,9 +191,9 @@ async function syncUser(db: SupabaseClient, userId: string, opts: { force: boole
   if (planRes.error) throw new Error(planRes.error.message);
   const sessions = ((planRes.data?.weeks ?? []) as { sessions: SessionRow[] }[]).flatMap((w) => w.sessions);
 
-  // Okno: od dnia przed startem planu (różnica stref), ale nie dalej niż 30 dni wstecz.
+  // Okno: od dnia przed startem planu (różnica stref), ale nie dalej niż 30 dni wstecz (ręczne pobranie: 3 dni).
   const today = new Date().toISOString().slice(0, 10);
-  const earliest = addDaysIso(today, -LOOKBACK_DAYS);
+  const earliest = addDaysIso(today, -(opts.manual ? MANUAL_LOOKBACK_DAYS : LOOKBACK_DAYS));
   const planStart = planRes.data?.starts_on ? addDaysIso(planRes.data.starts_on as string, -1) : earliest;
   const afterIso = `${planStart > earliest ? planStart : earliest}T00:00:00Z`;
 
@@ -268,10 +279,13 @@ async function syncUser(db: SupabaseClient, userId: string, opts: { force: boole
   }
 
   const lastSyncedAt = new Date().toISOString();
-  const { error } = await db.from('strava_connections').update({ last_synced_at: lastSyncedAt, last_error: null }).eq('user_id', userId);
+  // Ręczne pobranie liczy się do limitu dopiero, gdy się udało – nieudana próba nie blokuje na 3 godziny.
+  const stamp = { last_synced_at: lastSyncedAt, last_error: null, ...(opts.manual ? { last_manual_sync_at: lastSyncedAt } : {}) };
+  const { error } = await db.from('strava_connections').update(stamp).eq('user_id', userId);
   if (error) console.error('strava_connections update failed', error.code, error.message);
+  const nextManualAt = opts.manual ? { nextManualAt: new Date(Date.parse(lastSyncedAt) + MANUAL_INTERVAL_MS).toISOString() } : {};
 
-  return { ...state, lastSyncedAt, updated, imported: own.length, matched: own.filter((a) => links.get(a.id)).length };
+  return { ...state, ...nextManualAt, lastSyncedAt, updated, imported: own.length, matched: own.filter((a) => links.get(a.id)).length };
 }
 
 Deno.serve(async (req) => {
@@ -322,7 +336,7 @@ Deno.serve(async (req) => {
   if (authError || !auth.user) return json({ error: 'unauthorized' }, 401);
   const body = await req.json().catch(() => null);
   try {
-    return json(await syncUser(db, auth.user.id, { force: body?.force === true }));
+    return json(await syncUser(db, auth.user.id, { force: body?.force === true, manual: body?.manual === true }));
   } catch (e) {
     console.error('strava-sync failed', auth.user.id, e);
     return json({ error: 'sync_failed' }, 500);

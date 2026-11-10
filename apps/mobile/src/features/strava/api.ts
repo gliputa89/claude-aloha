@@ -19,19 +19,26 @@ export type StravaStatus = {
   lastSyncedAt: string | null;
   /** Strava odrzuciła dostęp – trzeba połączyć konto od nowa. */
   needsReconnect: boolean;
+  /** Od kiedy można znów ręcznie pobrać biegi; `null` – można od razu. */
+  nextManualAt: string | null;
 };
+
+/** Ręczne pobranie biegów: najwyżej raz na 3 godziny (pilnuje tego funkcja strava-sync). */
+const MANUAL_INTERVAL_MS = 3 * 60 * 60 * 1000;
 
 export async function fetchStravaStatus(): Promise<StravaStatus | null> {
   // Tylko kolumny stanu – tokeny są poza zasięgiem aplikacji (uprawnienia na kolumnach).
   const { data, error } = await supabase
     .from('strava_connections')
-    .select('athlete_name, last_synced_at, last_error')
+    .select('athlete_name, last_synced_at, last_manual_sync_at, last_error')
     .maybeSingle();
   if (error || !data) return null;
+  const manual = data.last_manual_sync_at ? Date.parse(data.last_manual_sync_at as string) + MANUAL_INTERVAL_MS : 0;
   return {
     athleteName: data.athlete_name as string | null,
     lastSyncedAt: data.last_synced_at as string | null,
     needsReconnect: data.last_error === 'reauthorize',
+    nextManualAt: manual > Date.now() ? new Date(manual).toISOString() : null,
   };
 }
 
@@ -64,6 +71,33 @@ export async function syncStrava(force = false): Promise<number> {
     return data.updated ?? 0;
   } catch {
     return 0;
+  }
+}
+
+export type StravaManualResult =
+  | { status: 'done'; imported: number; updated: number }
+  | { status: 'limited'; nextAt: string }
+  | { status: 'failed' };
+
+/**
+ * „Pobierz biegi” w Profilu: wymusza pobranie aktywności z ostatnich 3 dni. Serwer pozwala na to raz na 3 godziny –
+ * przy odmowie zwraca, od kiedy będzie można znowu.
+ */
+export async function fetchRecentStravaRuns(): Promise<StravaManualResult> {
+  try {
+    const { data, error } = await supabase.functions.invoke<{
+      connected: boolean;
+      updated: number;
+      imported?: number;
+      skipped?: boolean;
+      nextManualAt?: string;
+      error?: string;
+    }>('strava-sync', { method: 'POST', body: { manual: true } });
+    if (error || !data?.connected || data.error) return { status: 'failed' };
+    if (data.skipped) return data.nextManualAt ? { status: 'limited', nextAt: data.nextManualAt } : { status: 'failed' };
+    return { status: 'done', imported: data.imported ?? 0, updated: data.updated ?? 0 };
+  } catch {
+    return { status: 'failed' };
   }
 }
 
