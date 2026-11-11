@@ -13,6 +13,7 @@ import { TextField } from '@/components/ui/text-field';
 import { space } from '@/constants/theme';
 import { draftFromStrava, recentTimeS, useOnboardingDraft, weeklyKmOf, type LevelChoice } from '@/features/onboarding/draft';
 import { useModule } from '@/features/modules/use-module';
+import { confirmEliteTime, sanityOf } from '@/features/onboarding/time-check';
 import { useT } from '@/hooks/use-t';
 
 const LEVELS = [
@@ -29,7 +30,14 @@ export default function LevelStep() {
   const runs = draft.level && draft.level !== 'none';
   const recent = recentTimeS(draft);
   const weeklyKm = weeklyKmOf(draft);
-  const valid = !!draft.level && recent !== undefined && weeklyKm !== undefined;
+  // Wynik szybszy niż rekord świata to pomyłka we wpisie – nie puszczamy dalej; poziom zawodowy – dopytujemy.
+  const sanity = sanityOf(draft.recentDistanceM, recent);
+  const valid = !!draft.level && recent !== undefined && weeklyKm !== undefined && sanity !== 'impossible';
+  const next = () => {
+    const go = () => router.push('/availability');
+    if (sanity === 'elite' && recent) confirmEliteTime(t, draft.recentDistanceM, recent, go);
+    else go();
+  };
   // Strava jest modułem pakietu – bez niego zostają same pytania.
   const stravaModule = useModule('strava');
 
@@ -38,7 +46,7 @@ export default function LevelStep() {
       step={2}
       title={t('onboarding.level.title')}
       subtitle={t('onboarding.level.subtitle')}
-      footer={<Button label={t('onboarding.next')} disabled={!valid} onPress={() => router.push('/availability')} />}>
+      footer={<Button label={t('onboarding.next')} disabled={!valid} onPress={next} />}>
       {stravaModule ? (
         <StravaSurveyCard proposal={draft.strava} onProposal={(proposal) => update(draftFromStrava(proposal, draft))} />
       ) : null}
@@ -100,7 +108,7 @@ export default function LevelStep() {
               hint={t('onboarding.level.resultHint')}
               value={draft.recentTime}
               onChangeText={(v) => update({ recentTime: v })}
-              error={recent === undefined ? t('onboarding.errors.timeInvalid') : undefined}
+              error={recent === undefined ? t('onboarding.errors.timeInvalid') : sanity === 'impossible' ? t('onboarding.errors.timeImpossible') : undefined}
               keyboardType="numbers-and-punctuation"
               autoCorrect={false}
               maxLength={8}

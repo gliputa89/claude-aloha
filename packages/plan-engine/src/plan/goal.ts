@@ -10,6 +10,28 @@ export type Level = 'beginner' | 'intermediate' | 'advanced';
 export const RACE_DISTANCES_M = [5000, 10000, 21097, 42195] as const;
 export type RaceDistanceM = (typeof RACE_DISTANCES_M)[number];
 
+/**
+ * Granice wiarygodności czasu na dystansie (sekundy):
+ *   * `impossible` – szybciej niż rekord świata; to na pewno pomyłka we wpisie (np. minuty zamiast godzin),
+ *   * `elite`      – poziom zawodowy (ok. 10 km poniżej 30 min); możliwe, ale rzadkie – dopytujemy, a takiego biegacza
+ *                    lepiej poprowadzi prawdziwy trener niż plan z aplikacji.
+ */
+export const TIME_LIMITS_S: Record<RaceDistanceM, { impossible: number; elite: number }> = {
+  5000: { impossible: 12 * 60 + 35, elite: 14 * 60 + 30 },
+  10000: { impossible: 26 * 60 + 11, elite: 30 * 60 },
+  21097: { impossible: 57 * 60 + 30, elite: 66 * 60 },
+  42195: { impossible: 2 * 3600 + 35, elite: 2 * 3600 + 20 * 60 },
+};
+
+export type TimeSanity = 'ok' | 'elite' | 'impossible';
+
+/** Czy czas na dystansie jest wiarygodny dla biegacza-amatora. Dystans spoza listy zawodów → zawsze `ok`. */
+export function timeSanity(distanceM: number, timeS: number): TimeSanity {
+  const limits = TIME_LIMITS_S[distanceM as RaceDistanceM];
+  if (!limits) return 'ok';
+  return timeS < limits.impossible ? 'impossible' : timeS < limits.elite ? 'elite' : 'ok';
+}
+
 export type RaceGoal = {
   distanceM: RaceDistanceM;
   /** Data zawodów, `YYYY-MM-DD`. */

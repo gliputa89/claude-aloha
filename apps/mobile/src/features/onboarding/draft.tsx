@@ -14,6 +14,8 @@ export type OnboardingDraft = {
   raceDistanceM: RaceDistanceM;
   raceDate: string | null;
   targetTime: string;
+  /** „Nie wiem – podpowiedz mi”: biegacz nie podaje czasu, a podsumowanie proponuje wyliczony. */
+  targetSuggest: boolean;
   /** Od kiedy plan, `YYYY-MM-DD`. */
   planStartDate: string;
   level: LevelChoice | null;
@@ -41,6 +43,7 @@ const initialDraft = (): OnboardingDraft => ({
   raceDistanceM: 10000,
   raceDate: null,
   targetTime: '',
+  targetSuggest: false,
   // Domyślnie od jutra – dziś zwykle już za późno na pierwszy trening.
   planStartDate: toIsoDate(addDays(new Date(), 1)),
   level: null,
@@ -114,7 +117,7 @@ export function useOnboardingDraft() {
 
 /** Docelowy czas w sekundach: `null` gdy puste, `undefined` gdy wpis jest błędny. */
 export function targetTimeS(draft: OnboardingDraft) {
-  if (!draft.targetTime.trim()) return null;
+  if (draft.targetSuggest || !draft.targetTime.trim()) return null;
   return parseDuration(draft.targetTime) ?? undefined;
 }
 

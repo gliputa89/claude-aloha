@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { assessRaceGoal, predictTimeS, weeksUntil } from './goal.ts';
+import { assessRaceGoal, predictTimeS, timeSanity, weeksUntil } from './goal.ts';
 
 const today = '2026-11-08';
 
@@ -84,4 +84,17 @@ test('cel zgodny z tabelami przy solidnym kilometrażu przechodzi', () => {
     runsPerWeek: 5,
   });
   assert.equal(r.status, 'ok');
+});
+
+test('wiarygodność czasu: szybciej niż rekord świata = pomyłka, poziom zawodowy = dopytujemy', () => {
+  assert.equal(timeSanity(10000, 25 * 60), 'impossible');
+  assert.equal(timeSanity(10000, 29 * 60 + 59), 'elite');
+  assert.equal(timeSanity(10000, 30 * 60), 'ok');
+  assert.equal(timeSanity(5000, 18 * 60 + 53), 'ok');
+  assert.equal(timeSanity(5000, 14 * 60), 'elite');
+  // 1:55 wpisane jako minuty:sekundy zamiast godziny:minuty – klasyczna pomyłka przy półmaratonie.
+  assert.equal(timeSanity(21097, 115), 'impossible');
+  assert.equal(timeSanity(42195, 2 * 3600 + 15 * 60), 'elite');
+  assert.equal(timeSanity(42195, 2 * 3600), 'impossible');
+  assert.equal(timeSanity(3000, 60), 'ok');
 });

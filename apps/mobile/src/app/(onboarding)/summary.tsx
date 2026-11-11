@@ -37,6 +37,8 @@ export default function SummaryStep() {
   const locale = useLocale();
   const { draft, update } = useOnboardingDraft();
   const [dismissed, setDismissed] = useState(false);
+  // Cel, przy którym biegacz świadomie został („zostaw mój czas”) – po zmianie celu pytamy od nowa.
+  const [keptTarget, setKeptTarget] = useState<number | null>(null);
   const [adjusted, setAdjusted] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(false);
@@ -69,18 +71,8 @@ export default function SummaryStep() {
   const forecast = forecastState.status === 'ready' ? forecastState.forecast : null;
   // Do pełnych minut w górę – łatwiej zapamiętać i nie obiecuje za dużo.
   const realisticS = forecast ? Math.ceil(forecast.raceDayS / 60) * 60 : null;
-  const tooFast: GoalAssessment | null =
-    timing?.status === 'ok' && forecast && realisticS && target && target < forecast.raceDayS
-      ? {
-          status: 'target_too_fast',
-          weeks: timing.weeks,
-          predictedTimeS: forecast.todayS,
-          suggestion: { kind: 'target_time', targetTimeS: realisticS },
-        }
-      : null;
-  const assessment = timing && timing.status !== 'ok' ? timing : tooFast;
-
-  const suggestion = assessment && !dismissed ? assessment : null;
+  // Bursztynowa propozycja zostaje tylko dla zbyt krótkiego terminu; o czasie rozmawia karta prognozy.
+  const suggestion = timing && timing.status !== 'ok' && !dismissed ? timing : null;
   const suggestionText = (() => {
     if (!suggestion) return null;
     const distance = distanceInline(draft.raceDistanceM);
@@ -141,11 +133,13 @@ export default function SummaryStep() {
           needed: forecast.volume.neededKm,
         })
       : null;
-  // „Ustaw tak, jak wyliczyliśmy”: gdy cel jest pusty albo inny niż wyliczony (przy zbyt szybkim celu robi to karta propozycji).
-  const canAdopt = realisticS !== null && target !== realisticS && !suggestion;
+  // Wybór w karcie prognozy: cel wyliczony albo własny. `null` – własnego celu nie ma (pusty albo „podpowiedz mi”).
+  const ownTarget = target !== null && target !== realisticS ? target : null;
+  const tooFast = ownTarget !== null && forecast !== null && ownTarget < forecast.raceDayS;
+  const kept = ownTarget !== null && keptTarget === ownTarget;
   const adoptForecast = () => {
     if (realisticS === null) return;
-    update({ targetTime: formatDuration(realisticS) });
+    update({ targetTime: formatDuration(realisticS), targetSuggest: false });
     setAdjusted(true);
   };
 
@@ -208,17 +202,44 @@ export default function SummaryStep() {
           <Text weight="bold">{t('onboarding.summary.forecastTitle', { distance: distanceInline(draft.raceDistanceM) })}</Text>
           <Text>{forecastText}</Text>
           {forecastHow ? <Text variant="caption">{forecastHow}</Text> : null}
-          {canAdopt ? (
-            <Button
-              variant="secondary"
-              label={t('onboarding.summary.forecastSet', { time: formatDuration(realisticS) })}
-              onPress={adoptForecast}
-            />
-          ) : target === realisticS ? (
+          {target === realisticS ? (
             <Text variant="label" color="textBrand">
               {t('onboarding.summary.forecastIsGoal')}
             </Text>
-          ) : null}
+          ) : kept && ownTarget !== null ? (
+            // Biegacz został przy swoim: pokazujemy, przy jakim, i zostawiamy drogę powrotu do propozycji.
+            <View style={styles.choice}>
+              <Text variant="label" color="textBrand">
+                {t('onboarding.summary.forecastKept', { target: formatDuration(ownTarget) })}
+              </Text>
+              <Button variant="plain" label={t('onboarding.summary.forecastSet', { time: formatDuration(realisticS) })} onPress={adoptForecast} />
+            </View>
+          ) : ownTarget !== null ? (
+            <View style={styles.choice}>
+              <Text weight="medium" color={tooFast ? 'textAccentStrong' : 'text'}>
+                {t(tooFast ? 'onboarding.summary.forecastFaster' : 'onboarding.summary.forecastSlower', { target: formatDuration(ownTarget) })}
+              </Text>
+              <Button
+                variant={tooFast ? 'primary' : 'secondary'}
+                label={t('onboarding.summary.forecastSet', { time: formatDuration(realisticS) })}
+                onPress={adoptForecast}
+              />
+              <Button
+                variant="plain"
+                label={t('onboarding.summary.forecastKeep', { target: formatDuration(ownTarget) })}
+                onPress={() => setKeptTarget(ownTarget)}
+              />
+            </View>
+          ) : (
+            <View style={styles.choice}>
+              {draft.targetSuggest ? <Text weight="medium">{t('onboarding.summary.forecastAsked', { time: formatDuration(realisticS) })}</Text> : null}
+              <Button
+                variant={draft.targetSuggest ? 'primary' : 'secondary'}
+                label={t('onboarding.summary.forecastSet', { time: formatDuration(realisticS) })}
+                onPress={adoptForecast}
+              />
+            </View>
+          )}
         </View>
       ) : null}
 
@@ -290,6 +311,7 @@ const styles = StyleSheet.create({
   suggestionActions: { gap: space[1] },
   card: { borderRadius: radius.card, borderWidth: 1.5, paddingHorizontal: space[4] },
   forecast: { gap: space[3], padding: space[4], borderRadius: radius.card, borderWidth: 1.5 },
+  choice: { gap: space[2] },
   row: { flexDirection: 'row', alignItems: 'center', gap: space[3], paddingVertical: space[4] },
   edit: { minHeight: 44, minWidth: 44, alignItems: 'flex-end', justifyContent: 'center' },
   divider: { height: StyleSheet.hairlineWidth },
