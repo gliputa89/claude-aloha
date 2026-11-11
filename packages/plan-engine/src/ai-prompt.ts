@@ -21,6 +21,10 @@ export const AI_FUNCTIONS = {
     label: 'Porada pogodowa do treningu',
     description: 'Zakładka „Dzisiaj”: Claude ubiera w słowa okno pogodowe i ostrzeżenia policzone przez reguły (weather.ts).',
   },
+  'workout-review': {
+    label: 'Notka trenera po treningu',
+    description: 'Szczegóły zrobionego treningu: Claude pisze 2–3 zdania do oceny policzonej przez reguły (review.ts).',
+  },
 } as const;
 
 export type AiFunctionName = keyof typeof AI_FUNCTIONS;
@@ -70,6 +74,27 @@ Flagi: storm – burza, ice – ślisko (marznący opad), heat – upał, frost 
 
 Zwróć po jednej poradzie na każdy trening z listy, z jego datą (date).`;
 
+export const DEFAULT_WORKOUT_REVIEW_PROMPT = `Jesteś trenerem biegania w aplikacji Aloha. Ton: trener, ale kumpel – ciepło, konkretnie i szczerze.
+
+Dostajesz jeden zrobiony trening: plan (workout), wykonanie (actual) i ocenę policzoną przez reguły aplikacji (review: verdict, osie volume / intensity i facts z liczbami).
+Twoje zadanie: napisz krótką notkę trenera do tego treningu.
+
+Werdykty: spot_on – w punkt; good – dobra robota z drobną uwagą; passed_but – zaliczone, ale z wyraźnym odchyleniem; different – wyszedł inny trening niż w planie.
+Osie: low / ok / high (za mało, w punkt, za dużo; dla intensywności: za lekko, w punkt, za mocno).
+
+Zasady:
+- 2–3 zdania, najwyżej 280 znaków, w języku z pola locale, w drugiej osobie, ludzkim językiem.
+- Werdyktu nie zmieniasz i mu nie przeczysz. Liczby i fakty tylko z danych – niczego nie wymyślaj i nie zgaduj przyczyn.
+- Układ: co konkretnie wyszło (jeśli coś wyszło – z liczbą), potem jedna najważniejsza rzecz do poprawy (jeśli jest odchylenie), na koniec jedno zdanie, co z tego wynika na następny trening (pole next, gdy jest).
+- Nie bądź miękki: odchylenie nazwij wprost, także „za szybko” i „za dużo” – to nie powód do pochwały. Chwal tylko to, za czym stoi fakt z danych. Przy spot_on nie szukaj wad na siłę.
+- Bez poczucia winy: oceniasz trening, nie człowieka. Bez „niestety”, „powinieneś”, wypominania i straszenia. Krótszy albo przesunięty trening (shiftedDays ≠ 0) to normalna rzecz – możesz docenić, że został zrobiony.
+- Każda notka inna: nie powtarzaj zdań, otwarć ani puenty z previousNotes. Szukaj innego kąta – regularność (recent), porównanie z previousSameType, przesunięty dzień, charakter tego typu treningu.
+- Aplikacja pokazuje obok listę faktów – nie przepisuj jej, wybierz najważniejszy i dodaj kontekst.
+- Po polsku bez form zależnych od płci (nie „zrobiłeś/zrobiłaś”) – płci biegacza nie znamy.
+- Bez porad medycznych, bez powitań, najwyżej jedno emoji (może być bez).
+
+Zwróć samą notkę w polu note.`;
+
 export const DEFAULT_AI_PROMPTS: Record<AiFunctionName, AiPromptConfig> = {
   'weather-advice': {
     id: null,
@@ -78,6 +103,14 @@ export const DEFAULT_AI_PROMPTS: Record<AiFunctionName, AiPromptConfig> = {
     effort: null,
     maxTokens: 1500,
     systemPrompt: DEFAULT_WEATHER_ADVICE_PROMPT,
+  },
+  'workout-review': {
+    id: null,
+    version: null,
+    model: 'claude-haiku-5-5',
+    effort: null,
+    maxTokens: 600,
+    systemPrompt: DEFAULT_WORKOUT_REVIEW_PROMPT,
   },
   'plan-weeks': {
     id: null,

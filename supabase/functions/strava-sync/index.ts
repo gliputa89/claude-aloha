@@ -5,6 +5,10 @@
 //   2. pobiera aktywności od początku aktywnego planu (najwyżej 30 dni wstecz),
 //   3. reguły (packages/plan-engine/strava.ts) dopasowują biegi do treningów z tego samego dnia,
 //   4. zapisuje biegi w public.strava_activities, a w treningach status (zrobiony / częściowo), dystans i czas.
+//   5. dla biegów przypisanych do treningów pobiera raz przebieg tempa (strumienie time + distance, bez tętna)
+//      i zapisuje ocenę treningu w public.session_reviews (reguły: packages/plan-engine/review.ts),
+//   6. do świeżych ocen dopisuje notkę trenera AI (funkcja 'workout-review', sekret ANTHROPIC_API_KEY) –
+//      bez klucza albo przy błędzie modelu zostaje sama ocena.
 // Aktywność usunięta w Stravie znika też u nas przy kolejnej synchronizacji.
 //
 // Wywołania:
@@ -23,13 +27,27 @@ import { createClient, type SupabaseClient } from 'jsr:@supabase/supabase-js@2';
 
 import {
   addDaysIso,
+  bucketsFromStream,
+  describeSteps,
+  isoWeekday,
   isStravaRun,
   isStravaWalk,
   matchStravaActivities,
+  promptFromRow,
+  reviewWorkout,
+  stepsOf,
+  workoutNoteKey,
+  workoutNoteWithAi,
+  type AiCallPayload,
+  type AiCallRecord,
+  type PaceBuckets,
+  type ReviewFact,
+  type WorkoutReview,
   type StravaActivityInput,
   type StravaMatchSession,
 } from '../_shared/plan-engine/index.ts';
 import { isServiceKey } from '../_shared/auth.ts';
+import { claudeCaller, claudeKey } from '../_shared/claude.ts';
 import {
   RateLimited,
   refreshTokens,
@@ -57,6 +75,11 @@ const MANUAL_INTERVAL_MS = 3 * 60 * 60 * 1000;
 const MANUAL_LOOKBACK_DAYS = 3;
 const PER_PAGE = 100;
 const MAX_PAGES = 3;
+/** Przebieg tempa to osobne zapytanie na bieg – przy jednej synchronizacji pobieramy najwyżej tyle. */
+const MAX_PACE_FETCHES = 5;
+/** Notka trenera: tylko do świeżych treningów i najwyżej tyle na synchronizację (każda to wywołanie modelu). */
+const NOTE_MAX_AGE_DAYS = 10;
+const MAX_NOTES_PER_SYNC = 2;
 
 type Connection = {
   user_id: string;
@@ -69,7 +92,7 @@ type Connection = {
   last_manual_sync_at: string | null;
 };
 
-type SessionRow = StravaMatchSession & { actual_distance_m: number | null; actual_duration_s: number | null };
+type SessionRow = StravaMatchSession & { actual_distance_m: number | null; actual_duration_s: number | null; structure: unknown };
 
 type StoredActivity = {
   id: number;
@@ -180,7 +203,7 @@ async function fetchActivities(token: string, afterEpochS: number) {
 async function loadPlan(db: SupabaseClient, userId: string) {
   const planRes = await db
     .from('plans')
-    .select('starts_on, weeks(id, sessions(id, scheduled_on, type, duration_min, distance_m, status, actual_distance_m, actual_duration_s))')
+    .select('starts_on, weeks(id, sessions(id, scheduled_on, type, duration_min, distance_m, status, actual_distance_m, actual_duration_s, structure))')
     .eq('user_id', userId)
     .eq('status', 'active')
     .maybeSingle();
@@ -248,10 +271,211 @@ async function applyMatches(db: SupabaseClient, userId: string, sessions: Sessio
         completed_at: c.completedAt,
       })
       .eq('id', c.sessionId);
-    if (error) console.error('session update failed', c.sessionId, error.code, error.message);
-    else updated++;
+    if (error) {
+      console.error('session update failed', c.sessionId, error.code, error.message);
+      continue;
+    }
+    // Ocena (applyReviews) liczy już z nowej realizacji.
+    Object.assign(s, { status: c.status, actual_distance_m: c.actualDistanceM, actual_duration_s: c.actualDurationS });
+    updated++;
   }
   return { updated, matched: [...links.values()].filter(Boolean).length, suggested: suggestions.size };
+}
+
+/**
+ * Przebieg tempa dla biegów przypisanych do treningów, które jeszcze go nie mają. Błąd jednego biegu nie
+ * zatrzymuje reszty; po odmowie z limitu (429) przestajemy pytać do następnej synchronizacji.
+ */
+async function fetchPaces(db: SupabaseClient, userId: string, token: string, sinceIso: string) {
+  const pending = await db
+    .from('strava_activities')
+    .select('id')
+    .eq('user_id', userId)
+    .not('session_id', 'is', null)
+    .is('pace_fetched_at', null)
+    .gte('started_at', sinceIso)
+    .order('started_at', { ascending: false })
+    .limit(MAX_PACE_FETCHES);
+  if (pending.error) return console.error('pace pending failed', pending.error.code, pending.error.message);
+  for (const row of pending.data ?? []) {
+    try {
+      const res = await fetch(`${STRAVA}/api/v3/activities/${row.id}/streams?keys=time,distance&key_by_type=true`, {
+        headers: { Authorization: `Bearer ${token}` },
+        signal: AbortSignal.timeout(10_000),
+      });
+      if (res.status === 429 || res.status === 401) return;
+      // 404 = aktywność bez zapisu trasy (np. wpisana ręcznie) – zapamiętujemy, że pytaliśmy.
+      if (!res.ok && res.status !== 404) continue;
+      const body = res.ok ? ((await res.json()) as { time?: { data?: unknown }; distance?: { data?: unknown } }) : null;
+      const buckets = body ? bucketsFromStream(body.time?.data, body.distance?.data) : null;
+      const { error } = await db
+        .from('strava_activities')
+        .update({ pace_buckets: buckets, pace_fetched_at: new Date().toISOString() })
+        .eq('id', row.id);
+      if (error) console.error('pace save failed', row.id, error.code, error.message);
+    } catch (e) {
+      console.warn('pace fetch failed', row.id, e instanceof Error ? e.message : e);
+    }
+  }
+}
+
+/** Liczy oceny zrobionych treningów z przypisanymi biegami i zapisuje te, które się zmieniły. */
+async function applyReviews(db: SupabaseClient, userId: string, sessions: SessionRow[], sinceIso: string) {
+  const [activities, existing] = await Promise.all([
+    db
+      .from('strava_activities')
+      .select('session_id, started_at, elevation_gain_m, pace_buckets')
+      .eq('user_id', userId)
+      .not('session_id', 'is', null)
+      .gte('started_at', sinceIso)
+      .order('started_at'),
+    db.from('session_reviews').select('session_id, verdict, volume, intensity, facts, engine_version').eq('user_id', userId),
+  ]);
+  if (activities.error || existing.error) {
+    return console.error('review load failed', activities.error?.message ?? existing.error?.message);
+  }
+  const bySession = new Map<string, { elevation_gain_m: number | null; pace_buckets: PaceBuckets | null }[]>();
+  for (const a of activities.data ?? []) {
+    const list = bySession.get(a.session_id as string);
+    if (list) list.push(a);
+    else bySession.set(a.session_id as string, [a]);
+  }
+  const saved = new Map((existing.data ?? []).map((r) => [r.session_id as string, r]));
+
+  for (const s of sessions) {
+    const runs = bySession.get(s.id);
+    if (!runs || (s.status !== 'done' && s.status !== 'partial')) continue;
+    // Kilka aktywności jednego treningu: przebieg sklejamy tylko wtedy, gdy każda go ma.
+    const complete = runs.every((r) => r.pace_buckets && r.pace_buckets.bucketS === runs[0]!.pace_buckets?.bucketS);
+    const buckets = complete ? { bucketS: runs[0]!.pace_buckets!.bucketS, m: runs.flatMap((r) => r.pace_buckets!.m) } : null;
+    const review = reviewWorkout({
+      type: s.type,
+      durationMin: s.duration_min,
+      distanceM: s.distance_m,
+      steps: stepsOf(s),
+      actualDistanceM: s.actual_distance_m,
+      actualDurationS: s.actual_duration_s,
+      buckets,
+      elevationGainM: runs.reduce((n, r) => n + (r.elevation_gain_m ?? 0), 0),
+    });
+    const row = {
+      session_id: s.id,
+      verdict: review.verdict,
+      volume: review.volume,
+      intensity: review.intensity,
+      facts: review.facts,
+      engine_version: review.version,
+    };
+    if (JSON.stringify(saved.get(s.id) ?? null) === JSON.stringify(row)) continue;
+    const { error } = await db.from('session_reviews').upsert({ ...row, user_id: userId }, { onConflict: 'session_id' });
+    if (error) console.error('review save failed', s.id, error.code, error.message);
+  }
+}
+
+/**
+ * Notka trenera AI do ocen, które jej nie mają albo zmieniły się od jej napisania. Model dostaje ocenę z reguł
+ * i kontekst (poprzednie notki, poprzedni trening tego typu, regularność) – bez danych osobowych.
+ */
+async function writeNotes(db: SupabaseClient, userId: string, sessions: SessionRow[]) {
+  const apiKey = claudeKey();
+  if (!apiKey) return;
+  const reviewsRes = await db
+    .from('session_reviews')
+    .select('session_id, verdict, volume, intensity, facts, engine_version, note, note_key, updated_at')
+    .eq('user_id', userId);
+  if (reviewsRes.error) return console.error('notes load failed', reviewsRes.error.code, reviewsRes.error.message);
+  type Row = {
+    session_id: string;
+    verdict: WorkoutReview['verdict'];
+    volume: WorkoutReview['volume'];
+    intensity: WorkoutReview['intensity'];
+    facts: ReviewFact[];
+    engine_version: number;
+    note: string | null;
+    note_key: string | null;
+    updated_at: string;
+  };
+  const rows = new Map((reviewsRes.data as Row[]).map((r) => [r.session_id, r]));
+  const reviewOf = (r: Row): WorkoutReview => ({
+    version: r.engine_version,
+    verdict: r.verdict,
+    volume: r.volume,
+    intensity: r.intensity,
+    facts: r.facts,
+  });
+
+  const today = new Date().toISOString().slice(0, 10);
+  const oldest = addDaysIso(today, -NOTE_MAX_AGE_DAYS);
+  const training = sessions.filter((s) => s.type !== 'rest').sort((a, b) => a.scheduled_on.localeCompare(b.scheduled_on));
+  const pending = training
+    .filter((s) => {
+      const r = rows.get(s.id);
+      return r && s.scheduled_on >= oldest && (!r.note || r.note_key !== workoutNoteKey(reviewOf(r)));
+    })
+    .reverse()
+    .slice(0, MAX_NOTES_PER_SYNC);
+  if (pending.length === 0) return;
+
+  const [profile, account, promptRes, runs] = await Promise.all([
+    db.from('profiles').select('locale').eq('id', userId).maybeSingle(),
+    db.auth.admin.getUserById(userId),
+    db.rpc('get_ai_prompt', { p_function: 'workout-review' }),
+    db.from('strava_activities').select('session_id, local_date').eq('user_id', userId).in('session_id', pending.map((s) => s.id)).order('started_at'),
+  ]);
+  if (promptRes.error) console.error('get_ai_prompt failed', promptRes.error.message);
+  const prompt = promptFromRow('workout-review', promptRes.data);
+  const ranOn = new Map((runs.data ?? []).map((r) => [r.session_id as string, r.local_date as string]));
+  const daysBetween = (from: string, to: string) => Math.round((Date.parse(to) - Date.parse(from)) / 86_400_000);
+  const twoWeeks = training.filter((s) => s.scheduled_on <= today && s.scheduled_on > addDaysIso(today, -14));
+  let previousNotes = [...rows.values()]
+    .filter((r) => r.note)
+    .sort((a, b) => b.updated_at.localeCompare(a.updated_at))
+    .slice(0, 3)
+    .map((r) => r.note!);
+
+  for (const s of pending) {
+    const row = rows.get(s.id)!;
+    const review = reviewOf(row);
+    const previous = training.filter((o) => o.type === s.type && o.scheduled_on < s.scheduled_on && rows.has(o.id)).at(-1);
+    const next = training.find((o) => o.scheduled_on > today && o.status === 'planned');
+    const outcome = await workoutNoteWithAi({
+      context: {
+        locale: (profile.data?.locale as string | undefined) ?? 'pl',
+        workout: {
+          type: s.type,
+          weekday: isoWeekday(s.scheduled_on),
+          plannedMin: s.duration_min,
+          plannedDistanceM: s.distance_m,
+          steps: describeSteps(stepsOf(s)),
+          shiftedDays: ranOn.has(s.id) ? daysBetween(s.scheduled_on, ranOn.get(s.id)!) : 0,
+        },
+        actual: {
+          distanceM: s.actual_distance_m,
+          durationS: s.actual_duration_s,
+          paceSPerKm: s.actual_distance_m && s.actual_duration_s ? Math.round(s.actual_duration_s / (s.actual_distance_m / 1000)) : null,
+        },
+        review,
+        previousSameType: previous
+          ? { date: previous.scheduled_on, verdict: rows.get(previous.id)!.verdict, facts: rows.get(previous.id)!.facts }
+          : null,
+        recent: { planned: twoWeeks.length, done: twoWeeks.filter((o) => o.status === 'done' || o.status === 'partial').length },
+        next: next ? { type: next.type, inDays: daysBetween(today, next.scheduled_on) } : null,
+        previousNotes,
+      },
+      prompt,
+      call: claudeCaller(apiKey),
+      log: async (call: AiCallRecord, payload: AiCallPayload) => {
+        const { data, error } = await db.rpc('log_ai_call', { p_call: call, p_payload: payload });
+        if (error) console.error('log_ai_call failed', error.code, error.message);
+        return (data as number | null) ?? null;
+      },
+      meta: { userId, isTest: account.data.user?.user_metadata?.test_account === true },
+    });
+    if (!outcome.note) continue;
+    const { error } = await db.from('session_reviews').update({ note: outcome.note, note_key: workoutNoteKey(review) }).eq('session_id', s.id);
+    if (error) console.error('note save failed', s.id, error.code, error.message);
+    else previousNotes = [outcome.note, ...previousNotes].slice(0, 3);
+  }
 }
 
 /** Odpowiedź biegacza na „to był ten trening?”: tak → bieg zostaje przy treningu z innego dnia; nie → nie pytamy więcej. */
@@ -275,6 +499,8 @@ async function answerMatch(db: SupabaseClient, userId: string, activityId: numbe
   }
   const { sessions, windowStart } = await loadPlan(db, userId);
   const result = await applyMatches(db, userId, sessions, windowStart(LOOKBACK_DAYS));
+  // Ocena od razu z tego, co mamy; przebieg tempa dociągnie najbliższa synchronizacja.
+  await applyReviews(db, userId, sessions, windowStart(LOOKBACK_DAYS));
   return { connected: true, ...result };
 }
 
@@ -308,8 +534,9 @@ async function syncUser(db: SupabaseClient, userId: string, opts: { force: boole
   const afterIso = windowStart(opts.manual ? MANUAL_LOOKBACK_DAYS : LOOKBACK_DAYS);
 
   let fetched: Awaited<ReturnType<typeof fetchActivities>>;
+  let token: string;
   try {
-    const token = await accessToken(db, conn, client);
+    token = await accessToken(db, conn, client);
     fetched = await fetchActivities(token, Math.floor(Date.parse(afterIso) / 1000));
   } catch (e) {
     if (e instanceof Unauthorized) {
@@ -358,6 +585,9 @@ async function syncUser(db: SupabaseClient, userId: string, opts: { force: boole
 
   // Pary i propozycje liczymy ze wszystkich zapisanych biegów planu (nie tylko z pobranego okna).
   const { updated, matched, suggested } = await applyMatches(db, userId, sessions, windowStart(LOOKBACK_DAYS));
+  await fetchPaces(db, userId, token, windowStart(LOOKBACK_DAYS));
+  await applyReviews(db, userId, sessions, windowStart(LOOKBACK_DAYS));
+  await writeNotes(db, userId, sessions).catch((e) => console.error('notes failed', userId, e instanceof Error ? e.message : e));
 
   const lastSyncedAt = new Date().toISOString();
   // Ręczne pobranie liczy się do limitu dopiero, gdy się udało – nieudana próba nie blokuje na 3 godziny.

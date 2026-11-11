@@ -16,3 +16,5 @@ export * from './workout.ts';
 export * from './weather.ts';
 export * from './weather-advice.ts';
 export * from './strava.ts';
+export * from './review.ts';
+export * from './review-note.ts';

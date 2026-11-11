@@ -3,7 +3,6 @@ import { estimateDistanceM, formatApproxKm, stepsOf } from '@aloha/plan-engine';
 import { openURL } from 'expo-linking';
 import { router, useLocalSearchParams } from 'expo-router';
 import {
-  Check,
   FlagCheckered,
   Gauge,
   Lightning,
@@ -14,7 +13,7 @@ import {
   X,
   type IconProps,
 } from 'phosphor-react-native';
-import type { ComponentType, ReactNode } from 'react';
+import { useEffect, useState, type ComponentType, type ReactNode } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import Animated, { useReducedMotion } from 'react-native-reanimated';
 
@@ -23,13 +22,15 @@ import { TYPE_COLOR, useDetail } from '@/components/plan/session-row';
 import { WeatherCard } from '@/components/plan/weather-card';
 import { WorkoutChart, WorkoutSteps } from '@/components/plan/workout-intervals';
 import { MatchPrompts } from '@/components/plan/match-prompt';
+import { ReviewBadge, useCountUp, type Celebration } from '@/components/plan/review-celebration';
+import { WorkoutReview } from '@/components/plan/workout-review';
 import { FadeUp } from '@/components/ui/fade-up';
 import { InfoCard } from '@/components/ui/info-card';
 import { Text } from '@/components/ui/text';
 import { EASE_BACK, EASE_OUT } from '@/constants/easing';
 import { radius, space } from '@/constants/theme';
 import { formatDuration, fromIsoDate, todayIso } from '@/features/onboarding/time';
-import type { PlanSession } from '@/features/plan/api';
+import { isReviewNew, markReviewSeen, type PlanSession } from '@/features/plan/api';
 import { useCoachTip } from '@/features/plan/coach-tips';
 import { allSessions, usePlan } from '@/features/plan/plan-provider';
 import { paceMinPerKm, stravaActivityUrl } from '@/features/strava/api';
@@ -51,8 +52,10 @@ const TYPE_ICON: Record<PlanSession['type'], ComponentType<IconProps>> = {
  * Choreografia otwarcia (ms, po wysunięciu arkusza):
  * 120 ikona wskakuje z obrotem · 200+ data, tytuł, opis · 380+ kafelki jeden po drugim
  * 560 słupki przebiegu rosną od dołu · 700+ odcinki i rada trenera
+ * Zrobiony trening: 580 karta oceny – znaczek wskakuje (przy dobrym werdykcie z pierścieniem i iskrami),
+ * liczby dobiegają, pasek „plan kontra wykonanie” się wypełnia, potem osie, obserwacje i notka trenera.
  */
-const T = { icon: 120, head: 200, stats: 380, chart: 560, rest: 700 };
+const T = { icon: 120, head: 200, stats: 380, done: 580, chart: 560, rest: 700 };
 
 /** Arkusz ze szczegółami treningu: typ, data, czas/dystans/intensywność, przebieg, odcinki i rada trenera. */
 export default function WorkoutDetailScreen() {
@@ -96,6 +99,21 @@ function Detail({ session }: { session: PlanSession }) {
   const detail = useDetail(session);
   const tip = useCoachTip(session);
 
+  // Pierwsze otwarcie oceny: świętowanie zależne od werdyktu, liczby „dobiegają”. Potem karta jest już spokojna.
+  const [firstOpen] = useState(() => isReviewNew(session.id, session.review));
+  const hasReview = session.review !== null;
+  useEffect(() => {
+    if (hasReview) markReviewSeen(session.id);
+  }, [hasReview, session.id]);
+  const celebration: Celebration = !firstOpen
+    ? 'none'
+    : session.review?.verdict === 'spot_on'
+      ? 'full'
+      : session.review?.verdict === 'good'
+        ? 'calm'
+        : 'none';
+  const counted = useCountUp(firstOpen, T.done + 150);
+
   const isToday = session.scheduled_on === todayIso();
   const dateLabel = fromIsoDate(session.scheduled_on).toLocaleDateString(locale === 'en' ? 'en-GB' : 'pl-PL', {
     weekday: 'long',
@@ -126,8 +144,10 @@ function Detail({ session }: { session: PlanSession }) {
   const completed = session.status === 'done' || session.status === 'partial';
   const pace = paceMinPerKm(session.actual_distance_m, session.actual_duration_s);
   const actual = [
-    session.actual_distance_m ? { label: t('workoutDetail.distance'), value: km(session.actual_distance_m) } : null,
-    session.actual_duration_s ? { label: t('workoutDetail.duration'), value: formatDuration(session.actual_duration_s) } : null,
+    session.actual_distance_m ? { label: t('workoutDetail.distance'), value: km(session.actual_distance_m * counted) } : null,
+    session.actual_duration_s
+      ? { label: t('workoutDetail.duration'), value: formatDuration(Math.round(session.actual_duration_s * counted)) }
+      : null,
     pace ? { label: t('workoutDetail.pace'), value: t('workoutDetail.paceValue', { pace }) } : null,
   ].filter((s): s is { label: string; value: string } => s !== null);
   const lastActivity = session.activities.at(-1);
@@ -225,14 +245,14 @@ function Detail({ session }: { session: PlanSession }) {
       ) : null}
 
       {completed ? (
-        <FadeUp delay={T.stats + 200}>
+        <FadeUp delay={T.done}>
           <View style={[styles.done, { backgroundColor: c.surfaceBrandSoft }]}>
             <View style={styles.doneHead}>
-              <View style={[styles.doneIcon, { backgroundColor: c.surfaceBrand }]}>
-                <Check size={16} weight="bold" color={c.textOnBrand} />
-              </View>
+              <ReviewBadge celebration={celebration} delay={T.done + 200} />
               <Text weight="bold" style={styles.flex}>
-                {t(session.status === 'done' ? 'workoutDetail.done' : 'workoutDetail.donePartial')}
+                {session.review
+                  ? t(`review.verdict.${session.review.verdict}`)
+                  : t(session.status === 'done' ? 'workoutDetail.done' : 'workoutDetail.donePartial')}
               </Text>
             </View>
             {actual.length > 0 ? (
@@ -249,6 +269,7 @@ function Detail({ session }: { session: PlanSession }) {
                 ))}
               </View>
             ) : null}
+            {session.review ? <WorkoutReview review={session.review} play={firstOpen} delay={T.done + 450} /> : null}
             {lastActivity ? (
               <View style={styles.source}>
                 <Text variant="caption" color="text" style={styles.flex}>
@@ -364,7 +385,6 @@ const styles = StyleSheet.create({
   section: { gap: space[3] },
   done: { gap: space[3], padding: space[4], borderRadius: radius.card },
   doneHead: { flexDirection: 'row', alignItems: 'center', gap: space[3] },
-  doneIcon: { width: 28, height: 28, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center' },
   source: { flexDirection: 'row', alignItems: 'center', gap: space[3] },
   link: { textDecorationLine: 'underline' },
   card: { padding: space[4], borderRadius: radius.card, borderWidth: 1.5 },
