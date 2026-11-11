@@ -102,7 +102,9 @@ export function describeStructure(structure: Structure | null | undefined) {
     case 'intervals':
       return `${s.warmupMin}′ rozgrzewki + ${s.repeats}× (${s.workMin}′ mocno / ${s.recoveryMin}′ trucht) + ${s.cooldownMin}′ schłodzenia`;
     case 'tempo':
-      return `${s.warmupMin}′ rozgrzewki + ${s.workMin}′ w tempie + ${s.cooldownMin}′ schłodzenia`;
+      return typeof s.repeats === 'number' && s.repeats > 1
+        ? `${s.warmupMin}′ rozgrzewki + ${s.repeats}× (${s.workMin}′ w tempie / ${s.recoveryMin}′ trucht) + ${s.cooldownMin}′ schłodzenia`
+        : `${s.warmupMin}′ rozgrzewki + ${s.workMin}′ w tempie + ${s.cooldownMin}′ schłodzenia`;
     case 'race':
       return `start: ${formatDistance(s.distanceM as number)}`;
     case 'steady':

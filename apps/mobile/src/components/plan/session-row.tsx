@@ -34,7 +34,9 @@ export function useDetail(session: PlanSession) {
     case 'intervals':
       return t('workout.detailIntervals', { repeats: s.repeats, work: s.workMin, rest: s.recoveryMin });
     case 'tempo':
-      return t('workout.detailTempo', { work: s.workMin });
+      return s.repeats && s.repeats > 1
+        ? t('workout.detailTempoReps', { repeats: s.repeats, work: s.workMin, rest: s.recoveryMin ?? 0 })
+        : t('workout.detailTempo', { work: s.workMin });
     case 'race':
       return t('workout.detailRace');
     default:

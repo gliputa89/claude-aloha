@@ -2,7 +2,17 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import { isoWeekday } from '../core/dates.ts';
-import { generateInitialPlan, generatePlanWeek, pickTrainingDays, type PlanInput, type PlannedSession } from './plan.ts';
+import { stepsTotalS } from '../core/workout.ts';
+import {
+  generateInitialPlan,
+  generateNextWeek,
+  generatePlanWeek,
+  pickTrainingDays,
+  threshold,
+  weekMinutes,
+  type PlanInput,
+  type PlannedSession,
+} from './plan.ts';
 
 // 2026-11-09 to poniedziałek.
 const base: PlanInput = {
@@ -161,4 +171,90 @@ test('generatePlanWeek: nie przesuwa startu istniejącego planu (keepStartDate)'
 
 test('generatePlanWeek: odrzuca ujemny numer tygodnia', () => {
   assert.throws(() => generatePlanWeek(base, -1), RangeError);
+});
+
+// ── trening progowy ──
+
+const quality = (input: PlanInput) =>
+  generateInitialPlan(input)
+    .weeks.flatMap((w) => w.sessions.filter(hard).map((s) => ({ week: w.weekIndex, type: s.type, structure: s.structure, durationMin: s.durationMin })));
+
+const fitness5: PlanInput = { ...base, level: 'advanced', trainingLevel: 5, preferredDays: [2, 4, 6, 7], sessionsPerWeek: 4, maxMinutesWeekday: 90, weeks: 8 };
+
+test('od poziomu 3 interwały przeplatają się z treningiem progowym, a jego odcinki rosną', () => {
+  const q = quality(fitness5);
+  // Tygodnie 4. i 8. są lżejsze (krótkie interwały) i nie liczą się do przeplatania ani do drabinki.
+  assert.deepEqual(q.map((s) => s.type), ['intervals', 'tempo', 'intervals', 'intervals', 'tempo', 'intervals', 'tempo', 'intervals']);
+  const reps = q.filter((s) => s.type === 'tempo').map((s) => (s.structure.kind === 'tempo' ? `${s.structure.repeats ?? 1}x${s.structure.workMin}` : ''));
+  assert.deepEqual(reps, ['3x8', '3x10', '2x15']);
+});
+
+test('trening progowy: odcinki w strefie tempo z truchtem, suma odcinków = długość treningu', () => {
+  const session = generateInitialPlan(fitness5).weeks[4]?.sessions.find((s) => s.type === 'tempo');
+  assert.ok(session);
+  const steps = session.structure.steps ?? [];
+  const block = steps.find((s) => s.kind === 'repeat');
+  assert.ok(block && block.kind === 'repeat');
+  assert.equal(block.times, 3);
+  assert.deepEqual(block.steps.map((s) => [s.zone, s.durationS]), [['tempo', 600], ['recovery', 120]]);
+  assert.equal(stepsTotalS(steps), (session.durationMin ?? 0) * 60);
+});
+
+test('etap, który nie mieści się w treningu, schodzi niżej; przy bardzo krótkim zostaje tempo ciągłe', () => {
+  // 45 min: 3×10 (36 min z truchtem) się nie mieści → 3×8.
+  assert.deepEqual(threshold(45, 5, 1, 55), { kind: 'tempo', warmupMin: 10, workMin: 8, cooldownMin: 5, repeats: 3, recoveryMin: 2 });
+  // Limit mocnych minut 35%: w 60 min najwyżej 21 min tempa → zamiast 2×15 zostaje 3×6.
+  assert.equal((threshold(60, 5, 2, 35) as { workMin: number }).workMin, 6);
+  assert.deepEqual(threshold(30, 3, 0, 55), { kind: 'tempo', warmupMin: 10, workMin: 10, cooldownMin: 10 });
+});
+
+test('poziom 2 zostaje przy interwałach, półmaraton przy tempie ciągłym', () => {
+  assert.ok(quality({ ...base, trainingLevel: 2, weeks: 6 }).every((s) => s.type === 'intervals'));
+  const half = quality({ ...fitness5, goal: { type: 'race', distanceM: 21097, raceDate: '2027-03-21' } });
+  assert.ok(half.length > 0 && half.every((s) => s.type === 'tempo' && s.structure.kind === 'tempo' && !s.structure.repeats));
+});
+
+test('generatePlanWeek daje ten sam trening progowy co pełny plan', () => {
+  const full = generateInitialPlan(fitness5).weeks[5];
+  assert.deepEqual(generatePlanWeek(fitness5, 5), full);
+});
+
+// ── cykl obciążenia: 3 tygodnie rosnące + 1 lżejszy ──
+
+test('poziomy 4–5: co czwarty tydzień lżejszy, a tydzień po nim wraca ponad poziom sprzed niego', () => {
+  const weeks = generateInitialPlan(fitness5).weeks;
+  assert.deepEqual(weeks.map((w) => w.focus), ['base', 'build', 'build', 'recovery', 'build', 'build', 'build', 'recovery']);
+  const min = weeks.map(weekMinutes);
+  // Trzy tygodnie rosną, czwarty schodzi o ok. 25%.
+  assert.ok(min[0]! < min[1]! && min[1]! < min[2]!);
+  assert.ok(min[3]! < min[2]! * 0.82 && min[3]! > min[2]! * 0.68);
+  // Po lżejszym: więcej niż przed nim, ale nie więcej niż dwa kroki przyrostu naraz.
+  assert.ok(min[4]! > min[2]! && min[4]! <= min[2]! * 1.1 * 1.03);
+  assert.ok(min[7]! < min[6]!);
+});
+
+test('lżejszy tydzień: mocna jednostka to krótsze interwały z mniejszą liczbą powtórzeń', () => {
+  const weeks = generateInitialPlan(fitness5).weeks;
+  const reps = (i: number) => {
+    const s = weeks[i]?.sessions.find((x) => x.type === 'intervals');
+    return s && s.structure.kind === 'intervals' ? s.structure.repeats : null;
+  };
+  assert.equal(reps(2), 8);
+  assert.equal(reps(3), 4);
+});
+
+test('poziomy 1–3 nie mają lżejszych tygodni; parametr 0 wyłącza je też na poziomie 5', () => {
+  assert.ok(generateInitialPlan({ ...fitness5, trainingLevel: 3 }).weeks.every((w) => w.focus !== 'recovery'));
+  const off = generateInitialPlan({ ...fitness5, params: { deloadEveryWeeksL5: 0 } });
+  assert.ok(off.weeks.every((w) => w.focus !== 'recovery'));
+});
+
+test('generowanie tydzień po tygodniu daje ten sam cykl co pełny plan', () => {
+  const full = generateInitialPlan(fitness5).weeks;
+  let prev = full[1]!;
+  for (let i = 2; i < full.length; i++) {
+    prev = generateNextWeek(fitness5, prev);
+    assert.equal(prev.focus, full[i]!.focus);
+    assert.equal(weekMinutes(prev), weekMinutes(full[i]!));
+  }
 });

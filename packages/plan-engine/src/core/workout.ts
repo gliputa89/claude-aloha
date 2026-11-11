@@ -77,6 +77,11 @@ export const hardSeconds = (items: WorkoutItem[]) =>
     .filter((s) => HARD_ZONES.includes(s.zone))
     .reduce((n, s) => n + s.durationS, 0);
 
+export const zoneSeconds = (items: WorkoutItem[], zone: PaceZone) =>
+  flattenSteps(items)
+    .filter((s) => s.zone === zone)
+    .reduce((n, s) => n + s.durationS, 0);
+
 /** Tempo marszu do szacowania dystansu (ok. 5,5 km/h). */
 const WALK_PACE_S = 655;
 
@@ -161,6 +166,17 @@ export function stepsFromStructure(
   if (s.kind === 'tempo' || type === 'tempo') {
     const warm = num('warmupMin', 10);
     const work = num('workMin', 15);
+    const times = Math.max(1, num('repeats', 1));
+    if (times > 1) {
+      // Trening progowy w odcinkach: po każdym odcinku trucht, reszta czasu idzie do schłodzenia.
+      const rec = num('recoveryMin', 2);
+      const cool = Math.max(num('cooldownMin', 5), total - warm - times * (work + rec));
+      return [
+        step('warmup', 'easy', warm, paces),
+        { kind: 'repeat', times, steps: [step('work', 'tempo', work, paces), step('recovery', 'recovery', rec, paces)] },
+        step('cooldown', 'easy', cool, paces),
+      ];
+    }
     const cool = Math.max(num('cooldownMin', 5), total - warm - work);
     return [step('warmup', 'easy', warm, paces), step('work', 'tempo', work, paces), step('cooldown', 'easy', cool, paces)];
   }
@@ -196,8 +212,13 @@ export type MainRules = {
   /** Poziom 1 (nie biega) – tylko marszobieg. */
   walkRunOnly: boolean;
   gentle: boolean;
-  /** Najwyżej tyle procent treningu w strefach mocnych. */
+  /** Najwyżej tyle procent treningu w strefach bardzo mocnych (interwał, przebieżka). */
   maxHardSharePct: number;
+  /**
+   * Najwyżej tyle procent treningu w strefach mocnych łącznie ze strefą tempo. Tempo (próg) znosi się dłużej niż
+   * interwał, stąd osobny, wyższy limit – inaczej nie zmieściłoby się 3×10 czy 2×15 min. Brak = jak `maxHardSharePct`.
+   */
+  maxTempoSharePct?: number;
 };
 
 const ALLOWED_ZONES: Record<string, readonly PaceZone[]> = {
@@ -254,8 +275,14 @@ export function buildFromMainSets(
     return { ok: false, error: `część główna za długa: na rozgrzewkę i schłodzenie zostaje ${Math.round(rest / 60)} min (min. ${minBookendsS / 60})` };
   }
   const hard = hardSeconds(main);
-  if (hard > (totalS * rules.maxHardSharePct) / 100) {
-    return { ok: false, error: `za dużo mocnych minut: ${Math.round(hard / 60)} > ${Math.floor((rules.durationMin * rules.maxHardSharePct) / 100)} min` };
+  const veryHard = hard - zoneSeconds(main, 'tempo');
+  const capMin = (pct: number) => Math.floor((rules.durationMin * pct) / 100);
+  if (veryHard > (totalS * rules.maxHardSharePct) / 100) {
+    return { ok: false, error: `za dużo minut w strefach interval / sprint: ${Math.round(veryHard / 60)} > ${capMin(rules.maxHardSharePct)} min` };
+  }
+  const tempoPct = Math.max(rules.maxHardSharePct, rules.maxTempoSharePct ?? rules.maxHardSharePct);
+  if (hard > (totalS * tempoPct) / 100) {
+    return { ok: false, error: `za dużo mocnych minut (tempo + interval + sprint): ${Math.round(hard / 60)} > ${capMin(tempoPct)} min` };
   }
   if (!quality && hard > 3 * 60) return { ok: false, error: 'w spokojnym treningu najwyżej 3 min mocno (przebieżki)' };
 

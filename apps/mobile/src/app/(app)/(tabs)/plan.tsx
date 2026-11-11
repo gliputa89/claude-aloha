@@ -82,7 +82,7 @@ export default function PlanScreen() {
               .map((week, i) => (
                 <View key={week.id} style={styles.week}>
                   <Text variant="label" color="textMuted">
-                    {t('plan.week', { n: i + 1 })}
+                    {t(week.focus === 'recovery' ? 'plan.weekRecovery' : 'plan.week', { n: i + 1 })}
                   </Text>
                   {week.sessions.map((s) => (
                     <SessionRow key={s.id} session={s} today={s.scheduled_on === today} />

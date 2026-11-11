@@ -11,11 +11,10 @@ import type { LevelParams } from '../plan/params.ts';
 import { buildFromMainSets, paceZonesFrom, PACE_ZONES, type MainSet, type PaceZone } from '../core/workout.ts';
 import {
   dayCap,
-  intervals,
   isFullWeek,
   paramsOf,
+  qualityStructure,
   round5,
-  tempo,
   walkRun,
   weeklyGrowth,
   weekMinutes,
@@ -340,7 +339,7 @@ export function validateWeeks(weeks: PlannedWeek[], ctx: ValidationContext): Vio
     // Jak capGrowth w silniku: tydzień zawodów (i tydzień po nim) nie jest punktem odniesienia,
     // a tygodnia z samymi minimalnymi treningami nie da się już skrócić.
     const atFloor = regular.every((s) => (s.durationMin ?? 0) <= p.minSessionMin);
-    if (week.focus !== 'race' && prev && prev.focus !== 'race' && !atFloor && isFullWeek(prev) && isFullWeek(week) && weekMinutes(prev) > 0) {
+    if (week.focus !== 'race' && prev && prev.focus !== 'race' && prev.focus !== 'recovery' && !atFloor && isFullWeek(prev) && isFullWeek(week) && weekMinutes(prev) > 0) {
       const limit = weekMinutes(prev) * weeklyGrowth(p);
       if (minutes > limit + 1e-9) add('growth', week.weekIndex, null, `${minutes} > ${Math.floor(limit)} min`);
     }
@@ -388,9 +387,9 @@ export function buildSession(
       case 'walk_run':
         return { ...base, intensity: 'easy' as Intensity, structure: walkRun(duration, weekIndex, gentle) };
       case 'intervals':
-        return { ...base, intensity: 'hard' as Intensity, structure: intervals(duration, trainingLevelOf(input)) };
+        return { ...base, intensity: 'hard' as Intensity, structure: qualityStructure(input, weekIndex, 'intervals', duration) };
       case 'tempo':
-        return { ...base, intensity: 'moderate' as Intensity, structure: tempo(duration) };
+        return { ...base, intensity: 'moderate' as Intensity, structure: qualityStructure(input, weekIndex, 'tempo', duration) };
       default:
         return { ...base, intensity: 'easy' as Intensity, structure: { kind: 'steady' as const } };
     }
@@ -443,6 +442,7 @@ function execute(weeks: PlannedWeek[], op: AiOperation, input: PlanInput): strin
           walkRunOnly: trainingLevelOf(input) === 1,
           gentle: input.hasContraindications,
           maxHardSharePct: paramsOf(input).maxHardSharePct,
+          maxTempoSharePct: paramsOf(input).maxTempoSharePct,
         },
         paceZonesFrom(input.recentResult),
       );

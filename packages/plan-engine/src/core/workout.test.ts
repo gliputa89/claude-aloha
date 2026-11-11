@@ -175,3 +175,22 @@ test('estimateDistanceM: czas ÷ tempo strefy, bez wyniku – typowe tempo rekre
   assert.equal(formatApproxKm(640), 'ok. 0,6 km');
   assert.equal(formatApproxKm(6300, 'en'), '~6.5 km');
 });
+
+test('część główna od AI: strefa tempo ma osobny, wyższy limit niż interwały', () => {
+  const tempoRules = { ...rules, type: 'tempo', durationMin: 60, maxTempoSharePct: 55 };
+  const set = (repeat: number, min: number, zone: 'tempo' | 'interval') => [
+    { repeat, workS: min * 60, workZone: zone, recoveryS: 120, recoveryZone: 'recovery' as const },
+  ];
+  // 3×10 i 2×15 min w strefie tempo = 30 min z 60 (50%) – mieszczą się w 55%.
+  assert.equal(buildFromMainSets(set(3, 10, 'tempo'), tempoRules, null).ok, true);
+  assert.equal(buildFromMainSets(set(2, 15, 'tempo'), tempoRules, null).ok, true);
+  // Te same minuty w strefie interwału przekraczają 35%.
+  const intervals = buildFromMainSets(set(3, 10, 'interval'), tempoRules, null);
+  assert.equal(intervals.ok, false);
+  assert.match(intervals.ok ? '' : intervals.error, /interval \/ sprint/);
+  // 3×12 min tempa = 36 min (60%) – ponad limit łączny.
+  const tooMuch = buildFromMainSets(set(3, 12, 'tempo'), tempoRules, null);
+  assert.match(tooMuch.ok ? '' : tooMuch.error, /tempo \+ interval/);
+  // Bez nowego parametru (starsze wywołania) tempo liczy się po staremu – do wspólnego limitu 35%.
+  assert.equal(buildFromMainSets(set(3, 10, 'tempo'), { ...rules, type: 'tempo', durationMin: 60 }, null).ok, false);
+});
