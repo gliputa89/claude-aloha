@@ -7,10 +7,12 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { OnboardingStep } from '@/components/onboarding/onboarding-step';
 import { Button } from '@/components/ui/button';
+import { InfoCard } from '@/components/ui/info-card';
 import { Notice } from '@/components/ui/notice';
 import { Text } from '@/components/ui/text';
 import { radius, space } from '@/constants/theme';
 import { LEVEL_TO_DB, recentTimeS, startBeforeRace, targetTimeS, useOnboardingDraft } from '@/features/onboarding/draft';
+import { useRaceForecast } from '@/features/onboarding/forecast';
 import { completeOnboarding } from '@/features/onboarding/save';
 import { formatDuration, fromIsoDate } from '@/features/onboarding/time';
 import { useColors } from '@/hooks/use-colors';
@@ -51,19 +53,34 @@ export default function SummaryStep() {
 
   const isRace = draft.goal === 'race' && !!draft.raceDate && !!draft.level;
   const target = targetTimeS(draft) ?? null;
-  const recent = recentTimeS(draft) ?? null;
-  const assessment: GoalAssessment | null =
+  // Reguły sprawdzają tylko, czy do startu jest dość tygodni. Realny czas liczy prognoza poniżej.
+  const timing: GoalAssessment | null =
     isRace && draft.raceDate && draft.level
       ? assessRaceGoal({
-          goal: { distanceM: draft.raceDistanceM, raceDate: draft.raceDate, targetTimeS: target },
+          goal: { distanceM: draft.raceDistanceM, raceDate: draft.raceDate },
           level: LEVEL_TO_DB[draft.level],
-          recent: recent ? { distanceM: draft.recentDistanceM, timeS: recent } : null,
           // Tygodnie przygotowań liczymy od startu planu, nie od dziś.
           today: draft.planStartDate,
         })
       : null;
 
-  const suggestion = assessment && assessment.status !== 'ok' && !dismissed ? assessment : null;
+  // Realny czas na start: model (Opus) w widełkach z reguł – tabele Danielsa, objętość, malejąca poprawa formy.
+  const forecastState = useRaceForecast(draft);
+  const forecast = forecastState.status === 'ready' ? forecastState.forecast : null;
+  // Do pełnych minut w górę – łatwiej zapamiętać i nie obiecuje za dużo.
+  const realisticS = forecast ? Math.ceil(forecast.raceDayS / 60) * 60 : null;
+  const tooFast: GoalAssessment | null =
+    timing?.status === 'ok' && forecast && realisticS && target && target < forecast.raceDayS
+      ? {
+          status: 'target_too_fast',
+          weeks: timing.weeks,
+          predictedTimeS: forecast.todayS,
+          suggestion: { kind: 'target_time', targetTimeS: realisticS },
+        }
+      : null;
+  const assessment = timing && timing.status !== 'ok' ? timing : tooFast;
+
+  const suggestion = assessment && !dismissed ? assessment : null;
   const suggestionText = (() => {
     if (!suggestion) return null;
     const distance = distanceInline(draft.raceDistanceM);
@@ -94,6 +111,41 @@ export default function SummaryStep() {
     } else {
       update({ raceDate: suggestion.suggestion.raceDate });
     }
+    setAdjusted(true);
+  };
+
+  // Karta z prognozą: ile dziś, ile na start i – od modelu – skąd ta liczba. Bez niej przy zbyt krótkim terminie.
+  const minutes = (s: number) => formatDuration(Math.round(s / 60) * 60);
+  const forecastText =
+    forecast && timing?.status === 'ok'
+      ? [
+          Math.round(forecast.todayS / 60) > Math.round(forecast.raceDayS / 60)
+            ? t('onboarding.summary.forecastBody', { today: minutes(forecast.todayS), raceDay: minutes(forecast.raceDayS) })
+            : t('onboarding.summary.forecastSame', { raceDay: minutes(forecast.raceDayS) }),
+          forecast.note,
+        ]
+          .filter(Boolean)
+          .join(' ')
+      : null;
+  // Skąd ta liczba – zawsze, niezależnie od tego, czy biegacz wpisał własny cel: wynik wyjściowy, jego odpowiednik
+  // z tabel na dystansie zawodów i kilometraż wobec tego, czego dystans wymaga.
+  const recent = recentTimeS(draft) ?? null;
+  const forecastHow =
+    forecast && recent
+      ? t(forecast.volume.currentKm < forecast.volume.neededKm ? 'onboarding.summary.forecastHow' : 'onboarding.summary.forecastHowEnough', {
+          result: formatDuration(recent),
+          resultDistance: distanceInline(draft.recentDistanceM),
+          daniels: minutes(forecast.danielsS),
+          distance: distanceInline(draft.raceDistanceM),
+          current: forecast.volume.currentKm,
+          needed: forecast.volume.neededKm,
+        })
+      : null;
+  // „Ustaw tak, jak wyliczyliśmy”: gdy cel jest pusty albo inny niż wyliczony (przy zbyt szybkim celu robi to karta propozycji).
+  const canAdopt = realisticS !== null && target !== realisticS && !suggestion;
+  const adoptForecast = () => {
+    if (realisticS === null) return;
+    update({ targetTime: formatDuration(realisticS) });
     setAdjusted(true);
   };
 
@@ -147,6 +199,27 @@ export default function SummaryStep() {
         </View>
       ) : adjusted ? (
         <Notice tone="success" message={t('onboarding.summary.adjusted')} />
+      ) : null}
+
+      {timing?.status === 'ok' && forecastState.status === 'loading' ? (
+        <InfoCard title={t('onboarding.summary.forecastTitle', { distance: distanceInline(draft.raceDistanceM) })} body="" loading />
+      ) : timing?.status === 'ok' && forecastText && realisticS !== null ? (
+        <View style={[styles.forecast, { backgroundColor: c.surface, borderColor: c.border }]}>
+          <Text weight="bold">{t('onboarding.summary.forecastTitle', { distance: distanceInline(draft.raceDistanceM) })}</Text>
+          <Text>{forecastText}</Text>
+          {forecastHow ? <Text variant="caption">{forecastHow}</Text> : null}
+          {canAdopt ? (
+            <Button
+              variant="secondary"
+              label={t('onboarding.summary.forecastSet', { time: formatDuration(realisticS) })}
+              onPress={adoptForecast}
+            />
+          ) : target === realisticS ? (
+            <Text variant="label" color="textBrand">
+              {t('onboarding.summary.forecastIsGoal')}
+            </Text>
+          ) : null}
+        </View>
       ) : null}
 
       <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
@@ -216,6 +289,7 @@ const styles = StyleSheet.create({
   suggestionRow: { flexDirection: 'row', alignItems: 'flex-start', gap: space[3] },
   suggestionActions: { gap: space[1] },
   card: { borderRadius: radius.card, borderWidth: 1.5, paddingHorizontal: space[4] },
+  forecast: { gap: space[3], padding: space[4], borderRadius: radius.card, borderWidth: 1.5 },
   row: { flexDirection: 'row', alignItems: 'center', gap: space[3], paddingVertical: space[4] },
   edit: { minHeight: 44, minWidth: 44, alignItems: 'flex-end', justifyContent: 'center' },
   divider: { height: StyleSheet.hairlineWidth },

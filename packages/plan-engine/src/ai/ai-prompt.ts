@@ -5,6 +5,7 @@
 // Do modelu NIE trafiają: imię, e-mail, id użytkownika – tylko dane treningowe.
 
 import { DEFAULT_COACH_CHAT_PROMPT } from '../chat/prompt.ts';
+import { DEFAULT_RACE_FORECAST_PROMPT } from './race-forecast-prompt.ts';
 import { DEFAULT_DAY_NOTE_PROMPT, DEFAULT_WORKOUT_REVIEW_PROMPT } from '../coach/prompts.ts';
 import { isoWeekday } from '../core/dates.ts';
 import type { ModuleId } from '../core/modules.ts';
@@ -13,7 +14,7 @@ import { AI_OPERATION_KINDS, AI_SESSION_TYPES, AI_TIP_MAX_LENGTH, freePreferredD
 import type { AiEffort } from './ai-pricing.ts';
 import { TRAINING_LEVEL_INFO, type TrainingLevel } from '../plan/levels.ts';
 import { ENGINE_RULES, paramsForLevel, type EngineParams } from '../plan/params.ts';
-import { describeSteps, paceZonesFrom, stepsOf, ZONE_INFO, formatPace } from '../core/workout.ts';
+import { describeSteps, FUEL_FROM_MIN, paceZonesFrom, stepsOf, ZONE_INFO, formatPace } from '../core/workout.ts';
 import { weekMinutes, type PlanInput, type PlannedWeek } from '../plan/plan.ts';
 
 export const AI_FUNCTIONS = {
@@ -41,6 +42,11 @@ export const AI_FUNCTIONS = {
     module: 'coach_chat',
     label: 'Rozmowa z trenerem AI (Keanu Biegała)',
     description: 'Czat: Claude odpowiada na pytania biegacza z kontekstem planu i może zaproponować jedną zmianę w planie.',
+  },
+  'race-forecast': {
+    module: 'plan_ai',
+    label: 'Prognoza czasu na zawody',
+    description: 'Podsumowanie ankiety przy celu „zawody”: Claude ocenia realny czas dziś i na start – w widełkach z reguł (tabele Danielsa, objętość, poprawa formy; forecast.ts).',
   },
 } as const satisfies Record<string, { module: ModuleId; label: string; description: string }>;
 
@@ -111,6 +117,16 @@ export const DEFAULT_AI_PROMPTS: Record<AiFunctionName, AiPromptConfig> = {
     maxTokens: 2000,
     systemPrompt: DEFAULT_WORKOUT_REVIEW_PROMPT,
   },
+  'race-forecast': {
+    id: null,
+    version: null,
+    // Opus: ocena wymaga ważenia kilku rzeczy naraz (źródło wyniku, skok dystansu, objętość, czas do startu).
+    model: 'claude-opus-5-5',
+    effort: 'medium',
+    // Limit obejmuje myślenie modelu; sama odpowiedź to kilka liczb i dwa zdania.
+    maxTokens: 4000,
+    systemPrompt: DEFAULT_RACE_FORECAST_PROMPT,
+  },
   'plan-weeks': {
     id: null,
     version: null,
@@ -149,6 +165,7 @@ export function rulesPromptBlock(params: EngineParams, level: TrainingLevel): st
     '- W języku biegacza (locale), w drugiej osobie, ton „trener, ale kumpel”: ciepło, konkretnie, bez moralizowania i bez porad medycznych.',
     '- Dopasuj do osoby i do tego konkretnego treningu: poziom, cel, miejsce w tygodniu (np. pierwszy mocny trening, dzień po długim biegu, bliski start), to, co zmieniłeś.',
     '- Każda rada inna – nie powtarzaj tych samych zdań. Bez liczb tempa (aplikacja pokazuje je sama).',
+    `- Trening dłuższy niż ${FUEL_FROM_MIN} min (i start od półmaratonu wzwyż): w radzie wspomnij, żeby zabrać coś do zjedzenia i picia – konkretnie i po ludzku, np. żel, banan albo daktyle, pierwsza porcja po ok. 45 min, potem co 30–40 min. Bez suplementów, dawek i porad medycznych.`,
     '- Po polsku bez form zależnych od płci (nie „zrobiłeś/zrobiłaś”) – płci biegacza nie znamy.',
     '',
     'LOGIKA SILNIKA (dla kontekstu):',

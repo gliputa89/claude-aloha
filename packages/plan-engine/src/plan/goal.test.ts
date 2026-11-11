@@ -56,3 +56,32 @@ test('Riegel: 10 km w 39 min ≈ maraton ok. 3h', () => {
   const t = predictTimeS({ distanceM: 10000, timeS: 39 * 60 }, 42195);
   assert.ok(t > 2.9 * 3600 && t < 3.1 * 3600);
 });
+
+test('maraton z 5 km w 18:53 przy małym kilometrażu: 2:40 to za szybko, realnie ok. 3:00', () => {
+  const r = assessRaceGoal({
+    goal: { distanceM: 42195, raceDate: '2027-04-25', targetTimeS: 2 * 3600 + 40 * 60 },
+    level: 'advanced',
+    recent: { distanceM: 5000, timeS: 18 * 60 + 53 },
+    today,
+    weeklyKm: 18,
+    runsPerWeek: 3,
+  });
+  assert.equal(r.status, 'target_too_fast');
+  if (r.status === 'target_too_fast') {
+    assert.ok(r.suggestion.targetTimeS >= 2 * 3600 + 58 * 60 && r.suggestion.targetTimeS <= 3 * 3600 + 10 * 60);
+    // Dziś – bez objętości maratońskiej – wyraźnie wolniej niż w dniu startu.
+    assert.ok(r.predictedTimeS > r.suggestion.targetTimeS + 8 * 60);
+  }
+});
+
+test('cel zgodny z tabelami przy solidnym kilometrażu przechodzi', () => {
+  const r = assessRaceGoal({
+    goal: { distanceM: 42195, raceDate: '2027-04-25', targetTimeS: 3 * 3600 + 2 * 60 },
+    level: 'advanced',
+    recent: { distanceM: 5000, timeS: 18 * 60 + 53 },
+    today,
+    weeklyKm: 65,
+    runsPerWeek: 5,
+  });
+  assert.equal(r.status, 'ok');
+});

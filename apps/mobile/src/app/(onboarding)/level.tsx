@@ -11,7 +11,7 @@ import { OptionCard } from '@/components/ui/option-card';
 import { Stepper } from '@/components/ui/stepper';
 import { TextField } from '@/components/ui/text-field';
 import { space } from '@/constants/theme';
-import { draftFromStrava, recentTimeS, useOnboardingDraft, type LevelChoice } from '@/features/onboarding/draft';
+import { draftFromStrava, recentTimeS, useOnboardingDraft, weeklyKmOf, type LevelChoice } from '@/features/onboarding/draft';
 import { useModule } from '@/features/modules/use-module';
 import { useT } from '@/hooks/use-t';
 
@@ -28,7 +28,8 @@ export default function LevelStep() {
   const { draft, update } = useOnboardingDraft();
   const runs = draft.level && draft.level !== 'none';
   const recent = recentTimeS(draft);
-  const valid = !!draft.level && recent !== undefined;
+  const weeklyKm = weeklyKmOf(draft);
+  const valid = !!draft.level && recent !== undefined && weeklyKm !== undefined;
   // Strava jest modułem pakietu – bez niego zostają same pytania.
   const stravaModule = useModule('strava');
 
@@ -66,6 +67,19 @@ export default function LevelStep() {
               label={t('onboarding.level.runsLabel')}
               decreaseLabel={t('onboarding.availability.decrease')}
               increaseLabel={t('onboarding.availability.increase')}
+            />
+          </StepSection>
+
+          <StepSection label={t('onboarding.level.weeklyKmLabel')}>
+            <TextField
+              label={t('onboarding.level.weeklyKmField')}
+              placeholder={t('onboarding.level.weeklyKmPlaceholder')}
+              hint={t('onboarding.level.weeklyKmHint')}
+              value={draft.weeklyKm}
+              onChangeText={(v) => update({ weeklyKm: v })}
+              error={weeklyKm === undefined ? t('onboarding.errors.weeklyKmInvalid') : undefined}
+              keyboardType="decimal-pad"
+              maxLength={5}
             />
           </StepSection>
 

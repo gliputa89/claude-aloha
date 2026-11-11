@@ -5,6 +5,7 @@ import { applyOperations, type AiOperation } from '../ai/ai-ops.ts';
 import { generateInitialPlan, type PlanInput } from '../plan/plan.ts';
 import {
   buildFromMainSets,
+  needsFuel,
   describeSteps,
   flattenSteps,
   hardSeconds,
@@ -193,4 +194,12 @@ test('część główna od AI: strefa tempo ma osobny, wyższy limit niż interw
   assert.match(tooMuch.ok ? '' : tooMuch.error, /tempo \+ interval/);
   // Bez nowego parametru (starsze wywołania) tempo liczy się po staremu – do wspólnego limitu 35%.
   assert.equal(buildFromMainSets(set(3, 10, 'tempo'), { ...rules, type: 'tempo', durationMin: 60 }, null).ok, false);
+});
+
+test('jedzenie w trakcie: biegi dłuższe niż 75 min i starty od półmaratonu', () => {
+  assert.equal(needsFuel({ type: 'long', durationMin: 75 }), false);
+  assert.equal(needsFuel({ type: 'long', durationMin: 80 }), true);
+  assert.equal(needsFuel({ type: 'tempo', durationMin: 90 }), true);
+  assert.equal(needsFuel({ type: 'race', durationMin: null, distanceM: 10000 }), false);
+  assert.equal(needsFuel({ type: 'race', durationMin: null, distanceM: 21097 }), true);
 });

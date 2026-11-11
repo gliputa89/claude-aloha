@@ -40,6 +40,11 @@ W MVP każdy pakiet ma wszystkie moduły, więc bramki niczego nie blokują.
 
 ## Notka na dzień bez treningu
 
+`race-forecast` – podsumowanie ankiety przy celu „zawody”: realny czas dziś i na start. Reguły
+(`packages/plan-engine/src/plan/forecast.ts`: tabele Danielsa / VDOT, objętość potrzebna na dystans, malejąca poprawa
+formy) dają liczby odniesienia i widełki; w nich prognozę ustala Claude Opus (funkcja AI `race-forecast`). Bez klucza
+albo przy błędzie modelu wraca prognoza z samych reguł. Niczego nie zapisuje poza logiem wywołania AI.
+
 `day-note` – ekran „Dzisiaj”, gdy dziś nie ma biegu: Claude (funkcja AI `day-note`, Haiku) pisze 1–2 zdania z kontekstu
 planu (ostatni i następny trening, regularność). Jedna notka na użytkownika i dzień, zapisana w `day_notes`.
 Bez klucza `ANTHROPIC_API_KEY` albo przy błędzie modelu aplikacja pokazuje tekst ze słownika.

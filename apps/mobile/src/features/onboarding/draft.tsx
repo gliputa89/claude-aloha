@@ -20,6 +20,8 @@ export type OnboardingDraft = {
   runsPerWeek: number;
   recentDistanceM: RecentDistance;
   recentTime: string;
+  /** Obecny kilometraż tygodniowy – wpisany albo ze Stravy; pusty, gdy biegacz go nie zna. */
+  weeklyKm: string;
   days: number[];
   sessionsPerWeek: number;
   maxWeekday: number;
@@ -45,6 +47,7 @@ const initialDraft = (): OnboardingDraft => ({
   runsPerWeek: 2,
   recentDistanceM: 5000,
   recentTime: '',
+  weeklyKm: '',
   days: [],
   sessionsPerWeek: 3,
   maxWeekday: 45,
@@ -77,6 +80,7 @@ export function draftFromStrava(proposal: StravaSurveyProposal, draft: Onboardin
     strava: proposal,
     level: LEVEL_FROM_DB[proposal.level],
     runsPerWeek: proposal.runsPerWeek,
+    weeklyKm: String(Math.round(proposal.weeklyDistanceM / 1000)),
     ...(recentResult ? { recentDistanceM: recentResult.distanceM, recentTime: formatDuration(recentResult.timeS) } : {}),
     ...(availability && availability.preferredDays.length > 0
       ? {
@@ -117,6 +121,14 @@ export function targetTimeS(draft: OnboardingDraft) {
 export function recentTimeS(draft: OnboardingDraft) {
   if (draft.level === 'none' || !draft.recentTime.trim()) return null;
   return parseDuration(draft.recentTime) ?? undefined;
+}
+
+/** Kilometraż tygodniowy: `null` gdy pusty (albo „nie biegam”), `undefined` gdy wpis jest błędny. */
+export function weeklyKmOf(draft: OnboardingDraft) {
+  const text = draft.weeklyKm.trim().replace(',', '.');
+  if (draft.level === 'none' || text === '') return null;
+  const km = Number(text);
+  return Number.isFinite(km) && km >= 0 && km <= 300 ? Math.round(km * 10) / 10 : undefined;
 }
 
 /** Start planu musi być przed datą zawodów. */

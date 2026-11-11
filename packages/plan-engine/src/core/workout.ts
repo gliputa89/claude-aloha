@@ -77,6 +77,15 @@ export const hardSeconds = (items: WorkoutItem[]) =>
     .filter((s) => HARD_ZONES.includes(s.zone))
     .reduce((n, s) => n + s.durationS, 0);
 
+/** Od tylu minut biegu warto jeść w trakcie – rada trenera ma o tym wspomnieć. */
+export const FUEL_FROM_MIN = 75;
+
+/** Czy przy tym treningu przyda się jedzenie w trakcie: bieg dłuższy niż 75 min albo start od półmaratonu wzwyż. */
+export function needsFuel(session: { type: string; durationMin?: number | null; distanceM?: number | null }) {
+  if ((session.durationMin ?? 0) > FUEL_FROM_MIN) return true;
+  return session.type === 'race' && (session.distanceM ?? 0) >= 21097;
+}
+
 export const zoneSeconds = (items: WorkoutItem[], zone: PaceZone) =>
   flattenSteps(items)
     .filter((s) => s.zone === zone)

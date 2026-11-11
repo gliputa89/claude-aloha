@@ -2,7 +2,7 @@ import { getCalendars } from 'expo-localization';
 
 import { supabase } from '@/lib/supabase';
 
-import { LEVEL_TO_DB, recentTimeS, targetTimeS, type OnboardingDraft } from './draft';
+import { LEVEL_TO_DB, recentTimeS, targetTimeS, weeklyKmOf, type OnboardingDraft } from './draft';
 
 /** Wersja treści zgody na dane zdrowotne (zapisywana w public.consents). */
 export const HEALTH_CONSENT_VERSION = '2026-11';
@@ -13,6 +13,7 @@ export async function completeOnboarding(draft: OnboardingDraft) {
     throw new Error('Niepełna ankieta');
   }
   const isRace = draft.goal === 'race';
+  const weeklyKm = weeklyKmOf(draft) ?? null;
   const { error } = await supabase.rpc('complete_onboarding', {
     p_goal_type: isRace ? 'race' : 'general',
     p_general_focus: isRace ? null : draft.goal,
@@ -32,6 +33,8 @@ export async function completeOnboarding(draft: OnboardingDraft) {
     p_health_consent: draft.healthConsent,
     p_consent_version: HEALTH_CONSENT_VERSION,
     p_timezone: getCalendars()[0]?.timeZone ?? '',
+    // Tylko gdy podany – baza sprzed migracji z kilometrażem nie zna tego parametru.
+    ...(weeklyKm !== null ? { p_weekly_km: weeklyKm } : {}),
   });
   if (error) throw error;
 }

@@ -19,7 +19,7 @@ export const MODULES = {
     description: 'Claude poprawia szkic tygodnia z silnika i pisze rady trenera do treningów. Bez modułu: sam plan z reguł.',
     core: false,
     folder: 'ai',
-    functions: ['generate-plan', 'generate-next-week'],
+    functions: ['generate-plan', 'generate-next-week', 'race-forecast'],
     tables: [],
   },
   weather: {
@@ -35,7 +35,7 @@ export const MODULES = {
     description: 'Połączenie konta, pobieranie biegów, automatyczne odhaczanie treningów i pytanie o przesunięty dzień.',
     core: false,
     folder: 'strava',
-    functions: ['strava-oauth', 'strava-sync'],
+    functions: ['strava-oauth', 'strava-sync', 'strava-history'],
     tables: ['strava_connections', 'strava_activities'],
   },
   review: {
