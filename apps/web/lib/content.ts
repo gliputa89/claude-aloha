@@ -291,7 +291,7 @@ const pl: Content = {
   },
   chat: {
     title: "Coś wypadło? Napisz do trenera.",
-    body: "W aplikacji jest czat z Panem Aloha, trenerem AI, który zna Twój plan i ostatnie biegi. Piszesz zwykłymi słowami, odpowiedź masz od razu.",
+    body: "W aplikacji jest czat z trenerem AI – to Keanu Biegała, który zna Twój plan i ostatnie biegi. Piszesz zwykłymi słowami, odpowiedź masz od razu.",
     points: [
       "Przed treningiem zapytasz, jak go pobiec albo co zrobić, gdy masz mniej czasu. Po treningu: jak poszło i co poprawić następnym razem.",
       "Trener może zaproponować zmianę w planie: przenieść, skrócić, zmienić rodzaj albo odpuścić trening. To zawsze propozycja, decyzja jest Twoja.",
@@ -299,7 +299,7 @@ const pl: Content = {
     ],
     coaches: [
       {
-        name: "Pan Aloha",
+        name: "Keanu Biegała 🌺",
         kind: "Trener AI",
         body: "Odpowiada od razu, o każdej porze. Do 40 wiadomości na dobę.",
       },
@@ -310,7 +310,7 @@ const pl: Content = {
       },
     ],
     demo: {
-      name: "Pan Aloha",
+      name: "Keanu Biegała 🌺",
       role: "Trener AI",
       user: "Nie mam jutro czasu na trening",
       reply: "Jasne, zdarza się. Jutrzejsze interwały możemy przenieść na piątek. Sobota zostaje spokojna, więc nogi zdążą odpocząć przed niedzielą.",
@@ -406,7 +406,7 @@ const pl: Content = {
       },
       {
         q: "Kto jest trenerem w Aloha?",
-        a: "Na co dzień Pan Aloha, czyli trener AI. Plan powstaje według zasad treningowych, a rady, notatki i odpowiedzi na czacie pisze AI. Rozmowa z prawdziwym trenerem, człowiekiem, to osobny pakiet.",
+        a: "Na co dzień Keanu Biegała, czyli trener AI. Plan powstaje według zasad treningowych, a rady, notatki i odpowiedzi na czacie pisze AI. Rozmowa z prawdziwym trenerem, człowiekiem, to osobny pakiet.",
       },
       {
         q: "Wracam po kontuzji albo po dłuższej przerwie. Co wtedy?",
@@ -617,7 +617,7 @@ const en: Content = {
   },
   chat: {
     title: "Something came up? Message your coach.",
-    body: "The app has a chat with Mr Aloha, an AI coach who knows your plan and your recent runs. Write in plain words and get an answer straight away.",
+    body: "The app has a chat with Keanu Biegała, an AI coach who knows your plan and your recent runs. Write in plain words and get an answer straight away.",
     points: [
       "Before a workout, ask how to run it or what to do with less time. Afterwards, ask how it went and what to improve next time.",
       "The coach can suggest a change to your plan: move, shorten, swap or skip a workout. It is always a suggestion, and the decision is yours.",
@@ -625,7 +625,7 @@ const en: Content = {
     ],
     coaches: [
       {
-        name: "Mr Aloha",
+        name: "Keanu Biegała 🌺",
         kind: "AI coach",
         body: "Replies straight away, at any hour. Up to 40 messages a day.",
       },
@@ -636,7 +636,7 @@ const en: Content = {
       },
     ],
     demo: {
-      name: "Mr Aloha",
+      name: "Keanu Biegała 🌺",
       role: "AI coach",
       user: "I have no time to train tomorrow",
       reply: "Sure, it happens. We can move tomorrow's intervals to Friday. Saturday stays easy, so your legs get a rest before Sunday.",
@@ -732,7 +732,7 @@ const en: Content = {
       },
       {
         q: "Who is the coach in Aloha?",
-        a: "Day to day it is Mr Aloha, an AI coach. The plan follows training rules, and the tips, notes and chat replies are written by AI. Chatting with a real, human coach is a separate package.",
+        a: "Day to day it is Keanu Biegała, an AI coach. The plan follows training rules, and the tips, notes and chat replies are written by AI. Chatting with a real, human coach is a separate package.",
       },
       {
         q: "I'm coming back from an injury or a long break. What then?",

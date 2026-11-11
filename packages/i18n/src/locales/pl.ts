@@ -277,7 +277,7 @@ export const pl = {
     profile: 'Profil',
   },
   chat: {
-    aiName: 'Pan Aloha',
+    aiName: 'Keanu Biegała 🌺',
     humanName: 'Trener',
     subtitle: 'Trener AI',
     chooseCoach: 'Z kim chcesz porozmawiać',
@@ -307,7 +307,7 @@ export const pl = {
     },
     placeholder: 'Napisz do trenera…',
     send: 'Wyślij',
-    typing: 'Pan Aloha pisze…',
+    typing: 'Keanu pisze…',
     humanWait: 'Wysłane. Trener odpisze, gdy tylko będzie mógł.',
     health: {
       title: 'To już temat zdrowia',
@@ -326,7 +326,7 @@ export const pl = {
     },
     error: {
       module_disabled: 'Ta rozmowa nie jest dostępna w Twoim pakiecie.',
-      no_coach: 'Nie ma teraz wolnego trenera. Spróbuj później albo napisz do Pana Aloha.',
+      no_coach: 'Nie ma teraz wolnego trenera. Spróbuj później albo napisz do Keanu.',
       limit: 'Na dziś to już dużo pytań – wróć jutro, pogadamy dalej.',
       ai_unavailable: 'Nie udało mi się odpowiedzieć. Spróbuj jeszcze raz za chwilę.',
       failed: 'Coś nie zadziałało. Sprawdź internet i spróbuj jeszcze raz.',

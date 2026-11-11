@@ -56,7 +56,7 @@ export const MODULES = {
   },
   coach_chat: {
     label: 'Rozmowa z trenerem AI',
-    description: 'Czat z Panem Aloha: pytania ogólne oraz przed i po treningu; trener może zaproponować zmianę w planie.',
+    description: 'Czat z trenerem AI (Keanu Biegała): pytania ogólne oraz przed i po treningu; trener może zaproponować zmianę w planie.',
     core: false,
     folder: 'chat',
     functions: ['coach-chat'],

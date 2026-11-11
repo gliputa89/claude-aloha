@@ -225,7 +225,7 @@ export default async function Home({ params }: PageProps<"/[lang]">) {
           </div>
         </section>
 
-        {/* Czat z trenerem: Pan Aloha (AI) i prawdziwy trener */}
+        {/* Czat z trenerem: Keanu Biegała (AI) i prawdziwy trener */}
         <section className={`${shell} grid items-center gap-12 py-20 sm:py-28 lg:grid-cols-12 lg:gap-16`}>
           <ChatDemo demo={t.chat.demo} />
           <div className="lg:col-span-7">

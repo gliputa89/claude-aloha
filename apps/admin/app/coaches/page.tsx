@@ -18,7 +18,7 @@ export default function CoachesPage() {
         <div className="flex flex-col gap-1">
           <h1 className="font-display text-3xl font-semibold tracking-tight">Trenerzy i rozmowy</h1>
           <p className="max-w-3xl text-sm text-text-muted">
-            Trenerzy widoczni w aplikacji i rozmowy biegaczy z prawdziwym trenerem. Za Pana Aloha odpowiada model – jego rozmowy
+            Trenerzy widoczni w aplikacji i rozmowy biegaczy z prawdziwym trenerem. Za trenera AI (Keanu) odpowiada model – jego rozmowy
             widać w AI → Wywołania (funkcja coach-chat).
           </p>
         </div>

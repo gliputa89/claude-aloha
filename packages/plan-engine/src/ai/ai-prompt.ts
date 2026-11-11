@@ -39,7 +39,7 @@ export const AI_FUNCTIONS = {
   },
   'coach-chat': {
     module: 'coach_chat',
-    label: 'Rozmowa z trenerem AI (Pan Aloha)',
+    label: 'Rozmowa z trenerem AI (Keanu Biegała)',
     description: 'Czat: Claude odpowiada na pytania biegacza z kontekstem planu i może zaproponować jedną zmianę w planie.',
   },
 } as const satisfies Record<string, { module: ModuleId; label: string; description: string }>;

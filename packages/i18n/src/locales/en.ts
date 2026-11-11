@@ -276,7 +276,7 @@ export const en: Dictionary = {
     profile: 'Profile',
   },
   chat: {
-    aiName: 'Mr Aloha',
+    aiName: 'Keanu Biegała 🌺',
     humanName: 'Coach',
     subtitle: 'AI coach',
     chooseCoach: 'Who do you want to talk to',
@@ -306,7 +306,7 @@ export const en: Dictionary = {
     },
     placeholder: 'Message your coach…',
     send: 'Send',
-    typing: 'Mr Aloha is typing…',
+    typing: 'Keanu is typing…',
     humanWait: 'Sent. Your coach will reply as soon as they can.',
     health: {
       title: 'This is a health topic',
@@ -325,7 +325,7 @@ export const en: Dictionary = {
     },
     error: {
       module_disabled: 'This chat isn’t available in your plan.',
-      no_coach: 'No coach is available right now. Try later or message Mr Aloha.',
+      no_coach: 'No coach is available right now. Try later or message Keanu.',
       limit: 'That’s a lot of questions for today – come back tomorrow and we’ll carry on.',
       ai_unavailable: 'I couldn’t reply. Try again in a moment.',
       failed: 'Something went wrong. Check your connection and try again.',
