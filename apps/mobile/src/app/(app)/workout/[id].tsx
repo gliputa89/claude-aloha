@@ -1,5 +1,6 @@
 import type { TranslationKey } from '@aloha/i18n';
 import { estimateDistanceM, formatApproxKm, stepsOf } from '@aloha/plan-engine';
+import { openURL } from 'expo-linking';
 import { router, useLocalSearchParams } from 'expo-router';
 import {
   FlagCheckered,
@@ -12,22 +13,29 @@ import {
   X,
   type IconProps,
 } from 'phosphor-react-native';
-import type { ComponentType, ReactNode } from 'react';
+import { useEffect, useState, type ComponentType, type ReactNode } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import Animated, { useReducedMotion } from 'react-native-reanimated';
 
 import { Mark } from '@/components/brand/mark';
 import { TYPE_COLOR, useDetail } from '@/components/plan/session-row';
+import { WeatherCard } from '@/components/plan/weather-card';
 import { WorkoutChart, WorkoutSteps } from '@/components/plan/workout-intervals';
+import { MatchPrompts } from '@/components/strava/match-prompt';
+import { ReviewBadge, useCountUp, type Celebration } from '@/components/review/review-celebration';
+import { WorkoutReview } from '@/components/review/workout-review';
+import { Button } from '@/components/ui/button';
 import { FadeUp } from '@/components/ui/fade-up';
 import { InfoCard } from '@/components/ui/info-card';
 import { Text } from '@/components/ui/text';
 import { EASE_BACK, EASE_OUT } from '@/constants/easing';
 import { radius, space } from '@/constants/theme';
-import { fromIsoDate, todayIso } from '@/features/onboarding/time';
-import type { PlanSession } from '@/features/plan/api';
+import { formatDuration, fromIsoDate, todayIso } from '@/features/onboarding/time';
+import { isReviewNew, markReviewSeen, type PlanSession } from '@/features/plan/api';
+import { useModule } from '@/features/modules/use-module';
 import { useCoachTip } from '@/features/plan/coach-tips';
 import { allSessions, usePlan } from '@/features/plan/plan-provider';
+import { paceMinPerKm, stravaActivityUrl } from '@/features/strava/api';
 import { useColors } from '@/hooks/use-colors';
 import { useLocale, useT } from '@/hooks/use-t';
 
@@ -46,8 +54,10 @@ const TYPE_ICON: Record<PlanSession['type'], ComponentType<IconProps>> = {
  * Choreografia otwarcia (ms, po wysunięciu arkusza):
  * 120 ikona wskakuje z obrotem · 200+ data, tytuł, opis · 380+ kafelki jeden po drugim
  * 560 słupki przebiegu rosną od dołu · 700+ odcinki i rada trenera
+ * Zrobiony trening: 580 karta oceny – znaczek wskakuje (przy dobrym werdykcie z pierścieniem i iskrami),
+ * liczby dobiegają, pasek „plan kontra wykonanie” się wypełnia, potem osie, obserwacje i notka trenera.
  */
-const T = { icon: 120, head: 200, stats: 380, chart: 560, rest: 700 };
+const T = { icon: 120, head: 200, stats: 380, done: 580, chart: 560, rest: 700 };
 
 /** Arkusz ze szczegółami treningu: typ, data, czas/dystans/intensywność, przebieg, odcinki i rada trenera. */
 export default function WorkoutDetailScreen() {
@@ -90,6 +100,25 @@ function Detail({ session }: { session: PlanSession }) {
   const reduced = useReducedMotion();
   const detail = useDetail(session);
   const tip = useCoachTip(session);
+  const modules = { weather: useModule('weather'), strava: useModule('strava'), review: useModule('review'), coach: useModule('coach') };
+  const chatEnabled = [useModule('coach_chat'), useModule('coach_human')].some(Boolean);
+  // Ocena i notka trenera to osobne moduły pakietu: bez „oceny” zostaje samo „Zrobione”, bez „notek” – ocena bez notki.
+  const review = modules.review && session.review ? { ...session.review, note: modules.coach ? session.review.note : null } : null;
+
+  // Pierwsze otwarcie oceny: świętowanie zależne od werdyktu, liczby „dobiegają”. Potem karta jest już spokojna.
+  const [firstOpen] = useState(() => isReviewNew(session.id, session.review));
+  const hasReview = session.review !== null;
+  useEffect(() => {
+    if (hasReview) markReviewSeen(session.id);
+  }, [hasReview, session.id]);
+  const celebration: Celebration = !firstOpen
+    ? 'none'
+    : session.review?.verdict === 'spot_on'
+      ? 'full'
+      : session.review?.verdict === 'good'
+        ? 'calm'
+        : 'none';
+  const counted = useCountUp(firstOpen, T.done + 150);
 
   const isToday = session.scheduled_on === todayIso();
   const dateLabel = fromIsoDate(session.scheduled_on).toLocaleDateString(locale === 'en' ? 'en-GB' : 'pl-PL', {
@@ -117,6 +146,17 @@ function Detail({ session }: { session: PlanSession }) {
       ? { label: t('workoutDetail.intensity'), value: t(`workoutDetail.level.${session.intensity}`) }
       : null,
   ].filter((s): s is { label: string; value: string } => s !== null);
+
+  const completed = session.status === 'done' || session.status === 'partial';
+  const pace = paceMinPerKm(session.actual_distance_m, session.actual_duration_s);
+  const actual = [
+    session.actual_distance_m ? { label: t('workoutDetail.distance'), value: km(session.actual_distance_m * counted) } : null,
+    session.actual_duration_s
+      ? { label: t('workoutDetail.duration'), value: formatDuration(Math.round(session.actual_duration_s * counted)) }
+      : null,
+    pace ? { label: t('workoutDetail.pace'), value: t('workoutDetail.paceValue', { pace }) } : null,
+  ].filter((s): s is { label: string; value: string } => s !== null);
+  const lastActivity = session.activities.at(-1);
 
   const Icon = TYPE_ICON[session.type];
   const typeColor = c[TYPE_COLOR[session.type]];
@@ -191,6 +231,8 @@ function Detail({ session }: { session: PlanSession }) {
         </View>
       </View>
 
+      {modules.strava ? <MatchPrompts sessionId={session.id} /> : null}
+
       {stats.length > 0 ? (
         <View style={styles.stats}>
           {stats.map((s, i) => (
@@ -206,6 +248,80 @@ function Detail({ session }: { session: PlanSession }) {
             </PopIn>
           ))}
         </View>
+      ) : null}
+
+      {completed ? (
+        <FadeUp delay={T.done}>
+          <View style={[styles.done, { backgroundColor: c.surfaceBrandSoft }]}>
+            <View style={styles.doneHead}>
+              <ReviewBadge celebration={celebration} delay={T.done + 200} />
+              <Text weight="bold" style={styles.flex}>
+                {review
+                  ? t(`review.verdict.${review.verdict}`)
+                  : t(session.status === 'done' ? 'workoutDetail.done' : 'workoutDetail.donePartial')}
+              </Text>
+            </View>
+            {actual.length > 0 ? (
+              <View style={styles.stats}>
+                {actual.map((s) => (
+                  <View key={s.label} style={styles.statWrap}>
+                    <Text variant="caption" color="text" numberOfLines={1}>
+                      {s.label}
+                    </Text>
+                    <Text variant="heading" numberOfLines={1} adjustsFontSizeToFit>
+                      {s.value}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            ) : null}
+            {review ? <WorkoutReview review={review} play={firstOpen} delay={T.done + 450} /> : null}
+            {lastActivity ? (
+              <View style={styles.source}>
+                <Text variant="caption" color="text" style={styles.flex}>
+                  {t('workoutDetail.fromStrava')}
+                </Text>
+                <Pressable
+                  accessibilityRole="link"
+                  hitSlop={space[3]}
+                  onPress={() => openURL(stravaActivityUrl(lastActivity.id)).catch(() => {})}>
+                  <Text variant="label" color="textBrand" style={styles.link}>
+                    {t('workoutDetail.viewOnStrava')}
+                  </Text>
+                </Pressable>
+              </View>
+            ) : null}
+          </View>
+        </FadeUp>
+      ) : null}
+
+      {/* Rada trenera: zaraz pod kafelkami, przed przebiegiem; treść na całą szerokość karty.
+          Po treningu jej nie ma – wtedy liczy się ocena, a rada „na przed” nic już nie wnosi. */}
+      {completed ? null : (
+        <FadeUp delay={T.stats + 260}>
+          <View style={[styles.coach, { backgroundColor: c.surfaceBrandSoft }]}>
+            <View style={styles.coachHead}>
+              <View style={[styles.avatar, { backgroundColor: c.surfaceBrand }]}>
+                <Mark size={18} wave="textOnBrand" />
+              </View>
+              <Text variant="label" color="textBrand">
+                {t('workoutDetail.coach')}
+              </Text>
+            </View>
+            <Text>{tip}</Text>
+          </View>
+        </FadeUp>
+      )}
+
+      {/* Pytania do trenera o ten trening: przed (jak go pobiec) albo po (co wyszło). */}
+      {chatEnabled && session.type !== 'rest' ? (
+        <FadeUp delay={T.stats + 300}>
+          <Button
+            variant="secondary"
+            label={t(completed ? 'chat.askAfter' : 'chat.askBefore')}
+            onPress={() => router.push({ pathname: '/coach', params: { sessionId: session.id } })}
+          />
+        </FadeUp>
       ) : null}
 
       {hasSteps ? (
@@ -228,19 +344,12 @@ function Detail({ session }: { session: PlanSession }) {
         </>
       ) : null}
 
-      <FadeUp delay={hasSteps ? T.rest + 100 : T.stats + 120}>
-        <View style={[styles.coach, { backgroundColor: c.surfaceBrandSoft }]}>
-          <View style={[styles.avatar, { backgroundColor: c.surfaceBrand }]}>
-            <Mark size={26} wave="textOnBrand" />
-          </View>
-          <View style={styles.flex}>
-            <Text variant="label" color="textBrand">
-              {t('workoutDetail.coach')}
-            </Text>
-            <Text>{tip}</Text>
-          </View>
-        </View>
-      </FadeUp>
+      {/* Pogoda tylko przed treningiem – po biegu prognoza nie ma już znaczenia. */}
+      {completed || !modules.weather ? null : (
+        <FadeUp delay={hasSteps ? T.rest + 60 : T.stats + 80}>
+          <WeatherCard session={session} credit />
+        </FadeUp>
+      )}
     </ScrollView>
   );
 }
@@ -298,13 +407,12 @@ const styles = StyleSheet.create({
   statWrap: { flex: 1 },
   stat: { gap: space[1], padding: space[3], borderRadius: radius.card, borderWidth: 1.5 },
   section: { gap: space[3] },
+  done: { gap: space[3], padding: space[4], borderRadius: radius.card },
+  doneHead: { flexDirection: 'row', alignItems: 'center', gap: space[3] },
+  source: { flexDirection: 'row', alignItems: 'center', gap: space[3] },
+  link: { textDecorationLine: 'underline' },
   card: { padding: space[4], borderRadius: radius.card, borderWidth: 1.5 },
-  coach: {
-    flexDirection: 'row',
-    gap: space[3],
-    padding: space[4],
-    borderRadius: radius.card,
-    alignItems: 'flex-start',
-  },
-  avatar: { width: 40, height: 40, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center' },
+  coach: { gap: space[2], padding: space[4], borderRadius: radius.card },
+  coachHead: { flexDirection: 'row', alignItems: 'center', gap: space[2] },
+  avatar: { width: 28, height: 28, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center' },
 });

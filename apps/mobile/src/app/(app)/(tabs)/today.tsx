@@ -1,8 +1,11 @@
 import { router } from 'expo-router';
-import { StyleSheet, View } from 'react-native';
+import { ChatCircleDots } from 'phosphor-react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Mark } from '@/components/brand/mark';
+import { MatchPrompts } from '@/components/strava/match-prompt';
 import { SessionRow } from '@/components/plan/session-row';
+import { WeatherCard, WeatherPrompt } from '@/components/plan/weather-card';
 import { Button } from '@/components/ui/button';
 import { FadeUp } from '@/components/ui/fade-up';
 import { InfoCard } from '@/components/ui/info-card';
@@ -12,17 +15,24 @@ import { radius, space } from '@/constants/theme';
 import { todayIso } from '@/features/onboarding/time';
 import { allSessions, usePlan } from '@/features/plan/plan-provider';
 import { PlanStatus } from '@/features/plan/plan-status';
+import { useDayNote } from '@/features/coach/day-note';
+import { useModule } from '@/features/modules/use-module';
+import { useWeather } from '@/features/weather/weather-provider';
 import { useColors } from '@/hooks/use-colors';
 import { useLocale, useT } from '@/hooks/use-t';
 import { useAuth } from '@/providers/auth-provider';
 
-/** Zakładka „Dzisiaj”: powitanie, dzisiejszy trening i następny w kolejce. Docelowo też check-in wg makiet. */
+/**
+ * Zakładka „Dzisiaj”: powitanie, dzisiejszy trening (albo notka trenera na dzień bez biegu), następny w kolejce –
+ * każdy z pogodą i poradą, kiedy najlepiej wyjść – oraz ostatni zrobiony trening z werdyktem. Docelowo też check-in wg makiet.
+ */
 export default function TodayScreen() {
   const t = useT();
   const c = useColors();
   const locale = useLocale();
   const { profile } = useAuth();
   const { state, reload } = usePlan();
+  const weather = useWeather();
   const today = todayIso();
   const name = profile?.display_name;
 
@@ -36,13 +46,24 @@ export default function TodayScreen() {
   const todays = sessions.filter((s) => s.scheduled_on === today);
   const todayRuns = todays.filter((s) => s.type !== 'rest');
   const next = sessions.find((s) => s.scheduled_on > today && s.type !== 'rest');
+  const shown = [...todayRuns, ...(next ? [next] : [])];
+  // Ostatni zrobiony trening (dzisiejszy jest już wyżej) – tapnięcie otwiera jego ocenę.
+  const last = sessions.filter((s) => s.scheduled_on < today && (s.status === 'done' || s.status === 'partial')).at(-1);
+  // Dzień bez biegu: notka trenera od AI zamiast stałego tekstu (stały zostaje, dopóki notki nie ma).
+  const modules = { weather: useModule('weather'), strava: useModule('strava'), review: useModule('review'), coach: useModule('coach') };
+  const chat = { ai: useModule('coach_chat'), human: useModule('coach_human') };
+  const dayNote = useDayNote(today, modules.coach && state.kind === 'ready' && todayRuns.length === 0);
+  const hasWeather = shown.some((s) => weather.bySession.has(s.id));
 
   return (
     <Screen
       title={name ? t('home.greeting', { name }) : t('home.greetingNoName')}
       subtitle={dateLabel.charAt(0).toUpperCase() + dateLabel.slice(1)}
-      onRefresh={reload}
-      above={
+      onRefresh={async () => {
+        await reload();
+        await weather.refresh();
+      }}
+      leading={
         <View style={[styles.avatar, { backgroundColor: c.surfaceBrand }]}>
           <Mark size={36} wave="textOnBrand" />
         </View>
@@ -51,18 +72,45 @@ export default function TodayScreen() {
 
       {state.kind === 'ready' ? (
         <>
+          {modules.strava ? <MatchPrompts /> : null}
           <FadeUp delay={60} style={styles.section}>
             <Text variant="heading" accessibilityRole="header">
               {t('today.title')}
             </Text>
             {todayRuns.length > 0 ? (
-              todayRuns.map((s) => <SessionRow key={s.id} session={s} today />)
+              todayRuns.map((s) => (
+                <View key={s.id} style={styles.section}>
+                  <SessionRow session={s} today />
+                  {modules.weather ? <WeatherCard session={s} /> : null}
+                </View>
+              ))
             ) : todays.length > 0 ? (
-              <InfoCard title={t('today.restTitle')} body={t('today.restBody')} />
+              <InfoCard title={t('today.restTitle')} body={dayNote ?? t('today.restBody')} />
             ) : (
-              <InfoCard body={t('today.noPlanToday')} />
+              <InfoCard body={dayNote ?? t('today.noPlanToday')} />
             )}
           </FadeUp>
+
+          {chat.ai || chat.human ? (
+            <FadeUp delay={100}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`${t('chat.entryTitle')}. ${t('chat.entryBody')}`}
+                onPress={() => router.push('/coach')}
+                style={({ pressed }) => [styles.coach, { backgroundColor: c.surfaceBrandSoft, opacity: pressed ? 0.7 : 1 }]}>
+                <View style={[styles.coachAvatar, { backgroundColor: c.surfaceBrand }]}>
+                  <Mark size={24} wave="textOnBrand" />
+                </View>
+                <View style={styles.coachText}>
+                  <Text weight="bold">{t('chat.entryTitle')}</Text>
+                  <Text variant="caption" color="text">
+                    {t('chat.entryBody')}
+                  </Text>
+                </View>
+                <ChatCircleDots size={22} weight="bold" color={c.textBrand} />
+              </Pressable>
+            </FadeUp>
+          ) : null}
 
           {next ? (
             <FadeUp delay={140} style={styles.section}>
@@ -70,7 +118,27 @@ export default function TodayScreen() {
                 {t('today.next')}
               </Text>
               <SessionRow session={next} today={false} />
+              {modules.weather ? <WeatherCard session={next} /> : null}
             </FadeUp>
+          ) : null}
+
+          {last ? (
+            <FadeUp delay={180} style={styles.section}>
+              <Text variant="heading" accessibilityRole="header">
+                {t('today.last')}
+              </Text>
+              <SessionRow session={last} today={false} />
+              {modules.review && last.review ? (
+                <Text variant="caption">{t('today.lastVerdict', { verdict: t(`review.verdict.${last.review.verdict}`) })}</Text>
+              ) : null}
+            </FadeUp>
+          ) : null}
+
+          {modules.weather && shown.length > 0 ? <WeatherPrompt /> : null}
+          {modules.weather && hasWeather ? (
+            <Text variant="caption" align="center">
+              {t('weather.credit')}
+            </Text>
           ) : null}
 
           <FadeUp delay={220}>
@@ -89,7 +157,9 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: space[2],
   },
   section: { gap: space[3] },
+  coach: { flexDirection: 'row', alignItems: 'center', gap: space[3], padding: space[4], borderRadius: radius.card },
+  coachAvatar: { width: 40, height: 40, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center' },
+  coachText: { flex: 1, gap: 2 },
 });

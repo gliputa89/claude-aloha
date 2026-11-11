@@ -1,8 +1,79 @@
 @import "tailwindcss";
 @import "@aloha/design-system/theme.css";
 
+/* Kolory spoza tokenów semantycznych, potrzebne na stronie (z palety „Laguna”: teal 950 i 200). */
+@theme inline {
+  --color-deep: #04211e;
+  --color-lagoon: #7ed8ce;
+}
+
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 5rem;
+}
+
 body {
   background: var(--color-background);
   color: var(--color-text);
   font-family: var(--font-sans);
+}
+
+:focus-visible {
+  outline: 3px solid var(--color-accent);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+/* Jedyny ruch niewywołany przez użytkownika: wejście tekstu w sekcji hero. */
+@keyframes rise {
+  /* Bez zmiany przezroczystości: gdy animacja nie ruszy (karta w tle), tekst i tak jest widoczny. */
+  from {
+    transform: translateY(18px);
+  }
+}
+
+.rise {
+  animation: rise 700ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+.rise-late {
+  animation-delay: 180ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  .rise {
+    animation: none;
+  }
+}
+
+/* Zmiana słowa w nagłówku hero. */
+@keyframes word-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.25em);
+  }
+}
+
+.word-in {
+  animation: word-in 450ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+/* Tło sekcji z cytatami: wzór plumerii przesuwa się powoli o jeden kafelek (56px), więc pętla jest bez szwu. */
+@keyframes drift {
+  to {
+    transform: translate(56px, 56px);
+  }
+}
+
+.drift {
+  animation: drift 14s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .drift {
+    animation: none;
+  }
 }

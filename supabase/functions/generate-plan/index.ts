@@ -18,6 +18,7 @@ import {
   generateInitialPlan,
   planInputFromSurvey,
   planStartDate,
+  hasModule,
   planWeeksWithAi,
   promptFromRow,
   surveyTrainingLevel,
@@ -62,7 +63,7 @@ Deno.serve(async (req) => {
     admin
       .from('profiles')
       .select(
-        'level, locale, has_contraindications, timezone, onboarding_completed_at, recent_result_distance_m, recent_result_time_s, current_runs_per_week, weekly_km',
+        'level, locale, has_contraindications, timezone, onboarding_completed_at, recent_result_distance_m, recent_result_time_s, current_runs_per_week, weekly_km, subscription_status',
       )
       .eq('id', user.id)
       .maybeSingle(),
@@ -115,7 +116,8 @@ Deno.serve(async (req) => {
   const draft = generateInitialPlan(input);
 
   const apiKey = claudeKey();
-  const outcome = apiKey
+  // Bez modułu „Plan dopasowany przez AI” zostaje szkic z reguł.
+  const outcome = apiKey && hasModule(profileRes.data?.subscription_status, 'plan_ai')
     ? await planWeeksWithAi({
         input: { ...input, startDate: draft.startsOn },
         draft: draft.weeks,

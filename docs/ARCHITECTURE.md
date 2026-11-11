@@ -86,8 +86,8 @@ claude-aloha/
 │   │   ├── assets/             # logo (SVG), ikony, fonty
 │   │   └── build/              # generowane: CSS variables + motyw Tailwind (web), obiekt TS (RN)
 │   │
-│   ├── plan-engine/            # silnik reguł planu (czysty TS, bez zależności, testy jednostkowe)
-│   │                           #   szkielet planu, limity obciążenia, walidacja propozycji AI, skala 0–4
+│   ├── plan-engine/            # silnik reguł i warstwa AI (czysty TS, bez zależności, testy jednostkowe)
+│   │   └── src/                #   foldery modułów: core, plan, ai, weather, strava, review, coach (sekcja 2a)
 │   ├── db/                     # typy generowane z Supabase, typowany klient, wspólne zapytania
 │   ├── i18n/                   # wspólne słowniki PL/EN: nazwy treningów, skala samopoczucia, podpowiedzi
 │   └── config/                 # wspólne tsconfig, ESLint, Prettier
@@ -118,6 +118,42 @@ claude-aloha/
 - **`plan-engine` jako osobny pakiet** – reguły treningowe są sercem produktu i muszą działać identycznie w Edge Functions (walidacja AI), w aplikacji (podgląd, tryb awaryjny) i w panelu (podgląd planu użytkownika). Czysty TypeScript, łatwy do testowania.
 - **`supabase/` w repo** – migracje SQL i funkcje wersjonowane razem z kodem aplikacji; zmiana schematu = commit.
 - **`design/` vs `packages/design-system/`** – `design/` to źródła (makiety, eksporty, grafiki marketingowe), `design-system` to to, co faktycznie trafia do kodu.
+
+## 2a. Moduły produktu i pakiety
+
+Funkcje aplikacji są podzielone na **moduły**, żeby dało się je składać w różne pakiety (darmowy, próbny, płatny)
+bez przebudowy kodu. Jedno źródło prawdy: `packages/plan-engine/src/core/modules.ts` (`MODULES`, `PACKAGES`, `hasModule`).
+
+| Moduł | Co daje biegaczowi | Kod reguł (`plan-engine/src`) | Edge Functions | Tabele | Aplikacja (`apps/mobile/src`) | Funkcje AI |
+|---|---|---|---|---|---|---|
+| `plan` (podstawa) | ankieta, plan z reguł, tydzień, trening | `plan/`, `core/` | `generate-plan`, `generate-next-week` | `plans`, `weeks`, `sessions` | `features/plan`, `components/plan` | – |
+| `plan_ai` | plan dopasowany przez Claude, rady trenera do treningów | `ai/` | te same co `plan` | – | – | `plan-weeks` |
+| `weather` | pogoda, najlepsza pora, ostrzeżenia, porada | `weather/` | `session-weather` | `session_weather` | `features/weather`, `components/plan/weather-card` | `weather-advice` |
+| `strava` | połączenie konta, pobieranie biegów, odhaczanie, pytanie o przesunięty dzień | `strava/` | `strava-oauth`, `strava-sync` | `strava_connections`, `strava_activities` | `features/strava`, `components/strava` | – |
+| `review` | ocena biegu względem planu (werdykt, fakty, tętno) – wymaga `strava` | `review/` | `strava-sync` | `session_reviews` | `components/review` | – |
+| `coach` | notka trenera po treningu i na dzień bez biegu | `coach/` | `strava-sync`, `day-note` | `session_reviews.note`, `day_notes` | `features/coach` | `workout-review`, `day-note` |
+| `coach_chat` | czat z trenerem AI „Pan Aloha”: pytania ogólne, przed i po treningu, propozycje zmian w planie | `chat/` | `coach-chat` | `coaches`, `chat_threads`, `chat_messages` | `features/chat`, `app/(app)/coach.tsx` | `coach-chat` |
+| `coach_human` | czat z prawdziwym trenerem (osobny, płatny pakiet) | `chat/` | `coach-chat` | jak wyżej + `coach_assignments` | jak wyżej | – (odpowiada człowiek z panelu → „Trenerzy i rozmowy”) |
+
+Jak to działa:
+
+- **Pakiet** to dziś `profiles.subscription_status` (`free` / `trial` / `paid`). `PACKAGES` mówi, które moduły ma każdy pakiet.
+  W MVP wszystkie pakiety mają wszystko (decyzja z `PROJECT.md`, rozdz. 7) poza `coach_human` – rozmowa z prawdziwym
+  trenerem kosztuje czas człowieka, więc od początku jest tylko w `trial` i `paid` (pakiet ustawia się w panelu → Trenerzy).
+- **Bramki na serwerze**: każda Edge Function pyta o moduły użytkownika (`supabase/functions/_shared/modules.ts`).
+  Wyłączony moduł = funkcja oddaje pusty wynik albo pomija swój krok (np. `strava-sync` bez `review` tylko odhacza treningi,
+  bez `coach` nie woła modelu; `generate-plan` bez `plan_ai` zostawia plan z reguł).
+- **Bramki w aplikacji**: hook `useModule(id)` (`features/modules`) chowa elementy modułu (karty pogody, Strava w Profilu,
+  ocena, notki). To tylko porządek na ekranie – o dostępie decyduje serwer.
+- **Zależności**: `MODULE_REQUIRES` – np. `review` wymaga `strava`; wyłączenie Stravy wyłącza ocenę.
+- **Trenerzy na stronie www**: tabela `coaches` jest czytelna kluczem anon (tylko kolumny profilu). Profile z `is_demo = true`
+  to dane przykładowe do testów i makiet – publiczna strona ma je pomijać.
+- **Zmiana oferty**: usunięcie modułu z listy pakietu w `PACKAGES`. Nowy moduł: folder w `plan-engine/src`, wpis w `MODULES`,
+  bramka w jego funkcji i `useModule` na ekranie, wiersz w tabeli wyżej.
+
+Przed włączeniem płatnych pakietów trzeba jeszcze: zablokować zmianę `subscription_status` przez samego użytkownika
+(dziś polityka „own profile: update” na to pozwala – status ma ustawiać tylko serwer po zakupie), podpiąć zakup (RevenueCat)
+i dodać ekran „odblokuj” tam, gdzie moduł jest wyłączony.
 
 ### Narzędzia monorepo
 
@@ -160,7 +196,7 @@ Osobną bazę rozważymy dopiero, gdy pojawi się realna potrzeba (np. hurtownia
 | Schemat | Zawartość | Kto ma dostęp |
 |---|---|---|
 | `auth` | konta (Supabase Auth) | Supabase |
-| `public` | dane aplikacji: `profiles`, `goals`, `availability`, `plans`, `weeks`, `sessions`, `check_ins`, `adjustments`, `consents` | aplikacja mobilna przez API, **RLS: użytkownik widzi tylko swoje wiersze** |
+| `public` | dane aplikacji: `profiles`, `goals`, `availability`, `plans`, `weeks`, `sessions`, `session_weather` (pogoda i porada do treningu), `strava_connections` i `strava_activities` (połączenie ze Stravą i pobrane biegi), `check_ins`, `adjustments`, `consents` | aplikacja mobilna przez API, **RLS: użytkownik widzi tylko swoje wiersze** |
 | `marketing` | `waitlist_signups` (e-mail, cel, „co psuje plan”, zgoda marketingowa z datą, UTM, kod polecający), `referrals`, `beta_invites` | **niewystawiony w API**; zapis ze strony przez Server Action (serwer Next.js), odczyt tylko panel |
 | `ops` | `ai_calls` (model, tokeny, koszt, czas, wynik walidacji, błąd – **bez treści notatek**), `feature_flags`, `admins`, log działań administratora | Edge Functions i panel |
 | `analytics` | **widoki** (lub widoki zmaterializowane odświeżane przez pg_cron): aktywni dziennie/tygodniowo, kohorty retencji, % check-inów, % akceptacji propozycji, konwersja listy | tylko panel |

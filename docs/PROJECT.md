@@ -152,6 +152,22 @@ Każda zmiana:
 - Szybka ocena: jak poszło (skala 1–5) + opcjonalnie dystans i czas wpisane ręcznie.
 - Dane z realizacji wpływają na generowanie kolejnego tygodnia.
 
+### 4.6a Rozmowa z trenerem (czat)
+
+- **Pan Aloha (trener AI)** – czat dostępny z ekranu „Dzisiaj” i z arkusza treningu. Trzy rodzaje rozmów: ogólna,
+  **przed treningiem** („jak go pobiec?”, „mam mniej czasu”) i **po treningu** („jak mi poszło?”, „co poprawić?”).
+  Trener zna plan, ostatnie treningi i ich oceny; odpowiada od razu, krótko, w tonie „trener, ale kumpel”.
+- **Zmiana planu z rozmowy** – trener może zaproponować jedną zmianę (przenieść, skrócić, zmienić rodzaj, odpuścić
+  trening). To zawsze propozycja: karta pod wiadomością z „Akceptuj” i „Zostaw plan bez zmian”. Zmianę sprawdzają
+  te same reguły co plan od AI; propozycja łamiąca reguły w ogóle nie trafia do biegacza.
+- **Prawdziwy trener** – osobny pakiet: czat z przydzielonym trenerem-człowiekiem (lista trenerów w panelu).
+  Odpowiedzi nie są natychmiastowe; trener pisze z panelu.
+- Bez porad medycznych: przy bólu i chorobie trener zaleca wariant łagodniejszy i kontakt z lekarzem albo fizjoterapeutą.
+- **Zdrowie wymaga zgody**: gdy wiadomość porusza temat zdrowia (ból, kontuzja, choroba, leki, ciąża…), a biegacz nie dał
+  zgody na dane zdrowotne, wiadomość nie jest zapisywana ani wysyłana dalej – czat pokazuje prośbę o zgodę z jednym
+  przyciskiem. Po kliknięciu zgoda trafia do dziennika zgód i wiadomość idzie dalej; pytamy tylko raz.
+- Limit: 40 wiadomości do trenera AI na dobę. Treść rozmów nie trafia do analityki i znika z kontem.
+
 ### 4.7 Zmiana celu i dostępności
 
 Zasada: **życie się zmienia, plan też może** – bez twardych limitów, ale bez gubienia postępów.
@@ -230,6 +246,11 @@ Uwzględniamy od pierwszego dnia projektowania (privacy by design). *Poniższe t
 - Anthropic jako podmiot przetwarzający – umowa powierzenia (DPA); weryfikacja zasad retencji danych i braku trenowania modeli na danych z API.
 - Notatki tekstowe użytkownika: przed wysłaniem informacja w polityce prywatności, że są analizowane przez AI.
 
+### 6.3a Lokalizacja (pogoda do treningu)
+- Lokalizacja tylko za zgodą systemową „podczas używania aplikacji”; bez zgody aplikacja działa normalnie, tylko bez karty pogody.
+- Z telefonu wychodzą współrzędne **zaokrąglone do 0,1° (ok. 10 km)**; tylko takie zapisujemy (`session_weather`) i wysyłamy do dostawcy prognozy (Open-Meteo). Do Claude API lokalizacja nie trafia – model dostaje samą pogodę i rodzaj treningu.
+- Do uzupełnienia przed publikacją: wpis w polityce prywatności (cel, odbiorca Open-Meteo) oraz „Przybliżona lokalizacja” w App Privacy / Data safety.
+
 ### 6.4 Prawa użytkownika
 - **Eksport danych** (JSON) i **usunięcie konta z poziomu aplikacji** – wymagane przez RODO oraz przez App Store i Google Play.
 - Polityka prywatności i regulamin w PL i EN, dostępne przed rejestracją i w ustawieniach.
@@ -252,6 +273,10 @@ działa i czy użytkownicy wracają. Paywall wprowadzimy po zebraniu danych o ty
 korzystają najbardziej. Architektura od początku przewiduje flagę „premium” przy funkcjach,
 żeby późniejsze blokowanie nie wymagało przebudowy.
 
+Ta flaga jest już w kodzie jako **moduły i pakiety**: każda funkcja należy do modułu (`plan`, `plan_ai`, `weather`,
+`strava`, `review`, `coach`), a pakiet to lista włączonych modułów. Dziś każdy pakiet ma wszystko; zmiana oferty to zmiana
+jednej listy. Opis: [`ARCHITECTURE.md`](ARCHITECTURE.md), sekcja 2a.
+
 Docelowy podział (do weryfikacji po MVP):
 
 | Funkcja | Free | Premium (subskrypcja) |
@@ -264,6 +289,12 @@ Docelowy podział (do weryfikacji po MVP):
 | **Przeliczanie kolejnych tygodni przez AI** | – | ✅ |
 | **Notatka tekstowa interpretowana przez AI** | – | ✅ |
 | Cele zawodowe (półmaraton / maraton z docelowym czasem) | ? | ✅ |
+| Pogoda i pora treningu (moduł `weather`) | ? | ✅ |
+| Strava: pobieranie biegów i odhaczanie (moduł `strava`) | ? | ✅ |
+| Ocena treningu względem planu (moduł `review`) | ? | ✅ |
+| Notki trenera AI po treningu i na dzień wolny (moduł `coach`) | ? | ✅ |
+| Rozmowa z trenerem AI – Pan Aloha (moduł `coach_chat`) | ? | ✅ |
+| **Rozmowa z prawdziwym trenerem (moduł `coach_human`)** | – | ✅ (osobny pakiet) |
 
 Pomysł na później: **14-dniowy darmowy okres Premium** po rejestracji – użytkownik od razu doświadcza głównego wyróżnika (adaptacja AI), zanim trafi na paywall.
 
