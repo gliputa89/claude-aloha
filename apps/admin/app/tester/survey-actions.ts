@@ -239,3 +239,41 @@ export async function deleteUser(userId: string, confirm = ''): Promise<SurveyRe
     message: `Usunięto: konto, ${c.plans ?? 0} plan., ${c.sessions ?? 0} tren., ${c.check_ins ?? 0} check-in., ${c.ai_calls ?? 0} wyw. AI.`,
   };
 }
+
+/**
+ * Reset do stanu „tuż po rejestracji”: usuwa ankietę, plan, treningi, check-iny, rozmowy z trenerem, pobrane biegi
+ * i wywołania AI, ale zostawia konto, logowanie i połączenie ze Stravą (RPC admin_reset_user – jedna transakcja).
+ * Po resecie aplikacja pokazuje ankietę od nowa. Konto prawdziwe wymaga wpisania jego e-maila (`confirm`).
+ */
+export async function resetUser(userId: string, confirm = ''): Promise<SurveyResult> {
+  const admin = await requireAdmin();
+  if (!UUID.test(userId)) return { ok: false, message: 'Nieprawidłowy użytkownik.' };
+  const db = createServiceClient();
+  const { data, error } = await db.auth.admin.getUserById(userId);
+  if (error || !data.user) return { ok: false, message: 'Nie ma takiego użytkownika.' };
+  const isTest = data.user.user_metadata?.test_account === true;
+  const expected = (data.user.email ?? data.user.id).trim().toLowerCase();
+  if (!isTest && confirm.trim().toLowerCase() !== expected) {
+    return { ok: false, message: 'Wpisz dokładnie e-mail użytkownika, żeby potwierdzić.' };
+  }
+
+  const { data: counts, error: resetError } = await db.rpc('admin_reset_user', { p_admin_id: admin.id, p_user_id: userId });
+  if (resetError) {
+    return {
+      ok: false,
+      message:
+        resetError.code === 'PGRST202'
+          ? 'Brak migracji 20261112120000_admin_reset_user w tej bazie.'
+          : `Reset nie powiódł się: ${resetError.message}`,
+    };
+  }
+  refresh();
+  const c = (counts ?? {}) as Record<string, number | boolean>;
+  return {
+    ok: true,
+    message:
+      `Wyczyszczono: ${c.plans ?? 0} plan., ${c.sessions ?? 0} tren., ${c.check_ins ?? 0} check-in., ${c.strava_activities ?? 0} bieg. ze Stravy. ` +
+      (c.strava_connected ? 'Połączenie ze Stravą zostało.' : 'Konto nie miało połączenia ze Stravą.') +
+      ' W aplikacji zamknij ją i otwórz ponownie – pokaże ankietę.',
+  };
+}
