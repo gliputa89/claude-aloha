@@ -289,6 +289,24 @@ function Detail({ session }: { session: PlanSession }) {
         </FadeUp>
       ) : null}
 
+      {/* Rada trenera: zaraz pod kafelkami, przed przebiegiem; treść na całą szerokość karty.
+          Po treningu jej nie ma – wtedy liczy się ocena, a rada „na przed” nic już nie wnosi. */}
+      {completed ? null : (
+        <FadeUp delay={T.stats + 260}>
+          <View style={[styles.coach, { backgroundColor: c.surfaceBrandSoft }]}>
+            <View style={styles.coachHead}>
+              <View style={[styles.avatar, { backgroundColor: c.surfaceBrand }]}>
+                <Mark size={18} wave="textOnBrand" />
+              </View>
+              <Text variant="label" color="textBrand">
+                {t('workoutDetail.coach')}
+              </Text>
+            </View>
+            <Text>{tip}</Text>
+          </View>
+        </FadeUp>
+      )}
+
       {hasSteps ? (
         <>
           <FadeUp delay={T.chart - 80} style={styles.section}>
@@ -309,23 +327,12 @@ function Detail({ session }: { session: PlanSession }) {
         </>
       ) : null}
 
-      <FadeUp delay={hasSteps ? T.rest + 60 : T.stats + 80}>
-        <WeatherCard session={session} credit />
-      </FadeUp>
-
-      <FadeUp delay={hasSteps ? T.rest + 100 : T.stats + 120}>
-        <View style={[styles.coach, { backgroundColor: c.surfaceBrandSoft }]}>
-          <View style={[styles.avatar, { backgroundColor: c.surfaceBrand }]}>
-            <Mark size={26} wave="textOnBrand" />
-          </View>
-          <View style={styles.flex}>
-            <Text variant="label" color="textBrand">
-              {t('workoutDetail.coach')}
-            </Text>
-            <Text>{tip}</Text>
-          </View>
-        </View>
-      </FadeUp>
+      {/* Pogoda tylko przed treningiem – po biegu prognoza nie ma już znaczenia. */}
+      {completed ? null : (
+        <FadeUp delay={hasSteps ? T.rest + 60 : T.stats + 80}>
+          <WeatherCard session={session} credit />
+        </FadeUp>
+      )}
     </ScrollView>
   );
 }
@@ -388,12 +395,7 @@ const styles = StyleSheet.create({
   source: { flexDirection: 'row', alignItems: 'center', gap: space[3] },
   link: { textDecorationLine: 'underline' },
   card: { padding: space[4], borderRadius: radius.card, borderWidth: 1.5 },
-  coach: {
-    flexDirection: 'row',
-    gap: space[3],
-    padding: space[4],
-    borderRadius: radius.card,
-    alignItems: 'flex-start',
-  },
-  avatar: { width: 40, height: 40, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center' },
+  coach: { gap: space[2], padding: space[4], borderRadius: radius.card },
+  coachHead: { flexDirection: 'row', alignItems: 'center', gap: space[2] },
+  avatar: { width: 28, height: 28, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center' },
 });

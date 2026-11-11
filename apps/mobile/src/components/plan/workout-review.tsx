@@ -84,17 +84,17 @@ export function WorkoutReview({ review, play, delay }: { review: SessionReview; 
       {review.note ? (
         <FadeUp delay={step(4 + review.facts.length)} distance={8}>
           <View style={[styles.note, { backgroundColor: c.surface }]}>
-            <View style={[styles.avatar, { backgroundColor: c.surfaceBrand }]}>
-              <Mark size={22} wave="textOnBrand" />
-            </View>
-            <View style={styles.noteText}>
+            <View style={styles.noteHead}>
+              <View style={[styles.avatar, { backgroundColor: c.surfaceBrand }]}>
+                <Mark size={18} wave="textOnBrand" />
+              </View>
               <Text variant="label" color="textBrand">
                 {t('review.coach')}
               </Text>
-              <Text variant="caption" color="text">
-                {review.note}
-              </Text>
             </View>
+            <Text variant="caption" color="text">
+              {review.note}
+            </Text>
           </View>
         </FadeUp>
       ) : null}
@@ -110,7 +110,7 @@ const styles = StyleSheet.create({
   axes: { flexDirection: 'row', flexWrap: 'wrap', gap: space[2] },
   axis: { paddingHorizontal: space[3], paddingVertical: space[1], borderRadius: radius.pill },
   facts: { gap: space[2] },
-  note: { flexDirection: 'row', gap: space[3], padding: space[3], borderRadius: radius.card },
-  avatar: { width: 32, height: 32, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center' },
-  noteText: { flex: 1, gap: space[1] },
+  note: { gap: space[2], padding: space[3], borderRadius: radius.card },
+  noteHead: { flexDirection: 'row', alignItems: 'center', gap: space[2] },
+  avatar: { width: 28, height: 28, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center' },
 });

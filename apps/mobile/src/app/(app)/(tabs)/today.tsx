@@ -59,7 +59,7 @@ export default function TodayScreen() {
         await reload();
         await weather.refresh();
       }}
-      above={
+      leading={
         <View style={[styles.avatar, { backgroundColor: c.surfaceBrand }]}>
           <Mark size={36} wave="textOnBrand" />
         </View>
@@ -132,7 +132,6 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: space[2],
   },
   section: { gap: space[3] },
 });
