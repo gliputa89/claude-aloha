@@ -146,6 +146,8 @@ Jak to działa:
 - **Bramki w aplikacji**: hook `useModule(id)` (`features/modules`) chowa elementy modułu (karty pogody, Strava w Profilu,
   ocena, notki). To tylko porządek na ekranie – o dostępie decyduje serwer.
 - **Zależności**: `MODULE_REQUIRES` – np. `review` wymaga `strava`; wyłączenie Stravy wyłącza ocenę.
+- **Trenerzy na stronie www**: tabela `coaches` jest czytelna kluczem anon (tylko kolumny profilu). Profile z `is_demo = true`
+  to dane przykładowe do testów i makiet – publiczna strona ma je pomijać.
 - **Zmiana oferty**: usunięcie modułu z listy pakietu w `PACKAGES`. Nowy moduł: folder w `plan-engine/src`, wpis w `MODULES`,
   bramka w jego funkcji i `useModule` na ekranie, wiersz w tabeli wyżej.
 

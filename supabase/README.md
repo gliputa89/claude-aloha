@@ -53,6 +53,11 @@ bez danych osobowych – i może zwrócić jedną operację na planie; `packages
 regułami silnika przed pokazaniem i jeszcze raz przy akceptacji. Tabele: `coaches` (jeden AI + ludzie), `coach_assignments`,
 `chat_threads`, `chat_messages`; pisze tylko funkcja i panel, aplikacja czyta przez RLS. Trener-człowiek odpowiada z panelu
 („Trenerzy i rozmowy”), tam też ustawia się pakiet biegacza. Limit: 40 wiadomości do AI na dobę.
+Profile trenerów (`coaches`: tytuł, jedno zdanie, bio, specjalizacje, miasto, zdjęcie; wersje `_en`) są publiczne:
+strona www czyta aktywnych trenerów kluczem anon, bez logowania, np.
+`GET <SUPABASE_URL>/rest/v1/coaches?kind=eq.human&is_demo=eq.false&order=sort_order` z nagłówkiem `apikey`.
+`is_demo = true` oznacza profil przykładowy (zmyślone dane, zdjęcie z banku zdjęć; dodaje je przycisk w panelu) –
+strona produkcyjna musi je odfiltrować.
 Wiadomość o zdrowiu (`mentionsHealth`) bez zgody `health_data` nie jest zapisywana – funkcja zwraca `health_consent`,
 aplikacja prosi o jednorazową zgodę i wysyła wiadomość ponownie.
 

@@ -48,7 +48,7 @@ const json = (body: unknown, status = 200) =>
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MESSAGE_COLUMNS = 'id, thread_id, sender, body, proposal, proposal_status, created_at';
-const COACH_COLUMNS = 'id, kind, display_name, title, bio, avatar_url';
+const COACH_COLUMNS = 'id, kind, display_name, title, bio, avatar_url, headline, headline_en, title_en';
 
 function todayIn(timeZone: string) {
   try {

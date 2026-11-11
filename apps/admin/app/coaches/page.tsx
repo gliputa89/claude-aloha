@@ -2,7 +2,7 @@ import { MODULES, PACKAGES } from '@aloha/plan-engine';
 import Link from 'next/link';
 import { Suspense } from 'react';
 
-import { addCoach, replyAsCoach, setCoachActive, setUserPackage } from '@/app/coaches/actions';
+import { addCoach, addDemoCoaches, replyAsCoach, setCoachActive, setUserPackage } from '@/app/coaches/actions';
 import { requireAdmin } from '@/lib/auth';
 import { createServiceClient } from '@/lib/supabase/server';
 
@@ -39,7 +39,7 @@ async function Coaches() {
   await requireAdmin();
   const db = createServiceClient();
   const [coaches, threads] = await Promise.all([
-    db.from('coaches').select('id, kind, display_name, title, bio, active, coach_assignments(count)').order('kind').order('created_at'),
+    db.from('coaches').select('id, kind, display_name, title, headline, avatar_url, city, is_demo, active, coach_assignments(count)').order('kind').order('sort_order').order('created_at'),
     db
       .from('chat_threads')
       .select('id, user_id, session_id, last_message_at, coaches!inner(kind, display_name), chat_messages(id, sender, body, created_at)')
@@ -63,11 +63,21 @@ async function Coaches() {
         <ul className="flex flex-col divide-y divide-border">
           {(coaches.data ?? []).map((c) => (
             <li key={c.id} className="flex flex-wrap items-center justify-between gap-3 py-3 text-sm">
-              <div className="flex min-w-0 flex-col">
+              {c.avatar_url ? (
+                // eslint-disable-next-line @next/next/no-img-element -- zdjęcia z zewnętrznego banku zdjęć, bez optymalizacji Next
+                <img src={c.avatar_url} alt="" width={48} height={48} className="size-12 shrink-0 rounded-full object-cover" />
+              ) : null}
+              <div className="flex min-w-0 flex-1 flex-col">
                 <span className="font-semibold">
-                  {c.display_name} <span className="font-normal text-text-muted">· {c.kind === 'ai' ? 'AI' : 'człowiek'}{c.active ? '' : ' · wyłączony'}</span>
+                  {c.display_name}{' '}
+                  <span className="font-normal text-text-muted">
+                    · {c.kind === 'ai' ? 'AI' : 'człowiek'}
+                    {c.city ? ` · ${c.city}` : ''}
+                    {c.active ? '' : ' · wyłączony'}
+                  </span>
+                  {c.is_demo ? <span className="ml-2 rounded-pill bg-surface-accent-soft px-2 py-0.5 text-xs font-semibold text-text-accent-strong">DEMO</span> : null}
                 </span>
-                <span className="text-text-muted">{[c.title, c.bio].filter(Boolean).join(' – ') || 'bez opisu'}</span>
+                <span className="text-text-muted">{[c.title, c.headline].filter(Boolean).join(' – ') || 'bez opisu'}</span>
                 {c.kind === 'human' ? (
                   <span className="text-xs text-text-muted">biegaczy: {(c.coach_assignments as unknown as { count: number }[])[0]?.count ?? 0}</span>
                 ) : null}
@@ -84,6 +94,14 @@ async function Coaches() {
             </li>
           ))}
         </ul>
+        <form action={addDemoCoaches} className="flex flex-wrap items-center gap-3 border-t border-border pt-4">
+          <button type="submit" className={secondary}>
+            Dodaj 3 trenerów demo
+          </button>
+          <span className="text-xs text-text-muted">
+            Zmyślone profile ze zdjęciami z banku zdjęć (oznaczone DEMO) – do testów i makiet, nie do pokazywania jako prawdziwi trenerzy.
+          </span>
+        </form>
         <form action={addCoach} className="flex flex-wrap items-end gap-2 border-t border-border pt-4">
           <label className="flex flex-col gap-1 text-xs text-text-muted">
             Imię i nazwisko

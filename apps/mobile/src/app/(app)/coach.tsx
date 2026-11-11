@@ -1,4 +1,5 @@
 import type { TranslationKey } from '@aloha/i18n';
+import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
 import { PaperPlaneRight, UserCircle, X } from 'phosphor-react-native';
 import { useEffect, useRef, useState } from 'react';
@@ -24,7 +25,7 @@ import {
 import { useModule } from '@/features/modules/use-module';
 import { allSessions, usePlan } from '@/features/plan/plan-provider';
 import { useColors } from '@/hooks/use-colors';
-import { useT } from '@/hooks/use-t';
+import { useLocale, useT } from '@/hooks/use-t';
 import { useAuth } from '@/providers/auth-provider';
 
 /**
@@ -55,6 +56,7 @@ const HUMAN_POLL_MS = 20_000;
 export default function CoachChatScreen() {
   const c = useColors();
   const t = useT();
+  const locale = useLocale();
   const insets = useSafeAreaInsets();
   const keyboard = useKeyboardHeight();
   const params = useLocalSearchParams<{ sessionId?: string; coach?: string }>();
@@ -163,6 +165,9 @@ export default function CoachChatScreen() {
     setAnswering(null);
   };
 
+  // Profil trenera w języku aplikacji (angielski tylko gdy jest przetłumaczony).
+  const coachTitle = (locale === 'en' ? coach?.title_en : null) ?? coach?.title ?? null;
+  const coachHeadline = (locale === 'en' ? coach?.headline_en : null) ?? coach?.headline ?? coach?.bio ?? null;
   const suggestions = [1, 2, 3].map((n) => t(`chat.suggest.${phase}${n}` as TranslationKey));
   const isAi = kind === 'ai';
   const needsConsent = error === 'health_consent';
@@ -174,14 +179,20 @@ export default function CoachChatScreen() {
         <View style={[styles.grabber, { backgroundColor: c.borderStrong }]} />
         <View style={styles.head}>
           <View style={[styles.avatar, { backgroundColor: c.surfaceBrand }]}>
-            {isAi ? <Mark size={26} wave="textOnBrand" /> : <UserCircle size={26} weight="bold" color={c.textOnBrand} />}
+            {isAi ? (
+              <Mark size={26} wave="textOnBrand" />
+            ) : coach?.avatar_url ? (
+              <Image source={coach.avatar_url} style={styles.photo} contentFit="cover" accessibilityIgnoresInvertColors />
+            ) : (
+              <UserCircle size={26} weight="bold" color={c.textOnBrand} />
+            )}
           </View>
           <View style={styles.flex}>
             <Text weight="bold" numberOfLines={1} accessibilityRole="header">
               {coach?.display_name ?? t(isAi ? 'chat.aiName' : 'chat.humanName')}
             </Text>
             <Text variant="caption" numberOfLines={1}>
-              {session ? t(`chat.about.${phase}` as TranslationKey, { workout: t(`workout.${session.type}` as TranslationKey) }) : (coach?.title ?? t('chat.subtitle'))}
+              {session ? t(`chat.about.${phase}` as TranslationKey, { workout: t(`workout.${session.type}` as TranslationKey) }) : (coachTitle ?? t('chat.subtitle'))}
             </Text>
           </View>
           <Pressable
@@ -218,7 +229,7 @@ export default function CoachChatScreen() {
               <View style={styles.empty}>
                 <Text variant="heading">{t(isAi ? 'chat.emptyAiTitle' : 'chat.emptyHumanTitle')}</Text>
                 {/* Pan Aloha mówi o sobie w pierwszej osobie (tekst ze słownika); trener-człowiek ma własny opis z panelu. */}
-                <Text variant="caption">{isAi ? t('chat.emptyAiBody') : (coach?.bio ?? t('chat.emptyHumanBody'))}</Text>
+                <Text variant="caption">{isAi ? t('chat.emptyAiBody') : (coachHeadline ?? t('chat.emptyHumanBody'))}</Text>
                 <View style={styles.suggestions}>
                   {suggestions.map((s) => (
                     <Chip key={s} label={s} selected={false} onPress={() => send(s)} />
@@ -319,7 +330,8 @@ const styles = StyleSheet.create({
   bar: { paddingHorizontal: space[5], paddingTop: space[2], paddingBottom: space[3], gap: space[3], borderBottomWidth: StyleSheet.hairlineWidth },
   grabber: { alignSelf: 'center', width: 36, height: 5, borderRadius: radius.pill },
   head: { flexDirection: 'row', alignItems: 'center', gap: space[3] },
-  avatar: { width: 44, height: 44, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center' },
+  avatar: { width: 44, height: 44, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  photo: { width: 44, height: 44 },
   close: { width: 36, height: 36, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center' },
   switch: { flexDirection: 'row', gap: space[2] },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },

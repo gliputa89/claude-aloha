@@ -12,6 +12,10 @@ export type Coach = {
   title: string | null;
   bio: string | null;
   avatar_url: string | null;
+  /** Jedno zdanie o trenerze (PL / EN) – pod nazwiskiem i na powitaniu w czacie. */
+  headline: string | null;
+  headline_en: string | null;
+  title_en: string | null;
 };
 
 export type ChatMessage = {
