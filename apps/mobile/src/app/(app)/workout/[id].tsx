@@ -24,6 +24,7 @@ import { WorkoutChart, WorkoutSteps } from '@/components/plan/workout-intervals'
 import { MatchPrompts } from '@/components/strava/match-prompt';
 import { ReviewBadge, useCountUp, type Celebration } from '@/components/review/review-celebration';
 import { WorkoutReview } from '@/components/review/workout-review';
+import { Button } from '@/components/ui/button';
 import { FadeUp } from '@/components/ui/fade-up';
 import { InfoCard } from '@/components/ui/info-card';
 import { Text } from '@/components/ui/text';
@@ -100,6 +101,7 @@ function Detail({ session }: { session: PlanSession }) {
   const detail = useDetail(session);
   const tip = useCoachTip(session);
   const modules = { weather: useModule('weather'), strava: useModule('strava'), review: useModule('review'), coach: useModule('coach') };
+  const chatEnabled = [useModule('coach_chat'), useModule('coach_human')].some(Boolean);
   // Ocena i notka trenera to osobne moduły pakietu: bez „oceny” zostaje samo „Zrobione”, bez „notek” – ocena bez notki.
   const review = modules.review && session.review ? { ...session.review, note: modules.coach ? session.review.note : null } : null;
 
@@ -310,6 +312,17 @@ function Detail({ session }: { session: PlanSession }) {
           </View>
         </FadeUp>
       )}
+
+      {/* Pytania do trenera o ten trening: przed (jak go pobiec) albo po (co wyszło). */}
+      {chatEnabled && session.type !== 'rest' ? (
+        <FadeUp delay={T.stats + 300}>
+          <Button
+            variant="secondary"
+            label={t(completed ? 'chat.askAfter' : 'chat.askBefore')}
+            onPress={() => router.push({ pathname: '/coach', params: { sessionId: session.id } })}
+          />
+        </FadeUp>
+      ) : null}
 
       {hasSteps ? (
         <>

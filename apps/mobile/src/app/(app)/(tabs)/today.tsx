@@ -1,5 +1,6 @@
 import { router } from 'expo-router';
-import { StyleSheet, View } from 'react-native';
+import { ChatCircleDots } from 'phosphor-react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Mark } from '@/components/brand/mark';
 import { MatchPrompts } from '@/components/strava/match-prompt';
@@ -50,6 +51,7 @@ export default function TodayScreen() {
   const last = sessions.filter((s) => s.scheduled_on < today && (s.status === 'done' || s.status === 'partial')).at(-1);
   // Dzień bez biegu: notka trenera od AI zamiast stałego tekstu (stały zostaje, dopóki notki nie ma).
   const modules = { weather: useModule('weather'), strava: useModule('strava'), review: useModule('review'), coach: useModule('coach') };
+  const chat = { ai: useModule('coach_chat'), human: useModule('coach_human') };
   const dayNote = useDayNote(today, modules.coach && state.kind === 'ready' && todayRuns.length === 0);
   const hasWeather = shown.some((s) => weather.bySession.has(s.id));
 
@@ -88,6 +90,27 @@ export default function TodayScreen() {
               <InfoCard body={dayNote ?? t('today.noPlanToday')} />
             )}
           </FadeUp>
+
+          {chat.ai || chat.human ? (
+            <FadeUp delay={100}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`${t('chat.entryTitle')}. ${t('chat.entryBody')}`}
+                onPress={() => router.push('/coach')}
+                style={({ pressed }) => [styles.coach, { backgroundColor: c.surfaceBrandSoft, opacity: pressed ? 0.7 : 1 }]}>
+                <View style={[styles.coachAvatar, { backgroundColor: c.surfaceBrand }]}>
+                  <Mark size={24} wave="textOnBrand" />
+                </View>
+                <View style={styles.coachText}>
+                  <Text weight="bold">{t('chat.entryTitle')}</Text>
+                  <Text variant="caption" color="text">
+                    {t('chat.entryBody')}
+                  </Text>
+                </View>
+                <ChatCircleDots size={22} weight="bold" color={c.textBrand} />
+              </Pressable>
+            </FadeUp>
+          ) : null}
 
           {next ? (
             <FadeUp delay={140} style={styles.section}>
@@ -136,4 +159,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   section: { gap: space[3] },
+  coach: { flexDirection: 'row', alignItems: 'center', gap: space[3], padding: space[4], borderRadius: radius.card },
+  coachAvatar: { width: 40, height: 40, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center' },
+  coachText: { flex: 1, gap: 2 },
 });

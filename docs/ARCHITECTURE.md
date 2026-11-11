@@ -132,11 +132,14 @@ bez przebudowy kodu. Jedno źródło prawdy: `packages/plan-engine/src/core/modu
 | `strava` | połączenie konta, pobieranie biegów, odhaczanie, pytanie o przesunięty dzień | `strava/` | `strava-oauth`, `strava-sync` | `strava_connections`, `strava_activities` | `features/strava`, `components/strava` | – |
 | `review` | ocena biegu względem planu (werdykt, fakty, tętno) – wymaga `strava` | `review/` | `strava-sync` | `session_reviews` | `components/review` | – |
 | `coach` | notka trenera po treningu i na dzień bez biegu | `coach/` | `strava-sync`, `day-note` | `session_reviews.note`, `day_notes` | `features/coach` | `workout-review`, `day-note` |
+| `coach_chat` | czat z trenerem AI „Pan Aloha”: pytania ogólne, przed i po treningu, propozycje zmian w planie | `chat/` | `coach-chat` | `coaches`, `chat_threads`, `chat_messages` | `features/chat`, `app/(app)/coach.tsx` | `coach-chat` |
+| `coach_human` | czat z prawdziwym trenerem (osobny, płatny pakiet) | `chat/` | `coach-chat` | jak wyżej + `coach_assignments` | jak wyżej | – (odpowiada człowiek z panelu → „Trenerzy i rozmowy”) |
 
 Jak to działa:
 
 - **Pakiet** to dziś `profiles.subscription_status` (`free` / `trial` / `paid`). `PACKAGES` mówi, które moduły ma każdy pakiet.
-  W MVP wszystkie pakiety mają wszystko (decyzja z `PROJECT.md`, rozdz. 7), więc bramki niczego nie blokują.
+  W MVP wszystkie pakiety mają wszystko (decyzja z `PROJECT.md`, rozdz. 7) poza `coach_human` – rozmowa z prawdziwym
+  trenerem kosztuje czas człowieka, więc od początku jest tylko w `trial` i `paid` (pakiet ustawia się w panelu → Trenerzy).
 - **Bramki na serwerze**: każda Edge Function pyta o moduły użytkownika (`supabase/functions/_shared/modules.ts`).
   Wyłączony moduł = funkcja oddaje pusty wynik albo pomija swój krok (np. `strava-sync` bez `review` tylko odhacza treningi,
   bez `coach` nie woła modelu; `generate-plan` bez `plan_ai` zostawia plan z reguł).

@@ -37,6 +37,9 @@ export default function Dashboard() {
         <span className="text-sm text-text-muted">Aloha Training</span>
         <h1 className="font-display text-3xl font-semibold tracking-tight">Panel</h1>
       </header>
+      <Link href="/coaches" className="self-start rounded-button border border-border-strong bg-surface px-3 py-2 text-sm font-semibold hover:bg-background">
+        Trenerzy i rozmowy →
+      </Link>
       <Link
         href="/tester"
         className="flex flex-col gap-1 rounded-card border border-action bg-surface-brand-soft p-5 hover:bg-surface"

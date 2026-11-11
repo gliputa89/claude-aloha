@@ -23,3 +23,5 @@ export * from './coach/day-note.ts';
 export * from './review/review-sim.ts';
 export * from './weather/prompt.ts';
 export * from './coach/prompts.ts';
+export * from './chat/chat.ts';
+export * from './chat/prompt.ts';

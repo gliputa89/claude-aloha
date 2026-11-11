@@ -18,6 +18,8 @@ export default function AppLayout() {
           {/* Natywny arkusz iOS na prawie cały ekran – zamykany też przeciągnięciem w dół. */}
           <Stack.Screen name="workout/[id]" options={{ presentation: 'modal' }} />
           <Stack.Screen name="weather-location" options={{ presentation: 'modal' }} />
+          {/* Rozmowa z trenerem – także nad arkuszem treningu (pytania przed i po). */}
+          <Stack.Screen name="coach" options={{ presentation: 'modal' }} />
         </Stack>
       </WeatherProvider>
     </PlanProvider>

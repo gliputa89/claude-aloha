@@ -54,6 +54,22 @@ export const MODULES = {
     functions: ['strava-sync', 'day-note'],
     tables: ['session_reviews', 'day_notes'],
   },
+  coach_chat: {
+    label: 'Rozmowa z trenerem AI',
+    description: 'Czat z Panem Aloha: pytania ogólne oraz przed i po treningu; trener może zaproponować zmianę w planie.',
+    core: false,
+    folder: 'chat',
+    functions: ['coach-chat'],
+    tables: ['coaches', 'chat_threads', 'chat_messages'],
+  },
+  coach_human: {
+    label: 'Rozmowa z prawdziwym trenerem',
+    description: 'Czat z trenerem-człowiekiem przydzielonym do biegacza. Osobny pakiet – odpowiedzi nie są natychmiastowe.',
+    core: false,
+    folder: 'chat',
+    functions: ['coach-chat'],
+    tables: ['coaches', 'coach_assignments', 'chat_threads', 'chat_messages'],
+  },
 } as const;
 
 export type ModuleId = keyof typeof MODULES;
@@ -68,12 +84,15 @@ export const MODULE_REQUIRES: Partial<Record<ModuleId, ModuleId[]>> = {
 /** Pakiet = status subskrypcji z profilu. */
 export type PackageId = 'free' | 'trial' | 'paid';
 
+/** Moduły, które od początku są osobnym, płatnym pakietem (kosztują czas człowieka). */
+const PAID_ONLY: readonly ModuleId[] = ['coach_human'];
+
 /**
- * Co jest w którym pakiecie. MVP: wszystko wszędzie (decyzja z docs/PROJECT.md, rozdz. 7).
- * Żeby coś przenieść do płatnego pakietu, wystarczy usunąć moduł z listy `free`.
+ * Co jest w którym pakiecie. MVP: wszystko poza rozmową z prawdziwym trenerem jest w każdym pakiecie
+ * (decyzja z docs/PROJECT.md, rozdz. 7). Żeby coś przenieść do płatnego pakietu, wystarczy usunąć moduł z listy `free`.
  */
 export const PACKAGES: Record<PackageId, readonly ModuleId[]> = {
-  free: MODULE_IDS,
+  free: MODULE_IDS.filter((id) => !PAID_ONLY.includes(id)),
   trial: MODULE_IDS,
   paid: MODULE_IDS,
 };

@@ -152,6 +152,22 @@ Każda zmiana:
 - Szybka ocena: jak poszło (skala 1–5) + opcjonalnie dystans i czas wpisane ręcznie.
 - Dane z realizacji wpływają na generowanie kolejnego tygodnia.
 
+### 4.6a Rozmowa z trenerem (czat)
+
+- **Pan Aloha (trener AI)** – czat dostępny z ekranu „Dzisiaj” i z arkusza treningu. Trzy rodzaje rozmów: ogólna,
+  **przed treningiem** („jak go pobiec?”, „mam mniej czasu”) i **po treningu** („jak mi poszło?”, „co poprawić?”).
+  Trener zna plan, ostatnie treningi i ich oceny; odpowiada od razu, krótko, w tonie „trener, ale kumpel”.
+- **Zmiana planu z rozmowy** – trener może zaproponować jedną zmianę (przenieść, skrócić, zmienić rodzaj, odpuścić
+  trening). To zawsze propozycja: karta pod wiadomością z „Akceptuj” i „Zostaw plan bez zmian”. Zmianę sprawdzają
+  te same reguły co plan od AI; propozycja łamiąca reguły w ogóle nie trafia do biegacza.
+- **Prawdziwy trener** – osobny pakiet: czat z przydzielonym trenerem-człowiekiem (lista trenerów w panelu).
+  Odpowiedzi nie są natychmiastowe; trener pisze z panelu.
+- Bez porad medycznych: przy bólu i chorobie trener zaleca wariant łagodniejszy i kontakt z lekarzem albo fizjoterapeutą.
+- **Zdrowie wymaga zgody**: gdy wiadomość porusza temat zdrowia (ból, kontuzja, choroba, leki, ciąża…), a biegacz nie dał
+  zgody na dane zdrowotne, wiadomość nie jest zapisywana ani wysyłana dalej – czat pokazuje prośbę o zgodę z jednym
+  przyciskiem. Po kliknięciu zgoda trafia do dziennika zgód i wiadomość idzie dalej; pytamy tylko raz.
+- Limit: 40 wiadomości do trenera AI na dobę. Treść rozmów nie trafia do analityki i znika z kontem.
+
 ### 4.7 Zmiana celu i dostępności
 
 Zasada: **życie się zmienia, plan też może** – bez twardych limitów, ale bez gubienia postępów.
@@ -277,6 +293,8 @@ Docelowy podział (do weryfikacji po MVP):
 | Strava: pobieranie biegów i odhaczanie (moduł `strava`) | ? | ✅ |
 | Ocena treningu względem planu (moduł `review`) | ? | ✅ |
 | Notki trenera AI po treningu i na dzień wolny (moduł `coach`) | ? | ✅ |
+| Rozmowa z trenerem AI – Pan Aloha (moduł `coach_chat`) | ? | ✅ |
+| **Rozmowa z prawdziwym trenerem (moduł `coach_human`)** | – | ✅ (osobny pakiet) |
 
 Pomysł na później: **14-dniowy darmowy okres Premium** po rejestracji – użytkownik od razu doświadcza głównego wyróżnika (adaptacja AI), zanim trafi na paywall.
 

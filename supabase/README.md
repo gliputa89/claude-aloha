@@ -44,6 +44,18 @@ W MVP każdy pakiet ma wszystkie moduły, więc bramki niczego nie blokują.
 planu (ostatni i następny trening, regularność). Jedna notka na użytkownika i dzień, zapisana w `day_notes`.
 Bez klucza `ANTHROPIC_API_KEY` albo przy błędzie modelu aplikacja pokazuje tekst ze słownika.
 
+## Rozmowa z trenerem
+
+`coach-chat` – czat z trenerem AI („Pan Aloha”, moduł `coach_chat`) i z prawdziwym trenerem (moduł `coach_human`).
+Akcje: `open` (wątek ogólny albo przy treningu), `send` (wiadomość; przy AI od razu z odpowiedzią), `answer` (akceptacja
+albo odrzucenie propozycji zmiany planu). Model (funkcja AI `coach-chat`, Sonnet) dostaje plan, oceny i historię wątku –
+bez danych osobowych – i może zwrócić jedną operację na planie; `packages/plan-engine/src/chat/chat.ts` sprawdza ją
+regułami silnika przed pokazaniem i jeszcze raz przy akceptacji. Tabele: `coaches` (jeden AI + ludzie), `coach_assignments`,
+`chat_threads`, `chat_messages`; pisze tylko funkcja i panel, aplikacja czyta przez RLS. Trener-człowiek odpowiada z panelu
+(„Trenerzy i rozmowy”), tam też ustawia się pakiet biegacza. Limit: 40 wiadomości do AI na dobę.
+Wiadomość o zdrowiu (`mentionsHealth`) bez zgody `health_data` nie jest zapisywana – funkcja zwraca `health_consent`,
+aplikacja prosi o jednorazową zgodę i wysyła wiadomość ponownie.
+
 ## Strava
 
 - `strava-sync` – pobiera biegi ze Stravy (od startu planu, najwyżej 30 dni wstecz), dopasowuje je do treningów z tego

@@ -4,6 +4,7 @@
 // Oba są stałe dla danej wersji, więc trafiają do cache. Zmienne dane (biegacz, szkic) idą w wiadomości.
 // Do modelu NIE trafiają: imię, e-mail, id użytkownika – tylko dane treningowe.
 
+import { DEFAULT_COACH_CHAT_PROMPT } from '../chat/prompt.ts';
 import { DEFAULT_DAY_NOTE_PROMPT, DEFAULT_WORKOUT_REVIEW_PROMPT } from '../coach/prompts.ts';
 import { isoWeekday } from '../core/dates.ts';
 import type { ModuleId } from '../core/modules.ts';
@@ -35,6 +36,11 @@ export const AI_FUNCTIONS = {
     module: 'coach',
     label: 'Notka na dzień bez treningu',
     description: 'Zakładka „Dzisiaj”, gdy dziś nie ma biegu: Claude pisze 1–2 zdania z kontekstu planu (ostatni i następny trening).',
+  },
+  'coach-chat': {
+    module: 'coach_chat',
+    label: 'Rozmowa z trenerem AI (Pan Aloha)',
+    description: 'Czat: Claude odpowiada na pytania biegacza z kontekstem planu i może zaproponować jedną zmianę w planie.',
   },
 } as const satisfies Record<string, { module: ModuleId; label: string; description: string }>;
 
@@ -75,6 +81,14 @@ export const DEFAULT_AI_PROMPTS: Record<AiFunctionName, AiPromptConfig> = {
     effort: null,
     maxTokens: 1500,
     systemPrompt: DEFAULT_WEATHER_ADVICE_PROMPT,
+  },
+  'coach-chat': {
+    id: null,
+    version: null,
+    model: 'claude-sonnet-5-5',
+    effort: null,
+    maxTokens: 3000,
+    systemPrompt: DEFAULT_COACH_CHAT_PROMPT,
   },
   'day-note': {
     id: null,

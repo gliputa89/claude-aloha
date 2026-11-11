@@ -13,6 +13,7 @@ Kod leży w folderach modułów. Wszystko jest eksportowane przez `src/index.ts`
 | `weather/` | `weather` | `weather.ts` – okno pogodowe i ostrzeżenia z reguł; `weather-advice.ts` – porada słowna od AI; `prompt.ts` |
 | `strava/` | `strava` | `strava.ts` – dopasowanie biegów do treningów, propozycja „to był ten trening?” |
 | `review/` | `review` | `review.ts` – werdykt, osie i fakty (tempo, tętno); `review-sim.ts` – symulator biegów i macierz scenariuszy |
+| `chat/` | `coach_chat`, `coach_human` | `chat.ts` – kontekst rozmowy, odpowiedź z opcjonalną propozycją zmiany planu, walidacja i zapis zmiany; `prompt.ts` – Pan Aloha |
 | `coach/` | `coach` | `review-note.ts` – notka po treningu (z jedną automatyczną poprawką) i flagi jakości; `day-note.ts` – notka na dzień bez biegu; `prompts.ts` |
 
 Zasady podziału:
