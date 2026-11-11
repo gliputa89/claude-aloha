@@ -13,5 +13,9 @@ dest="$root/supabase/functions/_shared/plan-engine"
 
 rm -rf "$dest"
 mkdir -p "$dest"
-find "$src" -maxdepth 1 -name '*.ts' ! -name '*.test.ts' -exec cp {} "$dest/" \;
-echo "✓ plan-engine → supabase/functions/_shared/plan-engine ($(ls "$dest" | wc -l | tr -d ' ') plików)"
+# Źródła leżą w folderach modułów (core, plan, ai, weather, strava, review, coach) – kopiujemy z zachowaniem układu.
+(cd "$src" && find . -name '*.ts' ! -name '*.test.ts' -print0 | while IFS= read -r -d '' file; do
+  mkdir -p "$dest/$(dirname "$file")"
+  cp "$file" "$dest/$file"
+done)
+echo "✓ plan-engine → supabase/functions/_shared/plan-engine ($(find "$dest" -name '*.ts' | wc -l | tr -d ' ') plików)"

@@ -14,6 +14,7 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 
 import { isServiceKey } from '../_shared/auth.ts';
+import { userModules } from '../_shared/modules.ts';
 import { AthleteLimit, exchangeCode, RateLimited, saveConnection, STRAVA, stravaClient, Unauthorized } from '../_shared/strava.ts';
 
 const cors = {
@@ -118,6 +119,8 @@ Deno.serve(async (req) => {
   }
 
   if (body?.action === 'start') {
+    // Łączenie tylko w pakiecie z modułem „Strava”; rozłączyć można zawsze.
+    if (!(await userModules(db, userId)).has('strava')) return json({ error: 'module_disabled' }, 403);
     const client = stravaClient();
     if (!client) return json({ error: 'not_configured' }, 503);
     // Dokąd wrócić: aplikacja – tylko własny schemat; panel – adres panelu (wywołanie już jest zaufane).

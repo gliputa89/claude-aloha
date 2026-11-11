@@ -9,11 +9,11 @@
 //  - objętość i przyrost wg poziomu zaawansowania 1–5 (levels.ts), każdy trening ≤ limit czasu z ankiety,
 //  - przeciwwskazania → tylko spokojne jednostki, krótsze o ok. 20%.
 
-import { addDaysIso, daysBetween, isoWeekday } from './dates.ts';
+import { addDaysIso, daysBetween, isoWeekday } from '../core/dates.ts';
 import type { Level, RaceDistanceM } from './goal.ts';
 import { trainingLevelOf, type TrainingLevel } from './levels.ts';
 import { paramsForLevel, resolveEngineParams, type EngineParams, type LevelParams } from './params.ts';
-import { paceZonesFrom, stepsFromStructure, type WorkoutItem } from './workout.ts';
+import { paceZonesFrom, stepsFromStructure, type WorkoutItem } from '../core/workout.ts';
 
 export const ENGINE_VERSION = '0.5.0';
 

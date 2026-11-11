@@ -40,7 +40,7 @@ export type ReviewTestResult =
   | { ok: false; message: string };
 
 /**
- * Puszcza scenariusze z packages/plan-engine/review-sim.ts przez reguły oceny i prawdziwy prompt notki trenera.
+ * Puszcza scenariusze z packages/plan-engine/src/review/review-sim.ts przez reguły oceny i prawdziwy prompt notki trenera.
  * Nic nie zapisuje użytkownikom – tylko log wywołań AI (źródło: tester). Notki idą po kolei, każda dostaje
  * trzy poprzednie, żeby sprawdzić też, czy się nie powtarzają. `ids` – wybrane scenariusze; puste = wszystkie.
  * `model` – model tylko na ten test (null = ten z aktywnego promptu).

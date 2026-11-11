@@ -3,11 +3,11 @@
 // Dla użytkownika z wierszem w public.strava_connections:
 //   1. odświeża token dostępu (gdy wygasa) – sekrety STRAVA_CLIENT_ID / STRAVA_CLIENT_SECRET,
 //   2. pobiera aktywności od początku aktywnego planu (najwyżej 30 dni wstecz),
-//   3. reguły (packages/plan-engine/strava.ts) dopasowują biegi do treningów z tego samego dnia,
+//   3. reguły (packages/plan-engine/src/strava/strava.ts) dopasowują biegi do treningów z tego samego dnia,
 //   4. zapisuje biegi w public.strava_activities, a w treningach status (zrobiony / częściowo), dystans i czas.
 //   5. dla biegów przypisanych do treningów pobiera raz przebieg tempa (strumienie time + distance; tętno tylko
 //      przy zgodzie 'health_data' – to dane o zdrowiu)
-//      i zapisuje ocenę treningu w public.session_reviews (reguły: packages/plan-engine/review.ts),
+//      i zapisuje ocenę treningu w public.session_reviews (reguły: packages/plan-engine/src/review/review.ts),
 //   6. do świeżych ocen dopisuje notkę trenera AI (funkcja 'workout-review', sekret ANTHROPIC_API_KEY) –
 //      bez klucza albo przy błędzie modelu zostaje sama ocena.
 // Aktywność usunięta w Stravie znika też u nas przy kolejnej synchronizacji.
@@ -50,6 +50,7 @@ import {
 } from '../_shared/plan-engine/index.ts';
 import { isServiceKey } from '../_shared/auth.ts';
 import { claudeCaller, claudeKey } from '../_shared/claude.ts';
+import { userModules } from '../_shared/modules.ts';
 import {
   RateLimited,
   refreshTokens,
@@ -502,6 +503,8 @@ async function writeNotes(db: SupabaseClient, userId: string, sessions: SessionR
 
 /** Odpowiedź biegacza na „to był ten trening?”: tak → bieg zostaje przy treningu z innego dnia; nie → nie pytamy więcej. */
 async function answerMatch(db: SupabaseClient, userId: string, activityId: number, accept: boolean): Promise<Outcome> {
+  const modules = await userModules(db, userId);
+  if (!modules.has('strava')) return { connected: false, updated: 0 };
   const found = await db
     .from('strava_activities')
     .select('id, suggested_session_id')
@@ -522,7 +525,7 @@ async function answerMatch(db: SupabaseClient, userId: string, activityId: numbe
   const { sessions, windowStart } = await loadPlan(db, userId);
   const result = await applyMatches(db, userId, sessions, windowStart(LOOKBACK_DAYS));
   // Ocena od razu z tego, co mamy; przebieg tempa dociągnie najbliższa synchronizacja.
-  await applyReviews(db, userId, sessions, windowStart(LOOKBACK_DAYS));
+  if (modules.has('review')) await applyReviews(db, userId, sessions, windowStart(LOOKBACK_DAYS));
   return { connected: true, ...result };
 }
 
@@ -535,6 +538,9 @@ async function syncUser(db: SupabaseClient, userId: string, opts: { force: boole
   if (connRes.error) throw new Error(connRes.error.message);
   const conn = connRes.data as Connection | null;
   if (!conn) return { connected: false, updated: 0 };
+  // Moduły pakietu: bez „Stravy” nic nie pobieramy; ocena i notki trenera to osobne moduły.
+  const modules = await userModules(db, userId);
+  if (!modules.has('strava')) return { connected: false, updated: 0 };
 
   const state = { connected: true, athleteName: conn.athlete_name, lastSyncedAt: conn.last_synced_at };
   if (opts.manual && conn.last_manual_sync_at) {
@@ -615,9 +621,13 @@ async function syncUser(db: SupabaseClient, userId: string, opts: { force: boole
 
   // Pary i propozycje liczymy ze wszystkich zapisanych biegów planu (nie tylko z pobranego okna).
   const { updated, matched, suggested } = await applyMatches(db, userId, sessions, windowStart(LOOKBACK_DAYS));
-  await fetchPaces(db, userId, token, windowStart(LOOKBACK_DAYS), withHr);
-  await applyReviews(db, userId, sessions, windowStart(LOOKBACK_DAYS));
-  await writeNotes(db, userId, sessions).catch((e) => console.error('notes failed', userId, e instanceof Error ? e.message : e));
+  if (modules.has('review')) {
+    await fetchPaces(db, userId, token, windowStart(LOOKBACK_DAYS), withHr);
+    await applyReviews(db, userId, sessions, windowStart(LOOKBACK_DAYS));
+    if (modules.has('coach')) {
+      await writeNotes(db, userId, sessions).catch((e) => console.error('notes failed', userId, e instanceof Error ? e.message : e));
+    }
+  }
 
   const lastSyncedAt = new Date().toISOString();
   // Ręczne pobranie liczy się do limitu dopiero, gdy się udało – nieudana próba nie blokuje na 3 godziny.

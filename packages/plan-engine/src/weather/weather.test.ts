@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { DEFAULT_AI_PROMPTS } from './ai-prompt.ts';
-import type { AiCallRecord } from './ai-run.ts';
+import { DEFAULT_AI_PROMPTS } from '../ai/ai-prompt.ts';
+import type { AiCallRecord } from '../ai/ai-run.ts';
 import { parseWeatherAdvice, weatherAdviceWithAi } from './weather-advice.ts';
 import { assessSession, conditionOf, hoursFromOpenMeteo, weatherKey, type HourForecast } from './weather.ts';
 

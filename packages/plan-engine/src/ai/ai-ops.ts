@@ -5,10 +5,10 @@
 // i trafia do odrzuconych z powodem. Wynik jest więc zawsze nie gorszy (pod względem reguł) niż szkic.
 // Strukturę treningu (rozgrzewka, powtórzenia, schłodzenie) zawsze liczy silnik.
 
-import { addDaysIso, daysBetween, isoWeekday } from './dates.ts';
-import { trainingLevelOf } from './levels.ts';
-import type { LevelParams } from './params.ts';
-import { buildFromMainSets, paceZonesFrom, PACE_ZONES, type MainSet, type PaceZone } from './workout.ts';
+import { addDaysIso, daysBetween, isoWeekday } from '../core/dates.ts';
+import { trainingLevelOf } from '../plan/levels.ts';
+import type { LevelParams } from '../plan/params.ts';
+import { buildFromMainSets, paceZonesFrom, PACE_ZONES, type MainSet, type PaceZone } from '../core/workout.ts';
 import {
   dayCap,
   intervals,
@@ -25,7 +25,7 @@ import {
   type PlannedSession,
   type PlannedWeek,
   type SessionType,
-} from './plan.ts';
+} from '../plan/plan.ts';
 
 export const AI_OPERATION_KINDS = ['set_duration', 'set_type', 'set_main', 'move', 'remove', 'add'] as const;
 export type AiOperationKind = (typeof AI_OPERATION_KINDS)[number];

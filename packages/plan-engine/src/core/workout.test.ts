@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { applyOperations, type AiOperation } from './ai-ops.ts';
-import { generateInitialPlan, type PlanInput } from './plan.ts';
+import { applyOperations, type AiOperation } from '../ai/ai-ops.ts';
+import { generateInitialPlan, type PlanInput } from '../plan/plan.ts';
 import {
   buildFromMainSets,
   describeSteps,

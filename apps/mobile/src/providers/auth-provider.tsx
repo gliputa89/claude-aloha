@@ -6,6 +6,8 @@ import { supabase } from '@/lib/supabase';
 export type Profile = {
   display_name: string | null;
   onboarding_completed_at: string | null;
+  /** Pakiet (free / trial / paid) – z niego wynikają włączone moduły. */
+  subscription_status: string | null;
 };
 
 type AuthState = {
@@ -28,7 +30,7 @@ const AuthContext = createContext<AuthState>({
 async function fetchProfile(userId: string): Promise<Profile | null> {
   const { data } = await supabase
     .from('profiles')
-    .select('display_name, onboarding_completed_at')
+    .select('display_name, onboarding_completed_at, subscription_status')
     .eq('id', userId)
     .maybeSingle();
   return data ?? null;

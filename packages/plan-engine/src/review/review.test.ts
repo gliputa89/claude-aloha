@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import { bucketsFromStream, reviewWorkout, type PaceBuckets, type ReviewInput } from './review.ts';
-import type { WorkoutItem } from './workout.ts';
+import type { WorkoutItem } from '../core/workout.ts';
 
 const EASY = { fastS: 360, slowS: 400 };
 const INTERVAL = { fastS: 285, slowS: 300 };

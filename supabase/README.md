@@ -14,6 +14,13 @@
 Jeden projekt Supabase na środowisko (local / staging / prod), schematy: `public`, `marketing`, `ops`, `analytics`.
 Szczegóły: [`docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md), sekcja 3.
 
+## Moduły i pakiety
+
+Każda funkcja należy do modułu produktu (`plan`, `plan_ai`, `weather`, `strava`, `review`, `coach`) i na wejściu sprawdza,
+czy pakiet użytkownika ma ten moduł: `_shared/modules.ts` → `userModules(db, userId)`. Lista modułów i pakietów:
+`packages/plan-engine/src/core/modules.ts`; opis i tabela „moduł → funkcje → tabele”: `docs/ARCHITECTURE.md`, sekcja 2a.
+W MVP każdy pakiet ma wszystkie moduły, więc bramki niczego nie blokują.
+
 ## Edge Functions planu
 
 - `generate-plan` – pierwsze 2 tygodnie po ankiecie; ustawia poziom startowy (1–5) z ankiety.
@@ -24,7 +31,7 @@ Szczegóły: [`docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md), sekcja 3.
 
 - `session-weather` – pogoda do treningów z najbliższych 7 dni dla zakładki „Dzisiaj” i szczegółów treningu.
   Aplikacja podaje przybliżoną lokalizację (zaokrągloną do 0,1°), funkcja pobiera prognozę godzinową i jakość powietrza
-  z Open-Meteo, reguły z `packages/plan-engine/weather.ts` wybierają najlepsze okno i ostrzeżenia, a Claude
+  z Open-Meteo, reguły z `packages/plan-engine/src/weather/weather.ts` wybierają najlepsze okno i ostrzeżenia, a Claude
   (funkcja AI `weather-advice`, domyślnie Haiku) pisze 1–2 zdania porady. Wynik trafia do `public.session_weather`
   (świeży przez 3 h, dla dzisiejszego treningu 1 h); AI jest wołane tylko, gdy wynik reguł się zmienił.
 - **Licencja Open-Meteo**: darmowe API jest tylko do użytku niekomercyjnego (aplikacja z subskrypcją lub reklamami to już
@@ -40,7 +47,7 @@ Bez klucza `ANTHROPIC_API_KEY` albo przy błędzie modelu aplikacja pokazuje tek
 ## Strava
 
 - `strava-sync` – pobiera biegi ze Stravy (od startu planu, najwyżej 30 dni wstecz), dopasowuje je do treningów z tego
-  samego dnia (`packages/plan-engine/strava.ts`) i zapisuje w treningu status, dystans i czas. Aplikacja woła ją po
+  samego dnia (`packages/plan-engine/src/strava/strava.ts`) i zapisuje w treningu status, dystans i czas. Aplikacja woła ją po
   otwarciu i przy pociągnięciu w dół; z kluczem `service_role` (cron) synchronizuje wszystkich połączonych.
 - **Konto Stravy dla Aloha**: login `gliputa+aloha@gmail.com` (hasło poza repo). Na tym koncie zakładamy aplikację API
   Aloha – osobną, żeby nie dzielić kluczy, limitów ani refresh tokenów z innymi projektami.
@@ -51,11 +58,11 @@ Bez klucza `ANTHROPIC_API_KEY` albo przy błędzie modelu aplikacja pokazuje tek
   a odpowiedź idzie do `strava-sync` jako `{ answer: { activityId, accept } }`.
 - Ocena treningu: dla biegów przy treningach `strava-sync` pobiera raz przebieg tempa (strumienie `time`, `distance`
   – tętno tylko przy zgodzie `health_data`; najwyżej 5 biegów na synchronizację) i zapisuje werdykt w `session_reviews`
-  (reguły: `packages/plan-engine/review.ts`). Aplikacja pokazuje go w karcie „Zrobione” w szczegółach treningu.
+  (reguły: `packages/plan-engine/src/review/review.ts`). Aplikacja pokazuje go w karcie „Zrobione” w szczegółach treningu.
 - Notka trenera AI: do świeżych ocen (do 10 dni wstecz, najwyżej 2 na synchronizację) `strava-sync` dopisuje 2–3
   zdania od Claude (funkcja AI `workout-review`, prompt edytowany w panelu jak pozostałe; sekret `ANTHROPIC_API_KEY`).
   Model dostaje ocenę z reguł, poprzednie notki i regularność – bez danych osobowych. Bez klucza zostaje sama ocena.
-- Testowanie oceny: `packages/plan-engine/src/review-sim.ts` generuje sztuczne biegi (idealne, trochę inne, zupełnie
+- Testowanie oceny: `packages/plan-engine/src/review/review-sim.ts` generuje sztuczne biegi (idealne, trochę inne, zupełnie
   inne; z tętnem i bez) i trzyma macierz scenariuszy z oczekiwanym werdyktem – sprawdzają ją testy silnika.
   Te same scenariusze przez prawdziwy prompt notki puszcza panel: AI → „Test ocen” (nic nie zapisuje użytkownikom).
 - Ręczne pobranie: Profil → Strava → „Pobierz biegi z 3 dni” wywołuje `strava-sync` z `{ manual: true }` – od razu,

@@ -6,7 +6,7 @@
 //   3. awans – dość długo na poziomie, wysoka realizacja, bez bólu (28 dni).
 // Progi: parametry z grupy „Zmiana poziomu” (kolumna obecnego poziomu). Jedno miejsce dla Edge Function i testera.
 
-import { addDaysIso, daysBetween, isoWeekday } from './dates.ts';
+import { addDaysIso, daysBetween, isoWeekday } from '../core/dates.ts';
 import { TRAINING_LEVEL_INFO, type TrainingLevel } from './levels.ts';
 import { paramsForLevel, type EngineParams } from './params.ts';
 

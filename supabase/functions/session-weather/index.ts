@@ -4,7 +4,7 @@
 // dla pojedynczych treningów (`places`: id treningu → { lat, lon }) i język. Funkcja:
 //   1. bierze treningi aktywnego planu na 7 dni (bez odpoczynku, tylko zaplanowane),
 //   2. pobiera prognozę godzinową i jakość powietrza (Open-Meteo),
-//   3. reguły (packages/plan-engine/weather.ts) wybierają najlepsze okno i ostrzeżenia,
+//   3. reguły (packages/plan-engine/src/weather/weather.ts) wybierają najlepsze okno i ostrzeżenia,
 //   4. Claude ('weather-advice') pisze 1–2 zdania do treningu – tylko gdy wynik reguł się zmienił,
 //   5. zapisuje wynik w public.session_weather i zwraca go aplikacji.
 // Świeży zapis (to samo miejsce, < 3 h; dzisiejszy trening < 1 h) wraca od razu, bez zapytań na zewnątrz.
@@ -17,6 +17,7 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 
 import { claudeCaller, claudeKey } from '../_shared/claude.ts';
+import { userModules } from '../_shared/modules.ts';
 import {
   addDaysIso,
   assessSession,
@@ -161,6 +162,9 @@ Deno.serve(async (req) => {
   const places: Record<string, unknown> = typeof body?.places === 'object' && body.places !== null ? body.places : {};
   if (!defaultGrid && Object.keys(places).length === 0) return json({ error: 'invalid_location' }, 400);
   const locale = body?.locale === 'en' ? 'en' : 'pl';
+
+  // Pakiet bez modułu „Pogoda”: pusta odpowiedź – aplikacja po prostu nie pokaże kart pogody.
+  if (!(await userModules(db, userId)).has('weather')) return json({ sessions: [], cached: true });
 
   const [profileRes, planRes] = await Promise.all([
     db.from('profiles').select('timezone').eq('id', userId).maybeSingle(),

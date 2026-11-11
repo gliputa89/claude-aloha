@@ -5,11 +5,11 @@
 // Jak w weather-advice.ts: wywołanie modelu i log wstrzykuje środowisko; nigdy nie rzuca – brak notki = sama ocena.
 // Do modelu NIE trafiają dane osobowe ani tętno – tylko plan, wykonanie i ocena treningu.
 
-import { costUsd, modelPrice } from './ai-pricing.ts';
-import type { AiFunctionName, AiPromptConfig } from './ai-prompt.ts';
-import type { AiCaller, AiLogger, AiModelRequest, AiModelResult, AiStatus } from './ai-run.ts';
-import { ENGINE_VERSION } from './plan.ts';
-import type { ReviewFact, ReviewVerdict, WorkoutReview } from './review.ts';
+import { costUsd, modelPrice } from '../ai/ai-pricing.ts';
+import type { AiFunctionName, AiPromptConfig } from '../ai/ai-prompt.ts';
+import type { AiCaller, AiLogger, AiModelRequest, AiModelResult, AiStatus } from '../ai/ai-run.ts';
+import { ENGINE_VERSION } from '../plan/plan.ts';
+import type { ReviewFact, ReviewVerdict, WorkoutReview } from '../review/review.ts';
 
 /** Prompt prosi o 280 znaków, ale model bywa rozwlekły – odrzucamy dopiero powyżej limitu z bazy (600). */
 export const WORKOUT_NOTE_MAX_LENGTH = 600;

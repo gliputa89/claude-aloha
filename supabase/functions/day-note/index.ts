@@ -5,11 +5,12 @@
 // Jedna notka na użytkownika i dzień (public.day_notes) – kolejne wywołania tego dnia oddają zapisaną.
 // Gdy dziś jest bieg w planie, nie ma klucza ANTHROPIC_API_KEY albo model zawiedzie → { text: null },
 // a aplikacja pokazuje tekst ze słownika. Do modelu idzie tylko kontekst treningowy, bez danych osobowych.
-// Prompt: funkcja AI 'day-note' (ops.ai_prompts, edytowana w panelu); logika w packages/plan-engine/day-note.ts.
+// Prompt: funkcja AI 'day-note' (ops.ai_prompts, edytowana w panelu); logika w packages/plan-engine/src/coach/day-note.ts.
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 
 import { claudeCaller, claudeKey } from '../_shared/claude.ts';
+import { userModules } from '../_shared/modules.ts';
 import {
   addDaysIso,
   DAY_NOTE_MAX_LENGTH,
@@ -51,6 +52,7 @@ Deno.serve(async (req) => {
   if (!today || Math.abs(daysBetween(new Date().toISOString().slice(0, 10), today)) > 1) return json({ error: 'invalid_day' }, 400);
 
   try {
+    if (!(await userModules(db, userId)).has('coach')) return json({ text: null });
     const saved = await db.from('day_notes').select('text').eq('user_id', userId).eq('day', today).maybeSingle();
     if (saved.error) throw new Error(saved.error.message);
     if (saved.data) return json({ text: saved.data.text });

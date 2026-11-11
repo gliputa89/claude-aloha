@@ -4,7 +4,7 @@
 import { AI_EFFORTS, type AiEffort } from './ai-pricing.ts';
 import { DEFAULT_AI_PROMPTS, type AiFunctionName, type AiPromptConfig } from './ai-prompt.ts';
 import type { AiEngineConfig } from './ai-run.ts';
-import { DEFAULT_ENGINE_PARAMS, validateEngineParams } from './params.ts';
+import { DEFAULT_ENGINE_PARAMS, validateEngineParams } from '../plan/params.ts';
 
 export type AiPromptRow = {
   id: number;

@@ -7,7 +7,7 @@
 // `facts` to nazwane obserwacje z liczbami – z nich aplikacja składa opis (a później notkę trenera AI).
 // Zasady tonu: oceniamy trening, nie człowieka; „za dużo” i „za szybko” to też odchylenie.
 
-import { flattenSteps, HARD_ZONES, type PaceRange, type WorkoutItem } from './workout.ts';
+import { flattenSteps, HARD_ZONES, type PaceRange, type WorkoutItem } from '../core/workout.ts';
 
 export const REVIEW_VERSION = 2;
 

@@ -5,11 +5,11 @@
 // błąd API albo zła odpowiedź = brak porady, aplikacja składa wtedy tekst ze słownika.
 // Do modelu NIE trafia lokalizacja ani dane osobowe – tylko pogoda i rodzaj treningu.
 
-import { costUsd, modelPrice } from './ai-pricing.ts';
-import type { AiPromptConfig } from './ai-prompt.ts';
-import type { AiCaller, AiLogger, AiModelRequest, AiModelResult, AiStatus } from './ai-run.ts';
-import { isoWeekday } from './dates.ts';
-import { ENGINE_VERSION } from './plan.ts';
+import { costUsd, modelPrice } from '../ai/ai-pricing.ts';
+import type { AiPromptConfig } from '../ai/ai-prompt.ts';
+import type { AiCaller, AiLogger, AiModelRequest, AiModelResult, AiStatus } from '../ai/ai-run.ts';
+import { isoWeekday } from '../core/dates.ts';
+import { ENGINE_VERSION } from '../plan/plan.ts';
 import type { SessionWeather } from './weather.ts';
 
 /** Limit w bazie (session_weather.advice); prompt prosi o 200 znaków. */

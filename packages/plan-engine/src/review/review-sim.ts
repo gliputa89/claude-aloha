@@ -4,7 +4,7 @@
 // Wszystko deterministyczne (szum z ziarna) – ten sam scenariusz daje zawsze ten sam bieg.
 
 import { REVIEW_RULES, type PaceBuckets, type ReviewFactCode, type ReviewInput, type ReviewVerdict } from './review.ts';
-import { flattenSteps, HARD_ZONES, paceZonesFrom, type PaceRange, type WorkoutItem, type WorkoutStep } from './workout.ts';
+import { flattenSteps, HARD_ZONES, paceZonesFrom, type PaceRange, type WorkoutItem, type WorkoutStep } from '../core/workout.ts';
 
 /** Biegacz testowy: 10 km w 50:00 – z tego wynikają strefy tempa wszystkich scenariuszy. */
 const ZONES = paceZonesFrom({ distanceM: 10_000, timeS: 50 * 60 })!;

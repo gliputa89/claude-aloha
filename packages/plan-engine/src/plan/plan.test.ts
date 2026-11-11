@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { isoWeekday } from './dates.ts';
+import { isoWeekday } from '../core/dates.ts';
 import { generateInitialPlan, generatePlanWeek, pickTrainingDays, type PlanInput, type PlannedSession } from './plan.ts';
 
 // 2026-11-09 to poniedziałek.

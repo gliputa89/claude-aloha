@@ -1,6 +1,6 @@
 // Wiersze z bazy (weeks + sessions) → tydzień silnika. Jedno miejsce dla Edge Functions i panelu.
 
-import { addDaysIso, isoWeekday } from './dates.ts';
+import { addDaysIso, isoWeekday } from '../core/dates.ts';
 import type { Intensity, PlannedWeek, SessionStructure, SessionType } from './plan.ts';
 
 export type WeekRow = {

@@ -257,6 +257,10 @@ działa i czy użytkownicy wracają. Paywall wprowadzimy po zebraniu danych o ty
 korzystają najbardziej. Architektura od początku przewiduje flagę „premium” przy funkcjach,
 żeby późniejsze blokowanie nie wymagało przebudowy.
 
+Ta flaga jest już w kodzie jako **moduły i pakiety**: każda funkcja należy do modułu (`plan`, `plan_ai`, `weather`,
+`strava`, `review`, `coach`), a pakiet to lista włączonych modułów. Dziś każdy pakiet ma wszystko; zmiana oferty to zmiana
+jednej listy. Opis: [`ARCHITECTURE.md`](ARCHITECTURE.md), sekcja 2a.
+
 Docelowy podział (do weryfikacji po MVP):
 
 | Funkcja | Free | Premium (subskrypcja) |
@@ -269,6 +273,10 @@ Docelowy podział (do weryfikacji po MVP):
 | **Przeliczanie kolejnych tygodni przez AI** | – | ✅ |
 | **Notatka tekstowa interpretowana przez AI** | – | ✅ |
 | Cele zawodowe (półmaraton / maraton z docelowym czasem) | ? | ✅ |
+| Pogoda i pora treningu (moduł `weather`) | ? | ✅ |
+| Strava: pobieranie biegów i odhaczanie (moduł `strava`) | ? | ✅ |
+| Ocena treningu względem planu (moduł `review`) | ? | ✅ |
+| Notki trenera AI po treningu i na dzień wolny (moduł `coach`) | ? | ✅ |
 
 Pomysł na później: **14-dniowy darmowy okres Premium** po rejestracji – użytkownik od razu doświadcza głównego wyróżnika (adaptacja AI), zanim trafi na paywall.
 

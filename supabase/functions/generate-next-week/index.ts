@@ -1,7 +1,7 @@
 // Edge Function: cotygodniowe generowanie kolejnego tygodnia planu + przegląd poziomu zaawansowania.
 //
 // Dla każdego użytkownika z aktywnym planem, któremu ostatni tydzień kończy się w ciągu 2 dni:
-//   1. przegląd poziomu (packages/plan-engine/level-review.ts) z realizacji treningów i check-inów,
+//   1. przegląd poziomu (packages/plan-engine/src/plan/level-review.ts) z realizacji treningów i check-inów,
 //      zapis w profiles.training_level + historia w training_level_changes (gdy się zmienił),
 //   2. kolejny tydzień z silnika reguł od bazy objętości poprzedniego tygodnia (bez skoku przy zmianie poziomu),
 //   3. Claude dopasowuje szkic (jak w generate-plan), silnik waliduje; błąd → sam szkic,
@@ -21,6 +21,7 @@ import {
   engineFromRow,
   NEXT_WEEK_LEAD_DAYS,
   planNextWeek,
+  hasModule,
   planWeeksWithAi,
   promptFromRow,
   ENGINE_VERSION,
@@ -57,7 +58,7 @@ async function processUser(
     db
       .from('profiles')
       .select(
-        'level, locale, timezone, has_contraindications, onboarding_completed_at, recent_result_distance_m, recent_result_time_s, current_runs_per_week, weekly_km, training_level, training_level_since, training_level_survey',
+        'level, locale, timezone, has_contraindications, onboarding_completed_at, recent_result_distance_m, recent_result_time_s, current_runs_per_week, weekly_km, training_level, training_level_since, training_level_survey, subscription_status',
       )
       .eq('id', userId)
       .maybeSingle(),
@@ -117,7 +118,8 @@ async function processUser(
   if (levelError) return { userId, status: 'error', detail: `set_training_level: ${levelError.message}` };
 
   const survey = { profile: { ...profile, level: profile.level }, goal, availability };
-  const outcome = ctx.apiKey
+  // Bez modułu „Plan dopasowany przez AI” zostaje szkic z reguł.
+  const outcome = ctx.apiKey && hasModule(profileRes.data?.subscription_status, 'plan_ai')
     ? await planWeeksWithAi({
         input: next.input,
         draft: [next.week],

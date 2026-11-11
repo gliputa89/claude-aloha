@@ -21,9 +21,9 @@ import { Mark } from '@/components/brand/mark';
 import { TYPE_COLOR, useDetail } from '@/components/plan/session-row';
 import { WeatherCard } from '@/components/plan/weather-card';
 import { WorkoutChart, WorkoutSteps } from '@/components/plan/workout-intervals';
-import { MatchPrompts } from '@/components/plan/match-prompt';
-import { ReviewBadge, useCountUp, type Celebration } from '@/components/plan/review-celebration';
-import { WorkoutReview } from '@/components/plan/workout-review';
+import { MatchPrompts } from '@/components/strava/match-prompt';
+import { ReviewBadge, useCountUp, type Celebration } from '@/components/review/review-celebration';
+import { WorkoutReview } from '@/components/review/workout-review';
 import { FadeUp } from '@/components/ui/fade-up';
 import { InfoCard } from '@/components/ui/info-card';
 import { Text } from '@/components/ui/text';
@@ -31,6 +31,7 @@ import { EASE_BACK, EASE_OUT } from '@/constants/easing';
 import { radius, space } from '@/constants/theme';
 import { formatDuration, fromIsoDate, todayIso } from '@/features/onboarding/time';
 import { isReviewNew, markReviewSeen, type PlanSession } from '@/features/plan/api';
+import { useModule } from '@/features/modules/use-module';
 import { useCoachTip } from '@/features/plan/coach-tips';
 import { allSessions, usePlan } from '@/features/plan/plan-provider';
 import { paceMinPerKm, stravaActivityUrl } from '@/features/strava/api';
@@ -98,6 +99,9 @@ function Detail({ session }: { session: PlanSession }) {
   const reduced = useReducedMotion();
   const detail = useDetail(session);
   const tip = useCoachTip(session);
+  const modules = { weather: useModule('weather'), strava: useModule('strava'), review: useModule('review'), coach: useModule('coach') };
+  // Ocena i notka trenera to osobne moduły pakietu: bez „oceny” zostaje samo „Zrobione”, bez „notek” – ocena bez notki.
+  const review = modules.review && session.review ? { ...session.review, note: modules.coach ? session.review.note : null } : null;
 
   // Pierwsze otwarcie oceny: świętowanie zależne od werdyktu, liczby „dobiegają”. Potem karta jest już spokojna.
   const [firstOpen] = useState(() => isReviewNew(session.id, session.review));
@@ -225,7 +229,7 @@ function Detail({ session }: { session: PlanSession }) {
         </View>
       </View>
 
-      <MatchPrompts sessionId={session.id} />
+      {modules.strava ? <MatchPrompts sessionId={session.id} /> : null}
 
       {stats.length > 0 ? (
         <View style={styles.stats}>
@@ -250,8 +254,8 @@ function Detail({ session }: { session: PlanSession }) {
             <View style={styles.doneHead}>
               <ReviewBadge celebration={celebration} delay={T.done + 200} />
               <Text weight="bold" style={styles.flex}>
-                {session.review
-                  ? t(`review.verdict.${session.review.verdict}`)
+                {review
+                  ? t(`review.verdict.${review.verdict}`)
                   : t(session.status === 'done' ? 'workoutDetail.done' : 'workoutDetail.donePartial')}
               </Text>
             </View>
@@ -269,7 +273,7 @@ function Detail({ session }: { session: PlanSession }) {
                 ))}
               </View>
             ) : null}
-            {session.review ? <WorkoutReview review={session.review} play={firstOpen} delay={T.done + 450} /> : null}
+            {review ? <WorkoutReview review={review} play={firstOpen} delay={T.done + 450} /> : null}
             {lastActivity ? (
               <View style={styles.source}>
                 <Text variant="caption" color="text" style={styles.flex}>
@@ -328,7 +332,7 @@ function Detail({ session }: { session: PlanSession }) {
       ) : null}
 
       {/* Pogoda tylko przed treningiem – po biegu prognoza nie ma już znaczenia. */}
-      {completed ? null : (
+      {completed || !modules.weather ? null : (
         <FadeUp delay={hasSteps ? T.rest + 60 : T.stats + 80}>
           <WeatherCard session={session} credit />
         </FadeUp>

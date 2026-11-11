@@ -9,6 +9,7 @@ import { FadeUp } from '@/components/ui/fade-up';
 import { Screen } from '@/components/ui/screen';
 import { Text } from '@/components/ui/text';
 import { radius, space } from '@/constants/theme';
+import { useModule } from '@/features/modules/use-module';
 import { usePlan } from '@/features/plan/plan-provider';
 import { connectStrava, disconnectStrava, fetchRecentStravaRuns, fetchStravaStatus, type StravaStatus } from '@/features/strava/api';
 import { useColors } from '@/hooks/use-colors';
@@ -45,6 +46,9 @@ export default function ProfileScreen() {
   }, []);
 
   const { reload } = usePlan();
+  // Strava jest modułem pakietu – bez niego nie ma jej na liście integracji.
+  const stravaModule = useModule('strava');
+  const integrations = INTEGRATIONS.filter((i) => i.key !== 'strava' || stravaModule);
   const [stravaBusy, setStravaBusy] = useState(false);
 
   const linkStrava = async () => {
@@ -177,7 +181,7 @@ export default function ProfileScreen() {
           <Text variant="caption">{t('profile.integrationsHint')}</Text>
         </View>
         <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
-          {INTEGRATIONS.map(({ key, Icon }, i) => {
+          {integrations.map(({ key, Icon }, i) => {
             const isStrava = key === 'strava';
             const active = isStrava && strava !== null && !strava.needsReconnect;
             const note = isStrava && strava ? stravaNote : null;

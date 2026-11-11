@@ -1,7 +1,7 @@
 // Cotygodniowe generowanie: przegląd poziomu + kolejny tydzień aktywnego planu – z wierszy bazy.
 // Czyste obliczenie (bez zapisu): Edge Function generate-next-week i tester w panelu zapisują wynik same.
 
-import { addDaysIso } from './dates.ts';
+import { addDaysIso } from '../core/dates.ts';
 import type { Level } from './goal.ts';
 import { reviewTrainingLevel, levelReviewInputFromRows, type LevelReview } from './level-review.ts';
 import { isTrainingLevel, surveyTrainingLevel, type TrainingLevel } from './levels.ts';

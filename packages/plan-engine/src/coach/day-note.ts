@@ -2,7 +2,7 @@
 // albo nic nie ma. Model dostaje tylko kontekst treningowy: ostatni trening, następny, regularność.
 // Wywołanie i log jak w review-note.ts; brak notki = aplikacja pokazuje tekst ze słownika.
 
-import type { ReviewVerdict } from './review.ts';
+import type { ReviewVerdict } from '../review/review.ts';
 
 /** Prompt prosi o 200 znaków, ale model bywa rozwlekły – odrzucamy dopiero powyżej limitu z bazy (400). */
 export const DAY_NOTE_MAX_LENGTH = 400;

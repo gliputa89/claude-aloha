@@ -2,7 +2,7 @@ import { router } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 
 import { Mark } from '@/components/brand/mark';
-import { MatchPrompts } from '@/components/plan/match-prompt';
+import { MatchPrompts } from '@/components/strava/match-prompt';
 import { SessionRow } from '@/components/plan/session-row';
 import { WeatherCard, WeatherPrompt } from '@/components/plan/weather-card';
 import { Button } from '@/components/ui/button';
@@ -14,7 +14,8 @@ import { radius, space } from '@/constants/theme';
 import { todayIso } from '@/features/onboarding/time';
 import { allSessions, usePlan } from '@/features/plan/plan-provider';
 import { PlanStatus } from '@/features/plan/plan-status';
-import { useDayNote } from '@/features/today/day-note';
+import { useDayNote } from '@/features/coach/day-note';
+import { useModule } from '@/features/modules/use-module';
 import { useWeather } from '@/features/weather/weather-provider';
 import { useColors } from '@/hooks/use-colors';
 import { useLocale, useT } from '@/hooks/use-t';
@@ -48,7 +49,8 @@ export default function TodayScreen() {
   // Ostatni zrobiony trening (dzisiejszy jest już wyżej) – tapnięcie otwiera jego ocenę.
   const last = sessions.filter((s) => s.scheduled_on < today && (s.status === 'done' || s.status === 'partial')).at(-1);
   // Dzień bez biegu: notka trenera od AI zamiast stałego tekstu (stały zostaje, dopóki notki nie ma).
-  const dayNote = useDayNote(today, state.kind === 'ready' && todayRuns.length === 0);
+  const modules = { weather: useModule('weather'), strava: useModule('strava'), review: useModule('review'), coach: useModule('coach') };
+  const dayNote = useDayNote(today, modules.coach && state.kind === 'ready' && todayRuns.length === 0);
   const hasWeather = shown.some((s) => weather.bySession.has(s.id));
 
   return (
@@ -68,7 +70,7 @@ export default function TodayScreen() {
 
       {state.kind === 'ready' ? (
         <>
-          <MatchPrompts />
+          {modules.strava ? <MatchPrompts /> : null}
           <FadeUp delay={60} style={styles.section}>
             <Text variant="heading" accessibilityRole="header">
               {t('today.title')}
@@ -77,7 +79,7 @@ export default function TodayScreen() {
               todayRuns.map((s) => (
                 <View key={s.id} style={styles.section}>
                   <SessionRow session={s} today />
-                  <WeatherCard session={s} />
+                  {modules.weather ? <WeatherCard session={s} /> : null}
                 </View>
               ))
             ) : todays.length > 0 ? (
@@ -93,7 +95,7 @@ export default function TodayScreen() {
                 {t('today.next')}
               </Text>
               <SessionRow session={next} today={false} />
-              <WeatherCard session={next} />
+              {modules.weather ? <WeatherCard session={next} /> : null}
             </FadeUp>
           ) : null}
 
@@ -103,14 +105,14 @@ export default function TodayScreen() {
                 {t('today.last')}
               </Text>
               <SessionRow session={last} today={false} />
-              {last.review ? (
+              {modules.review && last.review ? (
                 <Text variant="caption">{t('today.lastVerdict', { verdict: t(`review.verdict.${last.review.verdict}`) })}</Text>
               ) : null}
             </FadeUp>
           ) : null}
 
-          {shown.length > 0 ? <WeatherPrompt /> : null}
-          {hasWeather ? (
+          {modules.weather && shown.length > 0 ? <WeatherPrompt /> : null}
+          {modules.weather && hasWeather ? (
             <Text variant="caption" align="center">
               {t('weather.credit')}
             </Text>

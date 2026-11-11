@@ -5,8 +5,8 @@ import { AI_TIP_MAX_LENGTH, applyOperations, parseAiPlanResponse, validateWeeks,
 import { costUsd, modelPrice } from './ai-pricing.ts';
 import { aiAthleteFromSurvey, DEFAULT_AI_PROMPTS, planWeeksUserMessage, rulesPromptBlock } from './ai-prompt.ts';
 import { planWeeksWithAi, type AiCallRecord, type AiModelRequest, type AiModelResult } from './ai-run.ts';
-import { DEFAULT_ENGINE_PARAMS, ENGINE_PARAM_SPECS, validateEngineParams } from './params.ts';
-import { generateInitialPlan, generatePlanWeek, type PlanInput } from './plan.ts';
+import { DEFAULT_ENGINE_PARAMS, ENGINE_PARAM_SPECS, validateEngineParams } from '../plan/params.ts';
+import { generateInitialPlan, generatePlanWeek, type PlanInput } from '../plan/plan.ts';
 
 // 2026-11-09 to poniedziałek.
 const base: PlanInput = {

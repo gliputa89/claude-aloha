@@ -22,9 +22,9 @@ import {
   type AiFunctionName,
   type AiPromptConfig,
 } from './ai-prompt.ts';
-import { trainingLevelOf } from './levels.ts';
-import type { EngineParams } from './params.ts';
-import { dayCap, ENGINE_VERSION, type PlanInput, type PlannedWeek } from './plan.ts';
+import { trainingLevelOf } from '../plan/levels.ts';
+import type { EngineParams } from '../plan/params.ts';
+import { dayCap, ENGINE_VERSION, type PlanInput, type PlannedWeek } from '../plan/plan.ts';
 
 export type AiMessage = { role: 'user' | 'assistant'; content: string };
 
