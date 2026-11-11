@@ -31,8 +31,7 @@ type Row = {
 /**
  * Profile trenerów-ludzi z bazy (publiczny odczyt kluczem anon).
  * Pokazujemy tylko uzupełnione profile (z jednym zdaniem o trenerze) – konta testowe go nie mają.
- * Profile przykładowe (is_demo: zmyślone dane, zdjęcia ze stocku) nie trafiają na produkcję:
- * widać je tylko lokalnie albo z SHOW_DEMO_COACHES=1, zawsze z etykietą.
+ * Profile przykładowe (is_demo: zmyślone dane, zdjęcia ze stocku) pokazujemy wszędzie, z etykietą.
  */
 export async function getCoaches(locale: Locale): Promise<Coach[]> {
   "use cache";
@@ -42,7 +41,6 @@ export async function getCoaches(locale: Locale): Promise<Coach[]> {
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? process.env.SUPABASE_ANON_KEY;
   if (!url || !key) return [];
 
-  const showDemo = process.env.NODE_ENV !== "production" || process.env.SHOW_DEMO_COACHES === "1";
   const query = new URLSearchParams({
     select:
       "id,display_name,title,title_en,headline,headline_en,specialties,specialties_en,experience_years,city,avatar_url,is_demo",
@@ -51,7 +49,6 @@ export async function getCoaches(locale: Locale): Promise<Coach[]> {
     headline: "not.is.null",
     order: "sort_order",
   });
-  if (!showDemo) query.set("is_demo", "eq.false");
 
   try {
     const response = await fetch(`${url}/rest/v1/coaches?${query}`, {

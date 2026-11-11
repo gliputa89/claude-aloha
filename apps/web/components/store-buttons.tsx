@@ -11,21 +11,21 @@ const icons = {
 /** Przyciski sklepów. Adresy w lib/content.ts (storeLinks) – do uzupełnienia po publikacji. */
 export function StoreButtons({ store, tone = "light" }: Props) {
   const base =
-    "flex min-w-44 items-center gap-3 rounded-button px-4 py-2.5 leading-tight transition-colors duration-150";
+    "flex min-w-0 items-center gap-2.5 rounded-button px-3 py-2.5 leading-tight transition-colors duration-150 sm:min-w-44 sm:gap-3 sm:px-4";
   const skin =
     tone === "light"
       ? "bg-white text-deep hover:bg-surface-accent-soft"
       : "bg-deep text-white hover:bg-action-hover";
   return (
-    <div className="flex flex-wrap gap-3">
+    <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:gap-3">
       {(["ios", "android"] as const).map((platform) => (
         <a key={platform} href={storeLinks[platform]} className={`${base} ${skin}`}>
-          <svg viewBox="0 0 24 24" className="size-7 shrink-0" fill="currentColor" aria-hidden="true">
+          <svg viewBox="0 0 24 24" className="size-6 shrink-0 sm:size-7" fill="currentColor" aria-hidden="true">
             <path d={icons[platform]} />
           </svg>
           <span className="flex flex-col">
-            <span className="text-xs font-medium opacity-75">{store[platform][0]}</span>
-            <span className="text-lg font-bold tracking-tight">{store[platform][1]}</span>
+            <span className="text-xs font-medium whitespace-nowrap opacity-75">{store[platform][0]}</span>
+            <span className="text-base font-bold tracking-tight whitespace-nowrap sm:text-lg">{store[platform][1]}</span>
           </span>
         </a>
       ))}
