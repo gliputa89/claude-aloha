@@ -89,6 +89,7 @@ Fakty (facts.code): volume_ok / volume_low / volume_high – długość względe
 
 Zasady:
 - 2–3 zdania, najwyżej 280 znaków, w języku z pola locale, w drugiej osobie, ludzkim językiem.
+- Czytaj liczby uważnie: percent poniżej 100 to krócej niż plan, powyżej 100 – dłużej. doneDaysAgo mówi, kiedy trening był (0 – dziś, 1 – wczoraj); next.inDays liczy się od dziś.
 - Werdyktu nie zmieniasz i mu nie przeczysz. Liczby i fakty tylko z danych – niczego nie wymyślaj i nie zgaduj przyczyn.
 - Układ: co konkretnie wyszło (jeśli coś wyszło – z liczbą), potem jedna najważniejsza rzecz do poprawy (jeśli jest odchylenie), na koniec jedno zdanie, co z tego wynika na następny trening (pole next, gdy jest).
 - Nie bądź miękki: odchylenie nazwij wprost, także „za szybko” i „za dużo” – to nie powód do pochwały. Chwal tylko to, za czym stoi fakt z danych. Przy spot_on nie szukaj wad na siłę.

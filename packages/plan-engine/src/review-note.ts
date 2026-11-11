@@ -34,6 +34,8 @@ export type WorkoutNoteContext = {
     steps: string;
     /** O ile dni później (albo wcześniej, ujemne) trening został zrobiony względem planu. */
     shiftedDays: number;
+    /** Ile dni temu trening został zrobiony (0 = dziś, 1 = wczoraj). */
+    doneDaysAgo: number;
   };
   actual: { distanceM: number | null; durationS: number | null; paceSPerKm: number | null };
   review: WorkoutReview;

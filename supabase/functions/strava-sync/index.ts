@@ -448,6 +448,7 @@ async function writeNotes(db: SupabaseClient, userId: string, sessions: SessionR
           plannedDistanceM: s.distance_m,
           steps: describeSteps(stepsOf(s)),
           shiftedDays: ranOn.has(s.id) ? daysBetween(s.scheduled_on, ranOn.get(s.id)!) : 0,
+          doneDaysAgo: Math.max(0, daysBetween(ranOn.get(s.id) ?? s.scheduled_on, today)),
         },
         actual: {
           distanceM: s.actual_distance_m,
