@@ -50,11 +50,14 @@ Bez klucza `ANTHROPIC_API_KEY` albo przy błędzie modelu aplikacja pokazuje tek
   (`strava_activities.suggested_session_id`), aplikacja pyta „To był ten trening?” (Dzisiaj i szczegóły treningu),
   a odpowiedź idzie do `strava-sync` jako `{ answer: { activityId, accept } }`.
 - Ocena treningu: dla biegów przy treningach `strava-sync` pobiera raz przebieg tempa (strumienie `time`, `distance`
-  – bez tętna; najwyżej 5 biegów na synchronizację) i zapisuje werdykt w `session_reviews`
+  – tętno tylko przy zgodzie `health_data`; najwyżej 5 biegów na synchronizację) i zapisuje werdykt w `session_reviews`
   (reguły: `packages/plan-engine/review.ts`). Aplikacja pokazuje go w karcie „Zrobione” w szczegółach treningu.
 - Notka trenera AI: do świeżych ocen (do 10 dni wstecz, najwyżej 2 na synchronizację) `strava-sync` dopisuje 2–3
   zdania od Claude (funkcja AI `workout-review`, prompt edytowany w panelu jak pozostałe; sekret `ANTHROPIC_API_KEY`).
   Model dostaje ocenę z reguł, poprzednie notki i regularność – bez danych osobowych. Bez klucza zostaje sama ocena.
+- Testowanie oceny: `packages/plan-engine/src/review-sim.ts` generuje sztuczne biegi (idealne, trochę inne, zupełnie
+  inne; z tętnem i bez) i trzyma macierz scenariuszy z oczekiwanym werdyktem – sprawdzają ją testy silnika.
+  Te same scenariusze przez prawdziwy prompt notki puszcza panel: AI → „Test ocen” (nic nie zapisuje użytkownikom).
 - Ręczne pobranie: Profil → Strava → „Pobierz biegi z 3 dni” wywołuje `strava-sync` z `{ manual: true }` – od razu,
   okno 3 dni, najwyżej raz na 3 godziny na użytkownika (`strava_connections.last_manual_sync_at`).
 - `strava-oauth` – „Połącz przez Stravę” w aplikacji (Profil → Strava) i w panelu (tester → użytkownik → karta

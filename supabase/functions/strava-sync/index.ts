@@ -5,7 +5,8 @@
 //   2. pobiera aktywności od początku aktywnego planu (najwyżej 30 dni wstecz),
 //   3. reguły (packages/plan-engine/strava.ts) dopasowują biegi do treningów z tego samego dnia,
 //   4. zapisuje biegi w public.strava_activities, a w treningach status (zrobiony / częściowo), dystans i czas.
-//   5. dla biegów przypisanych do treningów pobiera raz przebieg tempa (strumienie time + distance, bez tętna)
+//   5. dla biegów przypisanych do treningów pobiera raz przebieg tempa (strumienie time + distance; tętno tylko
+//      przy zgodzie 'health_data' – to dane o zdrowiu)
 //      i zapisuje ocenę treningu w public.session_reviews (reguły: packages/plan-engine/review.ts),
 //   6. do świeżych ocen dopisuje notkę trenera AI (funkcja 'workout-review', sekret ANTHROPIC_API_KEY) –
 //      bez klucza albo przy błędzie modelu zostaje sama ocena.
@@ -33,6 +34,7 @@ import {
   isStravaRun,
   isStravaWalk,
   matchStravaActivities,
+  noteActual,
   promptFromRow,
   reviewWorkout,
   stepsOf,
@@ -78,6 +80,10 @@ const MAX_PAGES = 3;
 /** Przebieg tempa to osobne zapytanie na bieg – przy jednej synchronizacji pobieramy najwyżej tyle. */
 const MAX_PACE_FETCHES = 5;
 /** Notka trenera: tylko do świeżych treningów i najwyżej tyle na synchronizację (każda to wywołanie modelu). */
+/** Tętno wchodzi do oceny dopiero, gdy tyle zapisanych biegów ma pomiar (inaczej „najwyższe tętno” to przypadek). */
+const MIN_HR_ACTIVITIES = 3;
+/** Ocena tętna względem maksimum – do włączenia, gdy biegacz poda albo potwierdzi swoje tętno maksymalne. */
+const HR_MAX_RULES = false;
 const NOTE_MAX_AGE_DAYS = 10;
 const MAX_NOTES_PER_SYNC = 2;
 
@@ -119,6 +125,9 @@ type StravaActivity = {
   moving_time?: number;
   elapsed_time?: number;
   total_elevation_gain?: number;
+  has_heartrate?: boolean;
+  average_heartrate?: number;
+  max_heartrate?: number;
   athlete?: { id?: number };
 };
 
@@ -286,7 +295,7 @@ async function applyMatches(db: SupabaseClient, userId: string, sessions: Sessio
  * Przebieg tempa dla biegów przypisanych do treningów, które jeszcze go nie mają. Błąd jednego biegu nie
  * zatrzymuje reszty; po odmowie z limitu (429) przestajemy pytać do następnej synchronizacji.
  */
-async function fetchPaces(db: SupabaseClient, userId: string, token: string, sinceIso: string) {
+async function fetchPaces(db: SupabaseClient, userId: string, token: string, sinceIso: string, withHr: boolean) {
   const pending = await db
     .from('strava_activities')
     .select('id')
@@ -299,15 +308,17 @@ async function fetchPaces(db: SupabaseClient, userId: string, token: string, sin
   if (pending.error) return console.error('pace pending failed', pending.error.code, pending.error.message);
   for (const row of pending.data ?? []) {
     try {
-      const res = await fetch(`${STRAVA}/api/v3/activities/${row.id}/streams?keys=time,distance&key_by_type=true`, {
+      const res = await fetch(`${STRAVA}/api/v3/activities/${row.id}/streams?keys=time,distance${withHr ? ',heartrate' : ''}&key_by_type=true`, {
         headers: { Authorization: `Bearer ${token}` },
         signal: AbortSignal.timeout(10_000),
       });
       if (res.status === 429 || res.status === 401) return;
       // 404 = aktywność bez zapisu trasy (np. wpisana ręcznie) – zapamiętujemy, że pytaliśmy.
       if (!res.ok && res.status !== 404) continue;
-      const body = res.ok ? ((await res.json()) as { time?: { data?: unknown }; distance?: { data?: unknown } }) : null;
-      const buckets = body ? bucketsFromStream(body.time?.data, body.distance?.data) : null;
+      const body = res.ok
+        ? ((await res.json()) as { time?: { data?: unknown }; distance?: { data?: unknown }; heartrate?: { data?: unknown } })
+        : null;
+      const buckets = body ? bucketsFromStream(body.time?.data, body.distance?.data, undefined, withHr ? body.heartrate?.data : undefined) : null;
       const { error } = await db
         .from('strava_activities')
         .update({ pace_buckets: buckets, pace_fetched_at: new Date().toISOString() })
@@ -321,7 +332,7 @@ async function fetchPaces(db: SupabaseClient, userId: string, token: string, sin
 
 /** Liczy oceny zrobionych treningów z przypisanymi biegami i zapisuje te, które się zmieniły. */
 async function applyReviews(db: SupabaseClient, userId: string, sessions: SessionRow[], sinceIso: string) {
-  const [activities, existing] = await Promise.all([
+  const [activities, existing, hrRows] = await Promise.all([
     db
       .from('strava_activities')
       .select('session_id, started_at, elevation_gain_m, pace_buckets')
@@ -330,7 +341,13 @@ async function applyReviews(db: SupabaseClient, userId: string, sessions: Sessio
       .gte('started_at', sinceIso)
       .order('started_at'),
     db.from('session_reviews').select('session_id, verdict, volume, intensity, facts, engine_version').eq('user_id', userId),
+    db.from('strava_activities').select('max_hr').eq('user_id', userId).not('max_hr', 'is', null),
   ]);
+  // Punkt odniesienia dla tętna: najwyższe zarejestrowane w zapisanych biegach – dopiero od kilku biegów z pomiarem.
+  // Na razie wyłączone (HR_MAX_RULES): z kilku biegów nie wiadomo, jakie jest prawdziwe tętno maksymalne, więc
+  // ocena „spokojnie / za mocno” względem niego byłaby zgadywaniem. Dryf tętna nie potrzebuje maksimum i działa.
+  const peaks = (hrRows.data ?? []).map((r) => Number(r.max_hr));
+  const hrMax = HR_MAX_RULES && peaks.length >= MIN_HR_ACTIVITIES ? Math.max(...peaks) : null;
   if (activities.error || existing.error) {
     return console.error('review load failed', activities.error?.message ?? existing.error?.message);
   }
@@ -347,7 +364,14 @@ async function applyReviews(db: SupabaseClient, userId: string, sessions: Sessio
     if (!runs || (s.status !== 'done' && s.status !== 'partial')) continue;
     // Kilka aktywności jednego treningu: przebieg sklejamy tylko wtedy, gdy każda go ma.
     const complete = runs.every((r) => r.pace_buckets && r.pace_buckets.bucketS === runs[0]!.pace_buckets?.bucketS);
-    const buckets = complete ? { bucketS: runs[0]!.pace_buckets!.bucketS, m: runs.flatMap((r) => r.pace_buckets!.m) } : null;
+    const allHr = complete && runs.every((r) => r.pace_buckets!.hr?.length === r.pace_buckets!.m.length);
+    const buckets: PaceBuckets | null = complete
+      ? {
+          bucketS: runs[0]!.pace_buckets!.bucketS,
+          m: runs.flatMap((r) => r.pace_buckets!.m),
+          ...(allHr ? { hr: runs.flatMap((r) => r.pace_buckets!.hr!) } : {}),
+        }
+      : null;
     const review = reviewWorkout({
       type: s.type,
       durationMin: s.duration_min,
@@ -357,6 +381,7 @@ async function applyReviews(db: SupabaseClient, userId: string, sessions: Sessio
       actualDurationS: s.actual_duration_s,
       buckets,
       elevationGainM: runs.reduce((n, r) => n + (r.elevation_gain_m ?? 0), 0),
+      hrMax,
     });
     const row = {
       session_id: s.id,
@@ -450,11 +475,7 @@ async function writeNotes(db: SupabaseClient, userId: string, sessions: SessionR
           shiftedDays: ranOn.has(s.id) ? daysBetween(s.scheduled_on, ranOn.get(s.id)!) : 0,
           doneDaysAgo: Math.max(0, daysBetween(ranOn.get(s.id) ?? s.scheduled_on, today)),
         },
-        actual: {
-          distanceM: s.actual_distance_m,
-          durationS: s.actual_duration_s,
-          paceSPerKm: s.actual_distance_m && s.actual_duration_s ? Math.round(s.actual_duration_s / (s.actual_distance_m / 1000)) : null,
-        },
+        actual: noteActual(s.actual_distance_m, s.actual_duration_s),
         review,
         previousSameType: previous
           ? { date: previous.scheduled_on, verdict: rows.get(previous.id)!.verdict, facts: rows.get(previous.id)!.facts }
@@ -549,6 +570,12 @@ async function syncUser(db: SupabaseClient, userId: string, opts: { force: boole
     return { ...state, updated: 0, error: 'strava_unavailable' };
   }
 
+  // Tętno to dane o zdrowiu – bierzemy je tylko przy aktywnej zgodzie; bez niej zostaje samo tempo.
+  const consent = await db.rpc('has_consent', { uid: userId, consent_kind: 'health_data' });
+  if (consent.error) console.error('has_consent failed', consent.error.message);
+  const withHr = consent.data === true;
+  const bpm = (value: number | undefined) => (withHr && value && value >= 30 && value <= 240 ? Math.round(value) : null);
+
   // Tylko biegi i marsze tego sportowca (reszta dyscyplin nas nie dotyczy i nie trafia do bazy).
   const own = fetched.activities.filter((a) => {
     const sport = a.sport_type ?? a.type ?? '';
@@ -567,6 +594,8 @@ async function syncUser(db: SupabaseClient, userId: string, opts: { force: boole
         moving_time_s: Math.round(a.moving_time ?? 0),
         elapsed_time_s: Math.round(a.elapsed_time ?? a.moving_time ?? 0),
         elevation_gain_m: a.total_elevation_gain === undefined ? null : Math.round(a.total_elevation_gain),
+        avg_hr: bpm(a.average_heartrate),
+        max_hr: bpm(a.max_heartrate),
       })),
       { onConflict: 'id' },
     );
@@ -586,7 +615,7 @@ async function syncUser(db: SupabaseClient, userId: string, opts: { force: boole
 
   // Pary i propozycje liczymy ze wszystkich zapisanych biegów planu (nie tylko z pobranego okna).
   const { updated, matched, suggested } = await applyMatches(db, userId, sessions, windowStart(LOOKBACK_DAYS));
-  await fetchPaces(db, userId, token, windowStart(LOOKBACK_DAYS));
+  await fetchPaces(db, userId, token, windowStart(LOOKBACK_DAYS), withHr);
   await applyReviews(db, userId, sessions, windowStart(LOOKBACK_DAYS));
   await writeNotes(db, userId, sessions).catch((e) => console.error('notes failed', userId, e instanceof Error ? e.message : e));
 

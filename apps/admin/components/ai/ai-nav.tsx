@@ -8,6 +8,7 @@ const TABS = [
   { href: '/ai/calls', label: 'Wywołania' },
   { href: '/ai/prompts', label: 'Prompty' },
   { href: '/ai/rules', label: 'Ramy planu' },
+  { href: '/ai/review-test', label: 'Test ocen' },
 ] as const;
 
 export function AiNav() {

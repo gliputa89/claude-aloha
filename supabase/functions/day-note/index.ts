@@ -103,6 +103,8 @@ Deno.serve(async (req) => {
       }),
       previousNotes,
       maxLength: DAY_NOTE_MAX_LENGTH,
+      locale,
+      softMaxLength: 240,
       prompt: promptFromRow('day-note', promptRes.data),
       call: claudeCaller(apiKey),
       log: async (call: AiCallRecord, payload: AiCallPayload) => {

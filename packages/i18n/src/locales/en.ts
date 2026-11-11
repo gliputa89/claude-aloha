@@ -290,6 +290,10 @@ export const en: Dictionary = {
       reps_uneven: 'Pace spread between reps: {s} s/km. Aim for even – last one like the first.',
       no_reps: 'I can’t see any hard reps – it turned out as a steady run instead of a session.',
       no_pace_data: 'I don’t have the pace profile yet, so I’m judging length only.',
+      hr_ok: 'Heart rate stayed easy: on average {percent}% of your highest.',
+      hr_high: 'Heart rate averaged {percent}% of your highest – too high for an easy run. Slow down, even if the pace looks harmless.',
+      hr_drift: 'At the same pace your heart rate was {percent}% higher in the second half. Start easier or take water on longer runs.',
+      steady_fast_hr_ok: 'Pace was {s} s/km faster than the zone, but heart rate stayed easy ({percent}%). Looks like your fitness has moved on – time to refresh the zones.',
     },
   },
   today: {

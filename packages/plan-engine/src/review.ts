@@ -1,4 +1,5 @@
-// Porównanie wykonanego biegu z treningiem z planu i werdykt. Czyste reguły – bez AI i bez tętna.
+// Porównanie wykonanego biegu z treningiem z planu i werdykt. Czyste reguły – bez AI.
+// Tętno (gdy biegacz zgodził się na dane zdrowotne i zegarek je zapisał) rozstrzyga intensywność biegów ciągłych.
 //
 // Dwie osie: objętość (czas albo dystans względem planu) i intensywność (tempo względem stref treningu).
 // Każde odchylenie ma wagę 0–3; najcięższe decyduje o werdykcie:
@@ -8,7 +9,7 @@
 
 import { flattenSteps, HARD_ZONES, type PaceRange, type WorkoutItem } from './workout.ts';
 
-export const REVIEW_VERSION = 1;
+export const REVIEW_VERSION = 2;
 
 export const REVIEW_RULES = {
   /** Długość kubełka przebiegu tempa (s). */
@@ -32,6 +33,15 @@ export const REVIEW_RULES = {
   relativeHard: 0.9,
   /** Rozrzut tempa między odcinkami (s/km), od którego o nim mówimy. */
   unevenS: 15,
+  /**
+   * Tętno w biegu ciągłym jako część najwyższego zarejestrowanego tętna biegacza: do `easyOk` spokojnie,
+   * powyżej – za mocno (waga 1), powyżej `easyHigh` – wyraźnie za mocno (waga 2).
+   */
+  hr: { easyOk: 0.8, easyHigh: 0.85 },
+  /** Tętno liczymy, gdy ma je co najmniej taka część kubełków w ruchu. */
+  hrCoverage: 0.6,
+  /** Dryf tętna: o tyle procent gorszy stosunek tempa do tętna w drugiej połowie biegu (≥ 30 min); 5% to przyjęta granica. */
+  hrDriftPct: 5,
 } as const;
 
 export type ReviewVerdict = 'spot_on' | 'good' | 'passed_but' | 'different';
@@ -52,7 +62,11 @@ export type ReviewFactCode =
   | 'reps_slow'
   | 'reps_uneven'
   | 'no_reps'
-  | 'no_pace_data';
+  | 'no_pace_data'
+  | 'hr_ok'
+  | 'hr_high'
+  | 'hr_drift'
+  | 'steady_fast_hr_ok';
 
 export type ReviewFact = { code: ReviewFactCode; values: Record<string, number> };
 
@@ -65,16 +79,30 @@ export type WorkoutReview = {
   facts: ReviewFact[];
 };
 
-/** Przebieg tempa: metry pokonane w kolejnych kubełkach czasu od startu aktywności. */
-export type PaceBuckets = { bucketS: number; m: number[] };
+/**
+ * Przebieg tempa: metry pokonane w kolejnych kubełkach czasu od startu aktywności.
+ * `hr` – średnie tętno w tych samych kubełkach (null = brak pomiaru); tylko przy zgodzie na dane zdrowotne.
+ */
+export type PaceBuckets = { bucketS: number; m: number[]; hr?: (number | null)[] };
 
-/** Strumienie Stravy (`time` w sekundach od startu, `distance` w metrach) → kubełki. Złe dane → null. */
-export function bucketsFromStream(time: unknown, distance: unknown, bucketS: number = REVIEW_RULES.bucketS): PaceBuckets | null {
+/**
+ * Strumienie Stravy (`time` w sekundach od startu, `distance` w metrach, opcjonalnie `heartrate`) → kubełki.
+ * Złe dane → null; zły albo pusty strumień tętna → kubełki bez tętna.
+ */
+export function bucketsFromStream(
+  time: unknown,
+  distance: unknown,
+  bucketS: number = REVIEW_RULES.bucketS,
+  heartrate?: unknown,
+): PaceBuckets | null {
   if (!Array.isArray(time) || !Array.isArray(distance) || time.length < 2 || time.length !== distance.length) return null;
   const total = Number(time[time.length - 1]);
   if (!Number.isFinite(total) || total < bucketS || total > 24 * 3600) return null;
   const m: number[] = [];
+  const withHr = Array.isArray(heartrate) && heartrate.length === time.length;
+  const hr: (number | null)[] = [];
   let i = 0;
+  let from = 0;
   let previous = Number(distance[0]) || 0;
   for (let end = bucketS; end <= total; end += bucketS) {
     while (i + 1 < time.length && Number(time[i + 1]) <= end) i++;
@@ -87,8 +115,13 @@ export function bucketsFromStream(time: unknown, distance: unknown, bucketS: num
     if (!Number.isFinite(at)) return null;
     m.push(Math.max(0, Math.round(at - previous)));
     previous = at;
+    if (withHr) {
+      const beats = (heartrate as unknown[]).slice(from, i + 1).map(Number).filter((b) => Number.isFinite(b) && b >= 30 && b <= 240);
+      hr.push(beats.length > 0 ? Math.round(beats.reduce((n, b) => n + b, 0) / beats.length) : null);
+      from = i + 1;
+    }
   }
-  return { bucketS, m };
+  return withHr && hr.some((b) => b !== null) ? { bucketS, m, hr } : { bucketS, m };
 }
 
 export type ReviewInput = {
@@ -100,6 +133,8 @@ export type ReviewInput = {
   actualDurationS: number | null;
   buckets: PaceBuckets | null;
   elevationGainM?: number | null;
+  /** Najwyższe zarejestrowane tętno biegacza (punkt odniesienia); null – nie znamy, tętno nie wchodzi do oceny. */
+  hrMax?: number | null;
 };
 
 const paceOf = (m: number, s: number) => (m > 0 ? s / (m / 1000) : Number.POSITIVE_INFINITY);
@@ -163,9 +198,20 @@ export function reviewWorkout(input: ReviewInput): WorkoutReview {
   const slack = R.paceSlackS + (hilly ? R.hillySlackS : 0);
   const flat = flattenSteps(input.steps);
   const hard = flat.filter((s) => s.kind === 'work' && HARD_ZONES.includes(s.zone));
+  const inMotion = input.buckets ? input.buckets.m.map((m) => m / input.buckets!.bucketS >= R.stoppedMps) : [];
   const moving = input.buckets
-    ? { ...input.buckets, m: input.buckets.m.filter((m) => m / input.buckets!.bucketS >= R.stoppedMps) }
+    ? {
+        bucketS: input.buckets.bucketS,
+        m: input.buckets.m.filter((_, i) => inMotion[i]),
+        hr: input.buckets.hr?.filter((_, i) => inMotion[i]),
+      }
     : null;
+  // Tętno: średnia z kubełków w ruchu, jeśli pomiar pokrywa większość biegu i znamy punkt odniesienia.
+  const beats = (moving?.hr ?? []).filter((b): b is number => b !== null);
+  const hrShare =
+    input.hrMax && moving && moving.m.length > 0 && beats.length / moving.m.length >= R.hrCoverage
+      ? beats.reduce((n, b) => n + b, 0) / beats.length / input.hrMax
+      : null;
   let intensity: ReviewAxis | null = null;
   let unknownAccent = false;
 
@@ -228,14 +274,49 @@ export function reviewWorkout(input: ReviewInput): WorkoutReview {
       : input.actualDistanceM && input.actualDurationS
         ? paceOf(input.actualDistanceM, input.actualDurationS)
         : null;
-    if (range && average !== null && Number.isFinite(average)) {
-      if (average < range.fastS - slack) {
-        const s = Math.round(range.fastS - average);
+    const fastBy = range && average !== null && Number.isFinite(average) && average < range.fastS - slack ? Math.round(range.fastS - average) : 0;
+    if (hrShare !== null) {
+      // Z tętnem to ono mówi, czy było spokojnie: szybkie tempo przy niskim tętnie to raczej nieaktualne strefy.
+      const percent = Math.round(hrShare * 100);
+      if (hrShare > R.hr.easyOk) {
         intensity = 'high';
-        note('steady_fast', s > R.steadyMajorS ? 2 : 1, { s });
+        note('hr_high', hrShare > R.hr.easyHigh ? 2 : 1, { percent });
+        if (fastBy > 0) note('steady_fast', fastBy > R.steadyMajorS ? 2 : 1, { s: fastBy });
+      } else {
+        intensity = 'ok';
+        if (fastBy > 0) note('steady_fast_hr_ok', 0, { s: fastBy, percent });
+        else note('hr_ok', 0, { percent });
+      }
+    } else if (range && average !== null && Number.isFinite(average)) {
+      if (fastBy > 0) {
+        intensity = 'high';
+        note('steady_fast', fastBy > R.steadyMajorS ? 2 : 1, { s: fastBy });
       } else {
         intensity = 'ok';
         note('steady_ok', 0);
+      }
+    }
+    // Dryf tętna: to samo tempo kosztuje w drugiej połowie wyraźnie więcej uderzeń (zmęczenie, upał, za mocny początek).
+    if (moving?.hr && moving.m.length * moving.bucketS >= 30 * 60) {
+      const half = Math.floor(moving.m.length / 2);
+      const efficiency = (from: number, to: number) => {
+        let metres = 0;
+        let pulse = 0;
+        let count = 0;
+        for (let i = from; i < to; i++) {
+          const b = moving.hr![i];
+          if (b == null) continue;
+          metres += moving.m[i]!;
+          pulse += b;
+          count++;
+        }
+        return count >= (to - from) * R.hrCoverage && pulse > 0 ? metres / pulse : null;
+      };
+      const first = efficiency(0, half);
+      const second = efficiency(half, moving.m.length);
+      if (first && second) {
+        const percent = Math.round((first / second - 1) * 100);
+        if (percent > R.hrDriftPct) note('hr_drift', 1, { percent });
       }
     }
     if (input.type === 'long' && moving && moving.m.length * moving.bucketS >= 20 * 60) {

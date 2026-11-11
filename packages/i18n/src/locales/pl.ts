@@ -291,6 +291,10 @@ export const pl = {
       reps_uneven: 'Rozrzut tempa między odcinkami: {s} s/km. Celuj w równe – ostatni jak pierwszy.',
       no_reps: 'Nie widzę mocnych odcinków – wyszedł równy bieg zamiast akcentu.',
       no_pace_data: 'Nie mam jeszcze przebiegu tempa, więc oceniam tylko długość.',
+      hr_ok: 'Tętno spokojne: średnio {percent}% Twojego najwyższego.',
+      hr_high: 'Tętno średnio {percent}% Twojego najwyższego – jak na spokojny bieg za wysoko. Zwolnij, nawet jeśli tempo wygląda niewinnie.',
+      hr_drift: 'Przy tym samym tempie tętno w drugiej połowie było o {percent}% wyższe. Zacznij spokojniej albo weź wodę na dłuższe biegi.',
+      steady_fast_hr_ok: 'Tempo o {s} s/km szybsze niż strefa, ale tętno spokojne ({percent}%). Wygląda na to, że forma urosła – strefy są do odświeżenia.',
     },
   },
   today: {
