@@ -129,8 +129,10 @@ export type GeneratedPlan = {
   /** Liczba treningów w wygenerowanych tygodniach. */
   sessions: number;
   source: 'ai' | 'rules';
-  /** Krótkie uzasadnienie od trenera (AI) w języku użytkownika. */
+  /** Uzasadnienie zmian w szkicu od AI (dla panelu; aplikacja go nie pokazuje). */
   summary: string | null;
+  /** Powitanie od trenera (AI) do pokazania raz po ułożeniu planu; brak przy planie z samych reguł i w starszej funkcji. */
+  welcome?: string | null;
 };
 
 /** Generuje plan na serwerze (Edge Function generate-plan) z odpowiedzi z ankiety. */

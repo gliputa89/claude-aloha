@@ -31,7 +31,7 @@ export type OnboardingDraft = {
 };
 
 /** Do wyboru w kroku „Kiedy możesz biegać?”. */
-export const WEEKDAY_MINUTES = [30, 45, 60, 90] as const;
+export const WEEKDAY_MINUTES = [30, 45, 60, 75, 90] as const;
 export const WEEKEND_MINUTES = [30, 45, 60, 90, 120] as const;
 
 const initialDraft = (): OnboardingDraft => ({

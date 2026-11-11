@@ -35,8 +35,11 @@ export function planLoaderTexts(t: Translate, ctx: PlanLoaderContext): PlanLoade
   };
 }
 
-/** Odpowiedź funkcji generate-plan → dane finału (data startu słownie, w języku aplikacji). */
-export function planLoaderResult(plan: GeneratedPlan | null, locale: Locale): PlanLoaderResult | null {
+/**
+ * Odpowiedź funkcji generate-plan → dane finału (data startu słownie, w języku aplikacji).
+ * Wiadomość trenera to powitanie napisane przez AI do tego planu; `fallbackNote` – gdy plan powstał z samych reguł.
+ */
+export function planLoaderResult(plan: GeneratedPlan | null, locale: Locale, fallbackNote: string): PlanLoaderResult | null {
   if (!plan?.startsOn) return null;
   return {
     sessions: plan.sessions,
@@ -45,6 +48,6 @@ export function planLoaderResult(plan: GeneratedPlan | null, locale: Locale): Pl
       day: 'numeric',
       month: 'long',
     }),
-    summary: plan.summary?.trim() || null,
+    note: plan.welcome?.trim() || fallbackNote,
   };
 }

@@ -167,7 +167,8 @@ Deno.serve(async (req) => {
     endsOn: plan.endsOn,
     sessions: plan.weeks.reduce((n, w) => n + w.sessions.length, 0),
     source: outcome?.source ?? 'rules',
-    // Krótkie uzasadnienie od trenera (w języku użytkownika) – do pokazania po wygenerowaniu planu.
+    // Uzasadnienie zmian w szkicu (dla panelu i logów) oraz powitanie od trenera – to ono idzie na ekran po ułożeniu planu.
     summary: outcome?.summary ?? null,
+    welcome: outcome?.welcome ?? null,
   });
 });

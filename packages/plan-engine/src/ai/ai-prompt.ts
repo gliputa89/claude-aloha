@@ -71,6 +71,7 @@ Jak pracować:
 - Operacje identyfikujesz datą treningu (date). Jeden trening dziennie. Przenosić i dodawać możesz tylko na wolne dni z listy freeDays.
 
 Pole summary: 1–3 krótkie zdania do biegacza, w jego języku (locale), w drugiej osobie, bez żargonu. Powiedz, co dopasowałeś i dlaczego. Bez porad medycznych.
+Pole welcome: tylko przy nowym planie po ankiecie (inaczej null) – powitanie pokazywane raz po ułożeniu planu: 2–3 zdania o planie jako całości (cel, rytm pierwszych tygodni, zachęta), nie o pojedynczym treningu ani o zmianach w szkicu.
 Pole reason w operacji: krótko, po co ta zmiana (dla zespołu, po polsku).`;
 
 export const DEFAULT_AI_PROMPTS: Record<AiFunctionName, AiPromptConfig> = {

@@ -313,6 +313,11 @@ test('parseAiPlanResponse: rady są dodatkiem – złe pozycje pomijane, długie
       ['2026-11-14', AI_TIP_MAX_LENGTH],
     ],
   );
+  // Powitanie: przycięte z białych znaków; puste albo brak → null (kolejne tygodnie, starsze odpowiedzi).
+  const greeted = parseAiPlanResponse({ summary: 's', welcome: '  Zaczynamy spokojnie.  ', operations: [] });
+  assert.equal(greeted.ok && greeted.value.welcome, 'Zaczynamy spokojnie.');
+  const silent = parseAiPlanResponse({ summary: 's', welcome: '   ', operations: [] });
+  assert.equal(silent.ok && silent.value.welcome, null);
   const noTips = parseAiPlanResponse({ summary: 's', operations: [] });
   assert.ok(noTips.ok);
   assert.deepEqual(noTips.value.tips, []);

@@ -31,8 +31,8 @@ export type PlanLoaderResult = {
   sessions: number;
   /** Sformatowana data startu, np. „poniedziałek, 16 listopada”. */
   startLabel: string;
-  /** Krótkie uzasadnienie od trenera (AI); brak przy planie z samych reguł. */
-  summary: string | null;
+  /** Wiadomość od trenera o gotowym planie: powitanie od AI albo stały tekst ze słownika. */
+  note: string;
 };
 
 export type PlanLoaderTexts = {
@@ -64,9 +64,9 @@ const SUN_SIZE = 132;
 const GLOW_SIZE = SUN_SIZE * 3;
 /** Słońce w trakcie pracy dochodzi do tej części drogi; resztę pokonuje w finale. */
 const WORKING_RISE = 0.82;
-const WORKING_MS = 16000;
+const WORKING_MS = 8000;
 /** Finał nie wcześniej niż po tylu ms – szybka odpowiedź nie może „mignąć”. */
-const MIN_VISIBLE_MS = 4200;
+const MIN_VISIBLE_MS = 3200;
 const STEP_MS = 2600;
 const SLOW_AFTER_MS = 25000;
 const RAY_RINGS = [0, 1, 2];
@@ -203,16 +203,14 @@ export function PlanLoader({ texts, task, onContinue, continuing = false }: Plan
                   <Stat label={texts.sessionsLabel} value={String(result.sessions)} />
                   <Stat label={texts.startLabel} value={result.startLabel} wide />
                 </FadeUp>
-                {result.summary ? (
-                  <FadeUp delay={560}>
-                    <View style={[styles.coach, { backgroundColor: c.surfaceBrandSoft }]}>
-                      <Text variant="label" color="textBrand">
-                        {texts.coachLabel}
-                      </Text>
-                      <Text numberOfLines={7}>{result.summary}</Text>
-                    </View>
-                  </FadeUp>
-                ) : null}
+                <FadeUp delay={560}>
+                  <View style={[styles.coach, { backgroundColor: c.surfaceBrandSoft }]}>
+                    <Text variant="label" color="textBrand">
+                      {texts.coachLabel}
+                    </Text>
+                    <Text numberOfLines={7}>{result.note}</Text>
+                  </View>
+                </FadeUp>
               </>
             ) : (
               <FadeUp delay={420}>
@@ -221,7 +219,7 @@ export function PlanLoader({ texts, task, onContinue, continuing = false }: Plan
                 </Text>
               </FadeUp>
             )}
-            <FadeUp delay={result?.summary ? 700 : 560}>
+            <FadeUp delay={result ? 700 : 560}>
               <Button label={texts.cta} loading={continuing} onPress={onContinue} />
             </FadeUp>
           </View>
