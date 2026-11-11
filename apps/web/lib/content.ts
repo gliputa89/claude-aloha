@@ -143,7 +143,7 @@ const pl: Content = {
   },
   screens: {
     title: "Tak to wygląda w telefonie",
-    lead: "Prawdziwe ekrany aplikacji, bez makiet. Otwierasz, widzisz, co dziś biegasz, i wychodzisz.",
+    lead: "Otwierasz aplikację i od razu wiesz, co dziś biegasz. To cztery ekrany, z których korzystasz najczęściej.",
     items: [
       {
         image: "today",
@@ -469,7 +469,7 @@ const en: Content = {
   },
   screens: {
     title: "What it looks like on your phone",
-    lead: "Real screens from the app, not mock-ups. Open it, see what you're running today, and head out.",
+    lead: "Open the app and you know straight away what you're running today. These are the four screens you'll use most.",
     note: "Screens shown in Polish. The app is also in English.",
     items: [
       {
