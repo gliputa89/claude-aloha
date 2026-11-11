@@ -168,7 +168,7 @@ export type StravaSurveyResult =
   | { status: 'failed' };
 
 /**
- * Ankieta startowa: propozycja odpowiedzi z biegów z ostatnich 8 tygodni (Edge Function strava-history).
+ * Ankieta startowa: propozycja odpowiedzi z biegów z ostatnich 26 tygodni (Edge Function strava-history).
  * Serwer niczego nie zapisuje – wynik trafia tylko do szkicu ankiety. Nigdy nie rzuca: bez Stravy ankietę
  * wypełnia się ręcznie.
  */

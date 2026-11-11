@@ -8,11 +8,18 @@ import { Button } from '@/components/ui/button';
 import { Notice } from '@/components/ui/notice';
 import { Text } from '@/components/ui/text';
 import { radius, space } from '@/constants/theme';
+import { formatDuration, fromIsoDate } from '@/features/onboarding/time';
 import { connectStrava, fetchStravaSurvey } from '@/features/strava/api';
 import { useColors } from '@/hooks/use-colors';
 import { useLocale, useT } from '@/hooks/use-t';
 
 type Phase = 'idle' | 'connecting' | 'analyzing';
+
+const RESULT_NOTE = {
+  race: 'onboarding.level.strava.resultRace',
+  effort: 'onboarding.level.strava.resultEffort',
+  run: 'onboarding.level.strava.resultRun',
+} as const;
 
 type StravaSurveyCardProps = {
   /** Propozycja już wczytana do ankiety (`null` – jeszcze nie połączono). */
@@ -22,7 +29,7 @@ type StravaSurveyCardProps = {
 
 /**
  * Ankieta startowa, krok „Jak teraz biegasz?”: zamiast odpowiadać na pytania, biegacz łączy Stravę, a my
- * uzupełniamy odpowiedzi z jego biegów z ostatnich 2 miesięcy. Pytania zostają pod kartą – dla osób bez Stravy
+ * uzupełniamy odpowiedzi z jego biegów z ostatniego półrocza. Pytania zostają pod kartą – dla osób bez Stravy
  * i do poprawienia propozycji.
  */
 export function StravaSurveyCard({ proposal, onProposal }: StravaSurveyCardProps) {
@@ -59,10 +66,20 @@ export function StravaSurveyCard({ proposal, onProposal }: StravaSurveyCardProps
     else setError('onboarding.level.strava.failed');
   };
 
-  const km = (m: number) => (m / 1000).toLocaleString(locale === 'en' ? 'en-GB' : 'pl-PL', { maximumFractionDigits: m < 10_000 ? 1 : 0 });
+  const tag = locale === 'en' ? 'en-GB' : 'pl-PL';
+  const km = (m: number) => (m / 1000).toLocaleString(tag, { maximumFractionDigits: m < 10_000 ? 1 : 0 });
 
   if (proposal) {
     const enough = proposal.level !== 'beginner';
+    const result = proposal.recentResult;
+    // Skąd wziął się czas: zawody, najszybszy odcinek wewnątrz biegu albo szacunek z całego biegu – z dniem tego biegu.
+    const resultNote = result
+      ? t(RESULT_NOTE[result.source], {
+          distance: t(`onboarding.distanceInline.d${result.distanceM}` as TranslationKey),
+          time: formatDuration(result.timeS),
+          date: fromIsoDate(result.date).toLocaleDateString(tag, { day: 'numeric', month: 'long' }),
+        })
+      : null;
     return (
       <View style={[styles.card, { backgroundColor: c.surfaceBrandSoft, borderColor: c.surfaceBrandSoft }]} accessibilityRole="summary">
         <View style={styles.head}>
@@ -81,14 +98,7 @@ export function StravaSurveyCard({ proposal, onProposal }: StravaSurveyCardProps
               })}
             </Text>
             <Text variant="caption" color="text">
-              {[
-                proposal.recentResult
-                  ? t(proposal.recentResult.fromRace ? 'onboarding.level.strava.resultRace' : 'onboarding.level.strava.resultEstimate')
-                  : null,
-                t('onboarding.level.strava.doneCheck'),
-              ]
-                .filter(Boolean)
-                .join(' ')}
+              {[resultNote, t('onboarding.level.strava.doneCheck')].filter(Boolean).join(' ')}
             </Text>
           </>
         ) : (

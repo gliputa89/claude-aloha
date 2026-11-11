@@ -2,9 +2,11 @@
 //
 //   POST { today: 'YYYY-MM-DD' } z tokenem użytkownika → { connected, proposal } albo { connected, error }
 //
-// Dla użytkownika z połączoną Stravą pobiera aktywności z ostatnich 8 tygodni i liczy z nich propozycję odpowiedzi:
-// poziom, liczbę biegów w tygodniu, ostatni wynik, dni i czas na trening
+// Dla użytkownika z połączoną Stravą pobiera aktywności z ostatnich 26 tygodni i liczy z nich propozycję odpowiedzi:
+// poziom, liczbę biegów w tygodniu, najlepszy wynik, dni i czas na trening
 // (reguły: packages/plan-engine/src/strava/history.ts). Biegacz widzi ją w ankiecie i może wszystko zmienić.
+// Dla kilku najbardziej obiecujących biegów (zawody, najszybsze na dystansie, treningi jakościowe) dociąga
+// najszybsze odcinki – życiówka na 5 km często siedzi w środku dłuższego biegu, nie w całej aktywności.
 //
 // Niczego nie zapisujemy: plan jeszcze nie istnieje, więc nie ma do czego przypisać biegów, a zapis w
 // strava_activities zaczyna się dopiero od startu planu (strava-sync). Tętna nie czytamy – w tym kroku ankiety
@@ -14,8 +16,23 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 
 import { userModules } from '../_shared/modules.ts';
-import { addDaysIso, daysBetween, STRAVA_HISTORY_DAYS, surveyFromStravaHistory } from '../_shared/plan-engine/index.ts';
-import { accessToken, fetchActivities, RateLimited, stravaClient, Unauthorized, type StravaTokenRow } from '../_shared/strava.ts';
+import {
+  addDaysIso,
+  daysBetween,
+  STRAVA_HISTORY_DAYS,
+  stravaResultCandidates,
+  surveyFromStravaHistory,
+  type StravaHistoryActivity,
+} from '../_shared/plan-engine/index.ts';
+import {
+  accessToken,
+  fetchActivities,
+  fetchBestEfforts,
+  RateLimited,
+  stravaClient,
+  Unauthorized,
+  type StravaTokenRow,
+} from '../_shared/strava.ts';
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -26,6 +43,8 @@ const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...cors, 'Content-Type': 'application/json' } });
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+/** Pół roku aktywności wszystkich dyscyplin: do 800 pozycji (Strava oddaje je od najstarszych). */
+const HISTORY_PAGES = 8;
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
@@ -60,8 +79,10 @@ Deno.serve(async (req) => {
     // Dzień zapasu na różnicę stref; reguły same odcinają to, co wypada poza okno w czasie lokalnym biegacza.
     const afterEpochS = Math.floor(Date.parse(`${addDaysIso(today, -STRAVA_HISTORY_DAYS)}T00:00:00Z`) / 1000);
     let activities: Awaited<ReturnType<typeof fetchActivities>>['activities'];
+    let token: string;
     try {
-      ({ activities } = await fetchActivities(await accessToken(db, conn, client), afterEpochS));
+      token = await accessToken(db, conn, client);
+      ({ activities } = await fetchActivities(token, afterEpochS, HISTORY_PAGES));
     } catch (e) {
       if (e instanceof Unauthorized) {
         await db.from('strava_connections').update({ last_error: 'reauthorize' }).eq('user_id', userId);
@@ -72,19 +93,29 @@ Deno.serve(async (req) => {
       return json({ connected: true, error: 'strava_unavailable' });
     }
 
+    const history: StravaHistoryActivity[] = activities
+      .filter((a) => a.athlete?.id === undefined || a.athlete.id === Number(conn.athlete_id))
+      .map((a) => ({
+        id: a.id,
+        sportType: a.sport_type ?? a.type ?? '',
+        localDate: a.start_date_local.slice(0, 10),
+        startedAt: a.start_date,
+        distanceM: Math.round(a.distance ?? 0),
+        movingTimeS: Math.round(a.moving_time ?? 0),
+        elapsedTimeS: Math.round(a.elapsed_time ?? a.moving_time ?? 0),
+        race: a.workout_type === 1,
+        workout: a.workout_type === 3,
+      }));
+
+    // Najszybsze odcinki kandydatów – równolegle; bieg bez szczegółów liczy się wtedy samym średnim tempem.
+    const candidates = stravaResultCandidates(history, today);
+    const efforts = await Promise.all(candidates.map((id) => fetchBestEfforts(token, id)));
+    const byId = new Map(candidates.map((id, i) => [id, efforts[i]]));
     const proposal = surveyFromStravaHistory(
-      activities
-        .filter((a) => a.athlete?.id === undefined || a.athlete.id === Number(conn.athlete_id))
-        .map((a) => ({
-          id: a.id,
-          sportType: a.sport_type ?? a.type ?? '',
-          localDate: a.start_date_local.slice(0, 10),
-          startedAt: a.start_date,
-          distanceM: Math.round(a.distance ?? 0),
-          movingTimeS: Math.round(a.moving_time ?? 0),
-          elapsedTimeS: Math.round(a.elapsed_time ?? a.moving_time ?? 0),
-          race: a.workout_type === 1,
-        })),
+      history.map((a) => {
+        const bestEfforts = byId.get(a.id);
+        return bestEfforts ? { ...a, bestEfforts } : a;
+      }),
       today,
     );
     return json({ connected: true, proposal });

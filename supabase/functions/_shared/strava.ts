@@ -104,9 +104,9 @@ const PER_PAGE = 100;
 const MAX_PAGES = 3;
 
 /** Aktywności sportowca od `afterEpochS`; `complete: false`, gdy było ich więcej niż mieścimy w limicie stron. */
-export async function fetchActivities(token: string, afterEpochS: number) {
+export async function fetchActivities(token: string, afterEpochS: number, maxPages = MAX_PAGES) {
   const all: StravaActivity[] = [];
-  for (let page = 1; page <= MAX_PAGES; page++) {
+  for (let page = 1; page <= maxPages; page++) {
     const res = await fetch(`${STRAVA}/api/v3/athlete/activities?after=${afterEpochS}&per_page=${PER_PAGE}&page=${page}`, {
       headers: { Authorization: `Bearer ${token}` },
       signal: AbortSignal.timeout(10_000),
@@ -119,6 +119,26 @@ export async function fetchActivities(token: string, afterEpochS: number) {
     if (items.length < PER_PAGE) return { activities: all, complete: true };
   }
   return { activities: all, complete: false };
+}
+
+/**
+ * Najszybsze odcinki z biegu (GET /activities/{id} → best_efforts): ciągłe fragmenty o długości 400 m … maraton,
+ * z czasem od początku do końca odcinka. `null` – Strava nie oddała szczegółów (limit, błąd, brak dostępu).
+ */
+export async function fetchBestEfforts(token: string, activityId: number): Promise<{ distanceM: number; timeS: number }[] | null> {
+  try {
+    const res = await fetch(`${STRAVA}/api/v3/activities/${activityId}?include_all_efforts=false`, {
+      headers: { Authorization: `Bearer ${token}` },
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!res.ok) return null;
+    const body = (await res.json()) as { best_efforts?: { distance?: number; elapsed_time?: number }[] };
+    return (body.best_efforts ?? [])
+      .filter((e) => typeof e.distance === 'number' && typeof e.elapsed_time === 'number' && e.elapsed_time > 0)
+      .map((e) => ({ distanceM: e.distance!, timeS: e.elapsed_time! }));
+  } catch {
+    return null;
+  }
 }
 
 /**
