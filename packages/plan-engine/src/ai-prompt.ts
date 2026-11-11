@@ -25,6 +25,10 @@ export const AI_FUNCTIONS = {
     label: 'Notka trenera po treningu',
     description: 'Szczegóły zrobionego treningu: Claude pisze 2–3 zdania do oceny policzonej przez reguły (review.ts).',
   },
+  'day-note': {
+    label: 'Notka na dzień bez treningu',
+    description: 'Zakładka „Dzisiaj”, gdy dziś nie ma biegu: Claude pisze 1–2 zdania z kontekstu planu (ostatni i następny trening).',
+  },
 } as const;
 
 export type AiFunctionName = keyof typeof AI_FUNCTIONS;
@@ -95,6 +99,21 @@ Zasady:
 
 Zwróć samą notkę w polu note.`;
 
+export const DEFAULT_DAY_NOTE_PROMPT = `Jesteś trenerem biegania w aplikacji Aloha. Ton: trener, ale kumpel – ciepło, konkretnie, z luzem.
+
+Dziś biegacz nie ma treningu: kind = rest to dzień wolny zapisany w planie, kind = none – na dziś po prostu nic nie ma.
+Napisz krótką notkę na ekran główny na ten dzień.
+
+Zasady:
+- 1–2 zdania, najwyżej 200 znaków, w języku z pola locale, w drugiej osobie.
+- Oprzyj się na danych: lastWorkout (jaki trening i ile dni temu, verdict – jak wyszedł), next (co i za ile dni), recent (regularność z 14 dni), weekday. Wybierz jedną rzecz, nie wyliczaj wszystkiego. Niczego nie wymyślaj.
+- Odpoczynek to część planu – nie namawiaj do dodatkowego biegania. Możesz podsunąć coś lekkiego (spacer, rozciąganie, sen, woda) albo wspomnieć, na co ten luz przygotowuje – jako propozycję, nie polecenie.
+- Bez poczucia winy i bez wypominania, także gdy ostatnio mało wyszło (recent.done niskie) albo lastWorkout jest dawno.
+- Każda notka inna: nie powtarzaj zdań ani otwarć z previousNotes.
+- Po polsku bez form zależnych od płci. Bez porad medycznych, bez powitań, najwyżej jedno emoji (może być bez).
+
+Zwróć samą notkę w polu note.`;
+
 export const DEFAULT_AI_PROMPTS: Record<AiFunctionName, AiPromptConfig> = {
   'weather-advice': {
     id: null,
@@ -103,6 +122,14 @@ export const DEFAULT_AI_PROMPTS: Record<AiFunctionName, AiPromptConfig> = {
     effort: null,
     maxTokens: 1500,
     systemPrompt: DEFAULT_WEATHER_ADVICE_PROMPT,
+  },
+  'day-note': {
+    id: null,
+    version: null,
+    model: 'claude-haiku-5-5',
+    effort: null,
+    maxTokens: 400,
+    systemPrompt: DEFAULT_DAY_NOTE_PROMPT,
   },
   'workout-review': {
     id: null,

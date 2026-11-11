@@ -298,6 +298,8 @@ export const en: Dictionary = {
     restBody: 'Rest is training too. Your legs will thank you.',
     noPlanToday: 'Nothing planned for today. Take it easy.',
     next: 'Next run',
+    last: 'Last run',
+    lastVerdict: 'Review: {verdict}',
     seePlan: 'See the whole plan',
   },
   weather: {

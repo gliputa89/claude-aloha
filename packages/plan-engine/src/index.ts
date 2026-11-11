@@ -18,3 +18,4 @@ export * from './weather-advice.ts';
 export * from './strava.ts';
 export * from './review.ts';
 export * from './review-note.ts';
+export * from './day-note.ts';

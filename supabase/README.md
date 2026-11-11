@@ -31,6 +31,12 @@ Szczegóły: [`docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md), sekcja 3.
   użytek komercyjny) i wymaga podpisu źródła – aplikacja pokazuje „Dane pogodowe: Open-Meteo”. Przed płatnym wydaniem:
   wykup plan i ustaw `supabase secrets set OPEN_METEO_API_KEY=…` – funkcja sama przełączy się na adresy dla klientów.
 
+## Notka na dzień bez treningu
+
+`day-note` – ekran „Dzisiaj”, gdy dziś nie ma biegu: Claude (funkcja AI `day-note`, Haiku) pisze 1–2 zdania z kontekstu
+planu (ostatni i następny trening, regularność). Jedna notka na użytkownika i dzień, zapisana w `day_notes`.
+Bez klucza `ANTHROPIC_API_KEY` albo przy błędzie modelu aplikacja pokazuje tekst ze słownika.
+
 ## Strava
 
 - `strava-sync` – pobiera biegi ze Stravy (od startu planu, najwyżej 30 dni wstecz), dopasowuje je do treningów z tego

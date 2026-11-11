@@ -6,7 +6,7 @@
 // Do modelu NIE trafiają dane osobowe ani tętno – tylko plan, wykonanie i ocena treningu.
 
 import { costUsd, modelPrice } from './ai-pricing.ts';
-import type { AiPromptConfig } from './ai-prompt.ts';
+import type { AiFunctionName, AiPromptConfig } from './ai-prompt.ts';
 import type { AiCaller, AiLogger, AiModelRequest, AiModelResult, AiStatus } from './ai-run.ts';
 import { ENGINE_VERSION } from './plan.ts';
 import type { ReviewFact, ReviewVerdict, WorkoutReview } from './review.ts';
@@ -53,17 +53,27 @@ export const workoutNoteKey = (review: WorkoutReview) => JSON.stringify([review.
 export const workoutNoteUserMessage = (ctx: WorkoutNoteContext) => JSON.stringify(ctx, null, 2);
 
 /** Odpowiedź modelu → notka. Pusta, za krótka, za długa albo powtórzona słowo w słowo = brak notki. */
-export function parseWorkoutNote(json: unknown, previousNotes: string[]): string | null {
+export function parseWorkoutNote(json: unknown, previousNotes: string[], maxLength: number = WORKOUT_NOTE_MAX_LENGTH): string | null {
   if (typeof json !== 'object' || json === null) return null;
   const note = (json as { note?: unknown }).note;
   if (typeof note !== 'string') return null;
   const clean = note.replace(/\s+/g, ' ').trim();
-  if (clean.length < WORKOUT_NOTE_MIN_LENGTH || clean.length > WORKOUT_NOTE_MAX_LENGTH) return null;
+  if (clean.length < WORKOUT_NOTE_MIN_LENGTH || clean.length > maxLength) return null;
   return previousNotes.includes(clean) ? null : clean;
 }
 
-export type WorkoutNoteOptions = {
-  context: WorkoutNoteContext;
+export type WorkoutNoteOptions = Omit<ShortNoteOptions, 'functionName' | 'message' | 'previousNotes'> & { context: WorkoutNoteContext };
+
+export const workoutNoteWithAi = ({ context, ...rest }: WorkoutNoteOptions) =>
+  shortNoteWithAi({ ...rest, functionName: 'workout-review', message: workoutNoteUserMessage(context), previousNotes: context.previousNotes });
+
+/** Wspólne wywołanie dla krótkich notek trenera (jedno pole `note`): po treningu i na dzień bez treningu. */
+export type ShortNoteOptions = {
+  functionName: AiFunctionName;
+  /** Wiadomość użytkownika (JSON z kontekstem). */
+  message: string;
+  previousNotes: string[];
+  maxLength?: number;
   prompt: AiPromptConfig;
   call: AiCaller;
   log: AiLogger;
@@ -73,14 +83,14 @@ export type WorkoutNoteOptions = {
 
 export type WorkoutNoteOutcome = { note: string | null; status: AiStatus; callId: number | null };
 
-export async function workoutNoteWithAi(opts: WorkoutNoteOptions): Promise<WorkoutNoteOutcome> {
+export async function shortNoteWithAi(opts: ShortNoteOptions): Promise<WorkoutNoteOutcome> {
   const now = opts.now ?? Date.now;
   const request: AiModelRequest = {
     model: opts.prompt.model,
     maxTokens: opts.prompt.maxTokens,
     effort: opts.prompt.effort,
     system: [opts.prompt.systemPrompt],
-    messages: [{ role: 'user', content: workoutNoteUserMessage(opts.context) }],
+    messages: [{ role: 'user', content: opts.message }],
     outputSchema: WORKOUT_NOTE_SCHEMA as unknown as Record<string, unknown>,
   };
 
@@ -100,7 +110,7 @@ export async function workoutNoteWithAi(opts: WorkoutNoteOptions): Promise<Worko
   let status: AiStatus = 'fallback';
   if (model && !error) {
     try {
-      note = parseWorkoutNote(model.text ? JSON.parse(model.text) : null, opts.context.previousNotes);
+      note = parseWorkoutNote(model.text ? JSON.parse(model.text) : null, opts.previousNotes, opts.maxLength);
     } catch {
       note = null;
     }
@@ -113,7 +123,7 @@ export async function workoutNoteWithAi(opts: WorkoutNoteOptions): Promise<Worko
     .log(
       {
         user_id: opts.meta.userId,
-        function_name: 'workout-review',
+        function_name: opts.functionName,
         model: model?.model ?? opts.prompt.model,
         input_tokens: model?.usage.inputTokens ?? null,
         output_tokens: model?.usage.outputTokens ?? null,

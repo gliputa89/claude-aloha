@@ -299,6 +299,8 @@ export const pl = {
     restBody: 'Odpoczynek to też trening. Nogi Ci podziękują.',
     noPlanToday: 'Na dziś nic nie ma w planie. Luz.',
     next: 'Następny trening',
+    last: 'Ostatni trening',
+    lastVerdict: 'Ocena: {verdict}',
     seePlan: 'Zobacz cały plan',
   },
   weather: {

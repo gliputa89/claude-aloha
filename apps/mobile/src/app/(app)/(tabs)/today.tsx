@@ -14,14 +14,15 @@ import { radius, space } from '@/constants/theme';
 import { todayIso } from '@/features/onboarding/time';
 import { allSessions, usePlan } from '@/features/plan/plan-provider';
 import { PlanStatus } from '@/features/plan/plan-status';
+import { useDayNote } from '@/features/today/day-note';
 import { useWeather } from '@/features/weather/weather-provider';
 import { useColors } from '@/hooks/use-colors';
 import { useLocale, useT } from '@/hooks/use-t';
 import { useAuth } from '@/providers/auth-provider';
 
 /**
- * Zakładka „Dzisiaj”: powitanie, dzisiejszy trening i następny w kolejce – każdy z pogodą i poradą,
- * kiedy najlepiej wyjść. Docelowo też check-in wg makiet.
+ * Zakładka „Dzisiaj”: powitanie, dzisiejszy trening (albo notka trenera na dzień bez biegu), następny w kolejce –
+ * każdy z pogodą i poradą, kiedy najlepiej wyjść – oraz ostatni zrobiony trening z werdyktem. Docelowo też check-in wg makiet.
  */
 export default function TodayScreen() {
   const t = useT();
@@ -44,6 +45,10 @@ export default function TodayScreen() {
   const todayRuns = todays.filter((s) => s.type !== 'rest');
   const next = sessions.find((s) => s.scheduled_on > today && s.type !== 'rest');
   const shown = [...todayRuns, ...(next ? [next] : [])];
+  // Ostatni zrobiony trening (dzisiejszy jest już wyżej) – tapnięcie otwiera jego ocenę.
+  const last = sessions.filter((s) => s.scheduled_on < today && (s.status === 'done' || s.status === 'partial')).at(-1);
+  // Dzień bez biegu: notka trenera od AI zamiast stałego tekstu (stały zostaje, dopóki notki nie ma).
+  const dayNote = useDayNote(today, state.kind === 'ready' && todayRuns.length === 0);
   const hasWeather = shown.some((s) => weather.bySession.has(s.id));
 
   return (
@@ -76,9 +81,9 @@ export default function TodayScreen() {
                 </View>
               ))
             ) : todays.length > 0 ? (
-              <InfoCard title={t('today.restTitle')} body={t('today.restBody')} />
+              <InfoCard title={t('today.restTitle')} body={dayNote ?? t('today.restBody')} />
             ) : (
-              <InfoCard body={t('today.noPlanToday')} />
+              <InfoCard body={dayNote ?? t('today.noPlanToday')} />
             )}
           </FadeUp>
 
@@ -89,6 +94,18 @@ export default function TodayScreen() {
               </Text>
               <SessionRow session={next} today={false} />
               <WeatherCard session={next} />
+            </FadeUp>
+          ) : null}
+
+          {last ? (
+            <FadeUp delay={180} style={styles.section}>
+              <Text variant="heading" accessibilityRole="header">
+                {t('today.last')}
+              </Text>
+              <SessionRow session={last} today={false} />
+              {last.review ? (
+                <Text variant="caption">{t('today.lastVerdict', { verdict: t(`review.verdict.${last.review.verdict}`) })}</Text>
+              ) : null}
             </FadeUp>
           ) : null}
 
