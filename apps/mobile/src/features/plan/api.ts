@@ -135,6 +135,24 @@ export type GeneratedPlan = {
   welcome?: string | null;
 };
 
+/**
+ * TYMCZASOWE (przycisk testowy w zakładce „Plan”): dokłada kolejne tygodnie od ręki, bez czekania na termin.
+ * Zwraca liczbę dodanych tygodni i – gdy coś poszło nie tak – powód (np. `after_race`).
+ */
+export async function generateNextWeeks(weeks: 1 | 2 = 2): Promise<{ created: number; problem: string | null }> {
+  try {
+    const { data, error } = await supabase.functions.invoke<{
+      created?: number;
+      results?: { status: string; detail?: string }[];
+    }>('generate-next-week', { method: 'POST', body: { force: true, weeks } });
+    if (error || !data) return { created: 0, problem: 'failed' };
+    const stopped = (data.results ?? []).find((r) => r.status !== 'created');
+    return { created: data.created ?? 0, problem: stopped ? (stopped.detail ?? stopped.status) : null };
+  } catch {
+    return { created: 0, problem: 'failed' };
+  }
+}
+
 /** Generuje plan na serwerze (Edge Function generate-plan) z odpowiedzi z ankiety. */
 export async function generatePlan(): Promise<GeneratedPlan | null> {
   const { data, error } = await supabase.functions.invoke<GeneratedPlan>('generate-plan', { method: 'POST' });

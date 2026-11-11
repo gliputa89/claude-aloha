@@ -12,7 +12,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Svg, { Circle, Defs, RadialGradient, Stop } from 'react-native-svg';
+import Svg, { Circle, Defs, LinearGradient, Path, RadialGradient, Rect, Stop } from 'react-native-svg';
 
 import { BouncyTitle } from '@/components/brand/bouncy-title';
 import { FloatingPetals } from '@/components/brand/floating-petals';
@@ -64,12 +64,24 @@ const SUN_SIZE = 132;
 const GLOW_SIZE = SUN_SIZE * 3;
 /** Słońce w trakcie pracy dochodzi do tej części drogi; resztę pokonuje w finale. */
 const WORKING_RISE = 0.82;
-const WORKING_MS = 8000;
+const WORKING_MS = 11000;
 /** Finał nie wcześniej niż po tylu ms – szybka odpowiedź nie może „mignąć”. */
 const MIN_VISIBLE_MS = 3200;
 const STEP_MS = 2600;
 const SLOW_AFTER_MS = 25000;
 const RAY_RINGS = [0, 1, 2];
+/** Promienie za słońcem: ile ich jest i jak szeroki (w stopniach) jest każdy. */
+const RAYS = 12;
+const RAY_WIDTH_DEG = 9;
+const RAY_TURN_MS = 60000;
+const GLOW_BREATH_MS = 3400;
+
+/** Jeden promień: wąski klin od środka do krawędzi poświaty (obracany wokół środka). */
+const RAY_PATH = (() => {
+  const center = GLOW_SIZE / 2;
+  const half = Math.tan((RAY_WIDTH_DEG * Math.PI) / 360) * center;
+  return `M ${center} ${center} L ${center - half} 0 L ${center + half} 0 Z`;
+})();
 
 type Phase = { kind: 'working' } | { kind: 'done'; result: PlanLoaderResult | null };
 
@@ -123,10 +135,18 @@ export function PlanLoader({ texts, task, onContinue, continuing = false }: Plan
     };
   }, [task, reduced, rise]);
 
+  // Jak wysoko wschodzi słońce: nad fale plus ok. jedna piąta nieba, ale tak, żeby zostało pod paskiem stanu.
+  const travel = Math.max(
+    SUN_SIZE + space[6],
+    Math.min(SUN_SIZE + space[6] + skyHeight * 0.22, skyHeight - insets.top - SUN_SIZE * 0.3),
+  );
   const sunStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: -rise.value * (SUN_SIZE + space[6]) }],
+    transform: [{ translateY: -rise.value * travel }],
   }));
   const glowStyle = useAnimatedStyle(() => ({ opacity: 0.25 + rise.value * 0.75 }));
+  // Niebo jaśnieje od horyzontu i promienie nabierają siły razem ze wschodem.
+  const dawnStyle = useAnimatedStyle(() => ({ opacity: rise.value * 0.9 }));
+  const raysStyle = useAnimatedStyle(() => ({ opacity: 0.2 + rise.value * 0.8 }));
 
   const result = done ? phase.result : null;
 
@@ -137,10 +157,62 @@ export function PlanLoader({ texts, task, onContinue, continuing = false }: Plan
         style={[styles.sky, { paddingTop: insets.top }]}
         accessible={false}>
         <PlumeriaPattern />
-        <FloatingPetals width={width} height={skyHeight} />
+        {/* Łuna świtu: ciepłe światło od horyzontu, coraz mocniejsze, im wyżej słońce. */}
+        <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, dawnStyle]}>
+          <Svg width="100%" height="100%">
+            <Defs>
+              <LinearGradient id="loader-dawn" x1="0" y1="1" x2="0" y2="0">
+                <Stop offset="0" stopColor={c.accent} stopOpacity={0.34} />
+                <Stop offset="0.55" stopColor={c.accent} stopOpacity={0.08} />
+                <Stop offset="1" stopColor={c.accent} stopOpacity={0} />
+              </LinearGradient>
+            </Defs>
+            <Rect width="100%" height="100%" fill="url(#loader-dawn)" />
+          </Svg>
+        </Animated.View>
+        <FloatingPetals width={width} height={skyHeight} speed={2.2} opacity={0.13} />
 
         <Animated.View style={[styles.sun, { left: (width - SUN_SIZE) / 2 }, sunStyle]}>
-          <Animated.View pointerEvents="none" style={[styles.glow, glowStyle]}>
+          {/* Promienie obracają się powoli za tarczą – tło żyje także wtedy, gdy słońce już czeka na wynik. */}
+          {reduced ? null : (
+            <Animated.View pointerEvents="none" style={[styles.glow, raysStyle]}>
+              <Animated.View
+                style={{
+                  animationName: { from: { transform: [{ rotate: '0deg' }] }, to: { transform: [{ rotate: '360deg' }] } },
+                  animationDuration: RAY_TURN_MS,
+                  animationTimingFunction: 'linear',
+                  animationIterationCount: 'infinite',
+                }}>
+                <Svg width={GLOW_SIZE} height={GLOW_SIZE}>
+                  <Defs>
+                    <RadialGradient id="loader-rays" cx="50%" cy="50%" r="50%">
+                      <Stop offset="0.2" stopColor={c.accent} stopOpacity={0.3} />
+                      <Stop offset="1" stopColor={c.accent} stopOpacity={0} />
+                    </RadialGradient>
+                  </Defs>
+                  {Array.from({ length: RAYS }, (_, i) => (
+                    <Path key={i} d={RAY_PATH} fill="url(#loader-rays)" transform={`rotate(${(360 / RAYS) * i} ${GLOW_SIZE / 2} ${GLOW_SIZE / 2})`} />
+                  ))}
+                </Svg>
+              </Animated.View>
+            </Animated.View>
+          )}
+          <Animated.View
+            pointerEvents="none"
+            style={[
+              styles.glow,
+              glowStyle,
+              // Poświata lekko „oddycha”.
+              reduced
+                ? null
+                : {
+                    animationName: { from: { transform: [{ scale: 0.94 }] }, to: { transform: [{ scale: 1.08 }] } },
+                    animationDuration: GLOW_BREATH_MS,
+                    animationTimingFunction: 'ease-in-out',
+                    animationIterationCount: 'infinite',
+                    animationDirection: 'alternate',
+                  },
+            ]}>
             <Svg width={GLOW_SIZE} height={GLOW_SIZE}>
               <Defs>
                 <RadialGradient id="loader-glow" cx="50%" cy="50%" r="50%">

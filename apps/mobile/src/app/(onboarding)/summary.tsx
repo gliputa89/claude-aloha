@@ -1,13 +1,13 @@
 import { assessRaceGoal, type GoalAssessment } from '@aloha/plan-engine';
 import type { TranslationKey } from '@aloha/i18n';
 import { router } from 'expo-router';
-import { Lightbulb } from 'phosphor-react-native';
+import { CaretDown, CaretUp, Lightbulb } from 'phosphor-react-native';
 import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { OnboardingStep } from '@/components/onboarding/onboarding-step';
 import { Button } from '@/components/ui/button';
-import { InfoCard } from '@/components/ui/info-card';
+import { ForecastLoading } from '@/components/onboarding/forecast-loading';
 import { Notice } from '@/components/ui/notice';
 import { Text } from '@/components/ui/text';
 import { radius, space } from '@/constants/theme';
@@ -39,6 +39,8 @@ export default function SummaryStep() {
   const [dismissed, setDismissed] = useState(false);
   // Cel, przy którym biegacz świadomie został („zostaw mój czas”) – po zmianie celu pytamy od nowa.
   const [keptTarget, setKeptTarget] = useState<number | null>(null);
+  // Szczegóły prognozy (skąd liczba) są zwinięte – na wierzchu zostają same czasy.
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const [adjusted, setAdjusted] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(false);
@@ -108,17 +110,7 @@ export default function SummaryStep() {
 
   // Karta z prognozą: ile dziś, ile na start i – od modelu – skąd ta liczba. Bez niej przy zbyt krótkim terminie.
   const minutes = (s: number) => formatDuration(Math.round(s / 60) * 60);
-  const forecastText =
-    forecast && timing?.status === 'ok'
-      ? [
-          Math.round(forecast.todayS / 60) > Math.round(forecast.raceDayS / 60)
-            ? t('onboarding.summary.forecastBody', { today: minutes(forecast.todayS), raceDay: minutes(forecast.raceDayS) })
-            : t('onboarding.summary.forecastSame', { raceDay: minutes(forecast.raceDayS) }),
-          forecast.note,
-        ]
-          .filter(Boolean)
-          .join(' ')
-      : null;
+  const showForecast = !!forecast && timing?.status === 'ok';
   // Skąd ta liczba – zawsze, niezależnie od tego, czy biegacz wpisał własny cel: wynik wyjściowy, jego odpowiednik
   // z tabel na dystansie zawodów i kilometraż wobec tego, czego dystans wymaga.
   const recent = recentTimeS(draft) ?? null;
@@ -196,12 +188,17 @@ export default function SummaryStep() {
       ) : null}
 
       {timing?.status === 'ok' && forecastState.status === 'loading' ? (
-        <InfoCard title={t('onboarding.summary.forecastTitle', { distance: distanceInline(draft.raceDistanceM) })} body="" loading />
-      ) : timing?.status === 'ok' && forecastText && realisticS !== null ? (
+        <ForecastLoading
+          title={t('onboarding.summary.forecastTitle', { distance: distanceInline(draft.raceDistanceM) })}
+          withHours={draft.raceDistanceM >= 21097}
+        />
+      ) : showForecast && forecast && realisticS !== null ? (
         <View style={[styles.forecast, { backgroundColor: c.surface, borderColor: c.border }]}>
           <Text weight="bold">{t('onboarding.summary.forecastTitle', { distance: distanceInline(draft.raceDistanceM) })}</Text>
-          <Text>{forecastText}</Text>
-          {forecastHow ? <Text variant="caption">{forecastHow}</Text> : null}
+          {/* Jedna liczba: realny czas w dniu startu. Reszta (skąd się wzięła) jest w szczegółach. */}
+          <Text variant="title" accessibilityLabel={`${t('onboarding.summary.forecastRaceDay')}: ${minutes(forecast.raceDayS)}`}>
+            {minutes(forecast.raceDayS)}
+          </Text>
           {target === realisticS ? (
             <Text variant="label" color="textBrand">
               {t('onboarding.summary.forecastIsGoal')}
@@ -240,6 +237,27 @@ export default function SummaryStep() {
               />
             </View>
           )}
+          {forecast.note || forecastHow ? (
+            <View style={[styles.details, { borderTopColor: c.border }]}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityState={{ expanded: detailsOpen }}
+                onPress={() => setDetailsOpen((open) => !open)}
+                hitSlop={space[2]}
+                style={({ pressed }) => [styles.detailsToggle, { opacity: pressed ? 0.6 : 1 }]}>
+                <Text variant="label" color="textBrand" style={styles.flex}>
+                  {t('onboarding.summary.forecastDetails')}
+                </Text>
+                {detailsOpen ? <CaretUp size={18} weight="bold" color={c.textBrand} /> : <CaretDown size={18} weight="bold" color={c.textBrand} />}
+              </Pressable>
+              {detailsOpen ? (
+                <View style={styles.choice}>
+                  {forecast.note ? <Text variant="caption" color="text">{forecast.note}</Text> : null}
+                  {forecastHow ? <Text variant="caption">{forecastHow}</Text> : null}
+                </View>
+              ) : null}
+            </View>
+          ) : null}
         </View>
       ) : null}
 
@@ -312,6 +330,8 @@ const styles = StyleSheet.create({
   card: { borderRadius: radius.card, borderWidth: 1.5, paddingHorizontal: space[4] },
   forecast: { gap: space[3], padding: space[4], borderRadius: radius.card, borderWidth: 1.5 },
   choice: { gap: space[2] },
+  details: { borderTopWidth: StyleSheet.hairlineWidth, paddingTop: space[1] },
+  detailsToggle: { flexDirection: 'row', alignItems: 'center', minHeight: 44 },
   row: { flexDirection: 'row', alignItems: 'center', gap: space[3], paddingVertical: space[4] },
   edit: { minHeight: 44, minWidth: 44, alignItems: 'flex-end', justifyContent: 'center' },
   divider: { height: StyleSheet.hairlineWidth },

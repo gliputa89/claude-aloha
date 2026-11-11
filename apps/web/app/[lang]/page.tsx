@@ -483,7 +483,7 @@ function WeatherCard({ card }: { card: Content["weather"]["card"] }) {
       <div className="mt-5">
         <div className="relative h-10 overflow-hidden rounded-md bg-background">
           {/* 6–9 unikaj, 16–18:30 najlepiej; skala 16 godzin */}
-          <span className="absolute inset-y-0 left-0 w-[18.75%] bg-workout-tempo/80" />
+          <span className="absolute inset-y-0 left-0 w-[18.75%] bg-accent/80" />
           <span className="absolute inset-y-0 left-[62.5%] w-[15.6%] bg-workout-easy" />
         </div>
         <div className="mt-1.5 flex justify-between text-xs text-text-muted tabular-nums">
@@ -502,7 +502,7 @@ function WeatherCard({ card }: { card: Content["weather"]["card"] }) {
         </div>
         <div>
           <dt className="flex items-center gap-2 text-sm text-text-muted">
-            <span className="size-2.5 rounded-pill bg-workout-tempo" />
+            <span className="size-2.5 rounded-pill bg-accent" />
             {card.avoid}
           </dt>
           <dd className="mt-1 text-xl font-extrabold tracking-tight">{card.avoidTime}</dd>

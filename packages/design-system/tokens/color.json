@@ -18,6 +18,11 @@
       "900": { "$value": "#6B4300" },
       "950": { "$value": "#3A2600" }
     },
+    "red": {
+      "$description": "Tylko do roli `danger` (panel: błędy, nieodwracalne akcje). W aplikacji mobilnej nie ostrzegamy czerwienią.",
+      "400": { "$value": "#F08377" },
+      "600": { "$value": "#C2463D" }
+    },
     "neutral": {
       "$description": "Szarości lekko podbite turkusem.",
       "0":   { "$value": "#FFFFFF" },
@@ -33,11 +38,11 @@
       "950": { "$value": "#0C1514" }
     },
     "workout": {
-      "$description": "Kolory typów treningu – kropki w tygodniu, znaczniki na kartach. Te same w trybie jasnym i ciemnym.",
+      "$description": "Kolory typów treningu – kropki w tygodniu, znaczniki na kartach. Te same w trybie jasnym i ciemnym. Im cięższy trening, tym cieplejszy kolor: tempo żółte, interwały koralowe (czerwień bez skojarzenia z błędem).",
       "easy":      { "$value": "#3FA796" },
       "long":      { "$value": "#2D7FB8" },
-      "intervals": { "$value": "#F08A3C" },
-      "tempo":     { "$value": "#D9534F" },
+      "intervals": { "$value": "#E4705E" },
+      "tempo":     { "$value": "#E9C63B" },
       "walkRun":   { "$value": "#8E7CC3" },
       "rest":      { "$value": "#C5D2D0" }
     }

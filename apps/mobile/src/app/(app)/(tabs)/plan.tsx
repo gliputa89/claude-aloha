@@ -1,16 +1,17 @@
 import { useMemo, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Alert, StyleSheet, View } from 'react-native';
 import Animated, { FadeIn, useReducedMotion } from 'react-native-reanimated';
 
 import { MonthCalendar } from '@/components/plan/month-calendar';
 import { SessionRow } from '@/components/plan/session-row';
+import { Button } from '@/components/ui/button';
 import { FadeUp } from '@/components/ui/fade-up';
 import { InfoCard } from '@/components/ui/info-card';
 import { Screen } from '@/components/ui/screen';
 import { Text } from '@/components/ui/text';
 import { motion, space } from '@/constants/theme';
 import { fromIsoDate, todayIso } from '@/features/onboarding/time';
-import type { PlanSession } from '@/features/plan/api';
+import { generateNextWeeks, type PlanSession } from '@/features/plan/api';
 import { allSessions, sessionsByDate, usePlan } from '@/features/plan/plan-provider';
 import { PlanStatus } from '@/features/plan/plan-status';
 import { useLocale, useT } from '@/hooks/use-t';
@@ -24,6 +25,7 @@ export default function PlanScreen() {
   const today = todayIso();
   const [selected, setSelected] = useState(today);
   const [month, setMonth] = useState(() => fromIsoDate(today));
+  const [generating, setGenerating] = useState(false);
 
   const plan = state.kind === 'ready' ? state.plan : null;
   const byDate = useMemo(() => (plan ? sessionsByDate(plan) : new Map<string, PlanSession[]>()), [plan]);
@@ -89,6 +91,19 @@ export default function PlanScreen() {
                   ))}
                 </View>
               ))}
+            {/* TYMCZASOWE – do testów; usunąć razem z generateNextWeeks i trybem `force` w generate-next-week. */}
+            <Button
+              variant="secondary"
+              label={t('plan.devGenerate')}
+              loading={generating}
+              onPress={async () => {
+                setGenerating(true);
+                const result = await generateNextWeeks(2);
+                await reload();
+                setGenerating(false);
+                if (result.problem) Alert.alert(t('plan.devGenerate'), t('plan.devGenerateResult', { n: result.created, problem: result.problem }));
+              }}
+            />
           </View>
         </>
       ) : null}

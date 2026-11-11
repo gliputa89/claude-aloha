@@ -36,7 +36,7 @@ function ConfirmButton({
             setAsking(false);
             start(async () => setResult(await onConfirm()));
           }}
-          className={`${button} ${danger ? 'bg-workout-tempo text-white' : 'bg-action text-text-on-brand hover:bg-action-hover'}`}
+          className={`${button} ${danger ? 'bg-danger text-white' : 'bg-action text-text-on-brand hover:bg-action-hover'}`}
         >
           {confirmLabel}
         </button>
@@ -57,7 +57,7 @@ function ConfirmButton({
         type="button"
         disabled={pending}
         onClick={() => setAsking(true)}
-        className={`${button} border border-border-strong hover:bg-background ${danger ? 'text-workout-tempo' : ''}`}
+        className={`${button} border border-border-strong hover:bg-background ${danger ? 'text-danger' : ''}`}
       >
         {pending ? 'Pracuję…' : label}
       </button>
@@ -168,7 +168,7 @@ export function DeleteUserButton({ userId, email, isTest }: { userId: string; em
           <button
             type="submit"
             disabled={pending || typed.trim().toLowerCase() !== expected.toLowerCase()}
-            className={`${button} bg-workout-tempo text-white`}
+            className={`${button} bg-danger text-white`}
           >
             {pending ? 'Usuwam…' : 'Usuń na stałe'}
           </button>
@@ -192,7 +192,7 @@ export function DeleteUserButton({ userId, email, isTest }: { userId: string; em
     );
   }
   return (
-    <button type="button" onClick={() => setAsking(true)} className={`${button} border border-border-strong text-workout-tempo hover:bg-background`}>
+    <button type="button" onClick={() => setAsking(true)} className={`${button} border border-border-strong text-danger hover:bg-background`}>
       Usuń użytkownika
     </button>
   );
@@ -264,7 +264,7 @@ export function ResetUserButton({ userId, email, isTest }: { userId: string; ema
           <button
             type="submit"
             disabled={pending || typed.trim().toLowerCase() !== expected.toLowerCase()}
-            className={`${button} bg-workout-tempo text-white`}
+            className={`${button} bg-danger text-white`}
           >
             {pending ? 'Czyszczę…' : 'Wyczyść dane'}
           </button>
@@ -286,7 +286,7 @@ export function ResetUserButton({ userId, email, isTest }: { userId: string; ema
   return (
     <div className="flex flex-wrap items-center gap-2">
       {status}
-      <button type="button" onClick={() => setAsking(true)} className={`${button} border border-border-strong text-workout-tempo hover:bg-background`}>
+      <button type="button" onClick={() => setAsking(true)} className={`${button} border border-border-strong text-danger hover:bg-background`}>
         Wyczyść dane (zostaw Stravę)
       </button>
     </div>

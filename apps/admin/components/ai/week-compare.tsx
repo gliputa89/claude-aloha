@@ -16,7 +16,7 @@ const approxM = (s: PlannedSession) => {
 const weekKm = (w: PlannedWeek) => formatApproxKm(w.sessions.reduce((n, s) => n + approxM(s), 0));
 
 function SessionCell({ s, changed }: { s: PlannedSession | undefined; changed: boolean }) {
-  if (!s) return <span className={`text-sm ${changed ? 'text-workout-tempo line-through' : 'text-text-muted'}`}>—</span>;
+  if (!s) return <span className={`text-sm ${changed ? 'text-danger line-through' : 'text-text-muted'}`}>—</span>;
   return (
     <span className={`flex min-w-0 flex-col gap-0.5 rounded-md px-2 py-1 ${changed ? 'bg-surface-accent-soft' : ''}`}>
       <span className="flex items-center gap-2 text-sm">
@@ -99,7 +99,7 @@ export function OperationList({ results }: { results: OperationResult[] }) {
             <span className="flex flex-wrap items-center gap-2">
               <span
                 className={`rounded-pill px-2 py-0.5 text-xs font-semibold ${
-                  r.status === 'applied' ? 'bg-surface-brand-soft text-text-brand' : 'bg-surface-accent-soft text-workout-tempo'
+                  r.status === 'applied' ? 'bg-surface-brand-soft text-text-brand' : 'bg-surface-accent-soft text-danger'
                 }`}
               >
                 {r.status === 'applied' ? 'przyjęta' : 'odrzucona'}
@@ -110,7 +110,7 @@ export function OperationList({ results }: { results: OperationResult[] }) {
               {detail ? <span className="text-text-muted">{detail}</span> : null}
             </span>
             {o.reason ? <span className="text-text-muted">{o.reason}</span> : null}
-            {r.reason ? <span className="text-workout-tempo">Silnik: {r.reason}</span> : null}
+            {r.reason ? <span className="text-danger">Silnik: {r.reason}</span> : null}
           </li>
         );
       })}

@@ -18,6 +18,10 @@ export const palette = {
     "900": "#6B4300",
     "950": "#3A2600"
   },
+  "red": {
+    "400": "#F08377",
+    "600": "#C2463D"
+  },
   "neutral": {
     "0": "#FFFFFF",
     "50": "#F3F7F6",
@@ -34,8 +38,8 @@ export const palette = {
   "workout": {
     "easy": "#3FA796",
     "long": "#2D7FB8",
-    "intervals": "#F08A3C",
-    "tempo": "#D9534F",
+    "intervals": "#E4705E",
+    "tempo": "#E9C63B",
     "walkRun": "#8E7CC3",
     "rest": "#C5D2D0"
   }
@@ -60,10 +64,11 @@ export const colors = {
     "action": "#0E6E66",
     "actionHover": "#0A524C",
     "accent": "#FFB547",
+    "danger": "#C2463D",
     "workoutEasy": "#3FA796",
     "workoutLong": "#2D7FB8",
-    "workoutIntervals": "#F08A3C",
-    "workoutTempo": "#D9534F",
+    "workoutIntervals": "#E4705E",
+    "workoutTempo": "#E9C63B",
     "workoutWalkRun": "#8E7CC3",
     "workoutRest": "#C5D2D0",
     "textOnWorkout": "#0C1514"
@@ -86,10 +91,11 @@ export const colors = {
     "action": "#3FB8AC",
     "actionHover": "#7ED8CE",
     "accent": "#FFB547",
+    "danger": "#F08377",
     "workoutEasy": "#3FA796",
     "workoutLong": "#2D7FB8",
-    "workoutIntervals": "#F08A3C",
-    "workoutTempo": "#D9534F",
+    "workoutIntervals": "#E4705E",
+    "workoutTempo": "#E9C63B",
     "workoutWalkRun": "#8E7CC3",
     "workoutRest": "#5B6B69",
     "textOnWorkout": "#0C1514"

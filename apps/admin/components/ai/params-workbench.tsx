@@ -192,7 +192,7 @@ function LevelTable({
                         wbud. {m.defaults[level]}
                         {differs ? ` · akt. ${active[key]}` : ''}
                       </span>
-                      {error ? <span className="block text-xs text-workout-tempo">{error}</span> : null}
+                      {error ? <span className="block text-xs text-danger">{error}</span> : null}
                     </td>
                   );
                 })}

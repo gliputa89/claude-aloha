@@ -158,6 +158,6 @@ export const AI_STATUS_LABEL: Record<string, string> = {
 export const AI_STATUS_TONE: Record<string, string> = {
   ok: 'bg-surface-brand-soft text-text-brand',
   corrected: 'bg-surface-accent-soft text-text-accent-strong',
-  rejected: 'bg-surface-accent-soft text-workout-tempo',
+  rejected: 'bg-surface-accent-soft text-danger',
   fallback: 'bg-background text-text-muted border border-border',
 };
