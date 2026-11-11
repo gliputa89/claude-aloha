@@ -17,6 +17,7 @@ export * from './core/workout.ts';
 export * from './weather/weather.ts';
 export * from './weather/weather-advice.ts';
 export * from './strava/strava.ts';
+export * from './strava/history.ts';
 export * from './review/review.ts';
 export * from './coach/review-note.ts';
 export * from './coach/day-note.ts';

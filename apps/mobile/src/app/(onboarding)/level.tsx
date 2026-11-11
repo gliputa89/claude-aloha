@@ -4,13 +4,15 @@ import { Couch, PersonSimpleRun, PersonSimpleWalk } from 'phosphor-react-native'
 import { StyleSheet, View } from 'react-native';
 
 import { OnboardingStep, StepSection } from '@/components/onboarding/onboarding-step';
+import { StravaSurveyCard } from '@/components/strava/strava-survey-card';
 import { Button } from '@/components/ui/button';
 import { Chip } from '@/components/ui/chip';
 import { OptionCard } from '@/components/ui/option-card';
 import { Stepper } from '@/components/ui/stepper';
 import { TextField } from '@/components/ui/text-field';
 import { space } from '@/constants/theme';
-import { recentTimeS, useOnboardingDraft, type LevelChoice } from '@/features/onboarding/draft';
+import { draftFromStrava, recentTimeS, useOnboardingDraft, type LevelChoice } from '@/features/onboarding/draft';
+import { useModule } from '@/features/modules/use-module';
 import { useT } from '@/hooks/use-t';
 
 const LEVELS = [
@@ -27,6 +29,8 @@ export default function LevelStep() {
   const runs = draft.level && draft.level !== 'none';
   const recent = recentTimeS(draft);
   const valid = !!draft.level && recent !== undefined;
+  // Strava jest modułem pakietu – bez niego zostają same pytania.
+  const stravaModule = useModule('strava');
 
   return (
     <OnboardingStep
@@ -34,6 +38,10 @@ export default function LevelStep() {
       title={t('onboarding.level.title')}
       subtitle={t('onboarding.level.subtitle')}
       footer={<Button label={t('onboarding.next')} disabled={!valid} onPress={() => router.push('/availability')} />}>
+      {stravaModule ? (
+        <StravaSurveyCard proposal={draft.strava} onProposal={(proposal) => update(draftFromStrava(proposal, draft))} />
+      ) : null}
+
       <View style={styles.options} accessibilityRole="radiogroup">
         {LEVELS.map((l) => (
           <OptionCard

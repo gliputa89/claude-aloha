@@ -1,7 +1,7 @@
-import type { Level, RaceDistanceM } from '@aloha/plan-engine';
+import type { Level, RaceDistanceM, StravaSurveyProposal } from '@aloha/plan-engine';
 import { createContext, use, useState, type PropsWithChildren } from 'react';
 
-import { addDays, parseDuration, toIsoDate } from './time';
+import { addDays, formatDuration, parseDuration, toIsoDate } from './time';
 
 export type GoalChoice = 'start_running' | 'improve_fitness' | 'run_regularly' | 'race';
 export type LevelChoice = 'none' | 'occasional' | 'regular';
@@ -26,7 +26,13 @@ export type OnboardingDraft = {
   maxWeekend: number;
   contraindications: boolean | null;
   healthConsent: boolean;
+  /** Propozycja z biegów w Stravie, którą uzupełniliśmy odpowiedzi (`null` – ankieta wypełniana ręcznie). */
+  strava: StravaSurveyProposal | null;
 };
+
+/** Do wyboru w kroku „Kiedy możesz biegać?”. */
+export const WEEKDAY_MINUTES = [30, 45, 60, 90] as const;
+export const WEEKEND_MINUTES = [30, 45, 60, 90, 120] as const;
 
 const initialDraft = (): OnboardingDraft => ({
   goal: null,
@@ -46,6 +52,7 @@ const initialDraft = (): OnboardingDraft => ({
   contraindications: null,
   // Zgoda na dane zdrowotne – domyślnie NIEzaznaczona (RODO art. 9, docs/PROJECT.md 6.1).
   healthConsent: false,
+  strava: null,
 });
 
 export const LEVEL_TO_DB: Record<LevelChoice, Level> = {
@@ -53,6 +60,34 @@ export const LEVEL_TO_DB: Record<LevelChoice, Level> = {
   occasional: 'intermediate',
   regular: 'advanced',
 };
+
+const LEVEL_FROM_DB: Record<Level, LevelChoice> = { beginner: 'none', intermediate: 'occasional', advanced: 'regular' };
+
+/** Najkrótszy czas z listy, w którym mieści się typowy bieg; dłuższy niż wszystkie → najdłuższy z listy. */
+const fitMinutes = (options: readonly number[], minutes: number) => options.find((m) => m >= minutes) ?? options[options.length - 1]!;
+
+/**
+ * Odpowiedzi ankiety z propozycji ze Stravy. Przy zbyt małej liczbie biegów (poziom „nie biegam”) niczego nie
+ * zaznaczamy – brak biegów w Stravie nie znaczy, że ktoś nie biega, więc o to pytamy wprost.
+ */
+export function draftFromStrava(proposal: StravaSurveyProposal, draft: OnboardingDraft): Partial<OnboardingDraft> {
+  if (proposal.level === 'beginner') return { strava: proposal };
+  const { recentResult, availability } = proposal;
+  return {
+    strava: proposal,
+    level: LEVEL_FROM_DB[proposal.level],
+    runsPerWeek: proposal.runsPerWeek,
+    ...(recentResult ? { recentDistanceM: recentResult.distanceM, recentTime: formatDuration(recentResult.timeS) } : {}),
+    ...(availability && availability.preferredDays.length > 0
+      ? {
+          days: availability.preferredDays,
+          sessionsPerWeek: availability.sessionsPerWeek,
+          maxWeekday: availability.typicalMinutesWeekday ? fitMinutes(WEEKDAY_MINUTES, availability.typicalMinutesWeekday) : draft.maxWeekday,
+          maxWeekend: availability.typicalMinutesWeekend ? fitMinutes(WEEKEND_MINUTES, availability.typicalMinutesWeekend) : draft.maxWeekend,
+        }
+      : {}),
+  };
+}
 
 type DraftContextValue = {
   draft: OnboardingDraft;

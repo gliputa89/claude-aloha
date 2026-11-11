@@ -52,6 +52,8 @@ import { isServiceKey } from '../_shared/auth.ts';
 import { claudeCaller, claudeKey } from '../_shared/claude.ts';
 import { userModules } from '../_shared/modules.ts';
 import {
+  accessToken,
+  fetchActivities,
   RateLimited,
   refreshTokens,
   saveConnection,
@@ -59,7 +61,7 @@ import {
   stravaClient,
   Unauthorized,
   type StravaAthlete,
-  type StravaClient,
+  type StravaTokenRow,
   type StravaTokens,
 } from '../_shared/strava.ts';
 
@@ -76,8 +78,6 @@ const LOOKBACK_DAYS = 30;
 /** Ręczne pobranie z Profilu: krótkie okno i rzadko – limity Stravy są wspólne dla wszystkich użytkowników. */
 const MANUAL_INTERVAL_MS = 3 * 60 * 60 * 1000;
 const MANUAL_LOOKBACK_DAYS = 3;
-const PER_PAGE = 100;
-const MAX_PAGES = 3;
 /** Przebieg tempa to osobne zapytanie na bieg – przy jednej synchronizacji pobieramy najwyżej tyle. */
 const MAX_PACE_FETCHES = 5;
 /** Notka trenera: tylko do świeżych treningów i najwyżej tyle na synchronizację (każda to wywołanie modelu). */
@@ -88,13 +88,9 @@ const HR_MAX_RULES = false;
 const NOTE_MAX_AGE_DAYS = 10;
 const MAX_NOTES_PER_SYNC = 2;
 
-type Connection = {
-  user_id: string;
+type Connection = StravaTokenRow & {
   athlete_id: number;
   athlete_name: string | null;
-  refresh_token: string;
-  access_token: string | null;
-  access_token_expires_at: string | null;
   last_synced_at: string | null;
   last_manual_sync_at: string | null;
 };
@@ -115,23 +111,6 @@ type StoredActivity = {
   match_declined: boolean;
 };
 
-type StravaActivity = {
-  id: number;
-  name?: string;
-  sport_type?: string;
-  type?: string;
-  start_date: string;
-  start_date_local: string;
-  distance?: number;
-  moving_time?: number;
-  elapsed_time?: number;
-  total_elevation_gain?: number;
-  has_heartrate?: boolean;
-  average_heartrate?: number;
-  max_heartrate?: number;
-  athlete?: { id?: number };
-};
-
 type Outcome = {
   connected: boolean;
   /** Liczba treningów, w których coś się zmieniło – aplikacja wie, czy odświeżyć plan. */
@@ -150,17 +129,6 @@ type Outcome = {
   /** Przy 'reauthorize': co Strava odrzuciła – sam token czy odczyt aktywności (zwykle brak zakresu activity:read). */
   stage?: 'token' | 'activities';
 };
-
-async function accessToken(db: SupabaseClient, conn: Connection, client: StravaClient) {
-  const expires = conn.access_token_expires_at ? Date.parse(conn.access_token_expires_at) : 0;
-  if (conn.access_token && expires - Date.now() > 5 * 60 * 1000) return conn.access_token;
-  const tokens = await refreshTokens(client, conn.refresh_token);
-
-  // Strava może wydać nowy refresh token – stary przestaje wtedy działać, więc zapisujemy zawsze najnowszy.
-  const { error } = await db.from('strava_connections').update(tokens).eq('user_id', conn.user_id);
-  if (error) console.error('strava token save failed', error.code, error.message);
-  return tokens.access_token;
-}
 
 /**
  * Ręczne połączenie konta (panel admina): token musi przejść w Stravie, dopiero wtedy zapisujemy wiersz.
@@ -190,23 +158,6 @@ async function connect(db: SupabaseClient, userId: string, refreshToken: string)
   if (typeof athlete.id !== 'number') return { connected: false, updated: 0, error: 'strava_unavailable' };
   const saved = await saveConnection(db, userId, tokens, athlete, null);
   return saved === 'ok' ? null : { connected: false, updated: 0, error: 'save_failed' };
-}
-
-async function fetchActivities(token: string, afterEpochS: number) {
-  const all: StravaActivity[] = [];
-  for (let page = 1; page <= MAX_PAGES; page++) {
-    const res = await fetch(`${STRAVA}/api/v3/athlete/activities?after=${afterEpochS}&per_page=${PER_PAGE}&page=${page}`, {
-      headers: { Authorization: `Bearer ${token}` },
-      signal: AbortSignal.timeout(10_000),
-    });
-    if (res.status === 401) throw new Unauthorized('activities');
-    if (res.status === 429) throw new RateLimited();
-    if (!res.ok) throw new Error(`activities ${res.status}`);
-    const items = (await res.json()) as StravaActivity[];
-    all.push(...items);
-    if (items.length < PER_PAGE) return { activities: all, complete: true };
-  }
-  return { activities: all, complete: false };
 }
 
 /** Treningi aktywnego planu (z tygodniem) i początek okna aktywności: dzień przed startem planu, najwyżej 30 dni wstecz. */

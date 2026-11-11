@@ -82,6 +82,9 @@ aplikacja prosi o jednorazową zgodę i wysyła wiadomość ponownie.
 - Testowanie oceny: `packages/plan-engine/src/review/review-sim.ts` generuje sztuczne biegi (idealne, trochę inne, zupełnie
   inne; z tętnem i bez) i trzyma macierz scenariuszy z oczekiwanym werdyktem – sprawdzają ją testy silnika.
   Te same scenariusze przez prawdziwy prompt notki puszcza panel: AI → „Test ocen” (nic nie zapisuje użytkownikom).
+- `strava-history` – ankieta startowa (krok „Jak teraz biegasz?” → „Połącz ze Stravą”): pobiera aktywności z ostatnich
+  8 tygodni i zwraca propozycję odpowiedzi – poziom, biegi w tygodniu, ostatni wynik, dni i czas na trening
+  (`packages/plan-engine/src/strava/history.ts`). Niczego nie zapisuje i nie czyta tętna; biegacz może wszystko zmienić.
 - Ręczne pobranie: Profil → Strava → „Pobierz biegi z 3 dni” wywołuje `strava-sync` z `{ manual: true }` – od razu,
   okno 3 dni, najwyżej raz na 3 godziny na użytkownika (`strava_connections.last_manual_sync_at`).
 - `strava-oauth` – „Połącz przez Stravę” w aplikacji (Profil → Strava) i w panelu (tester → użytkownik → karta
