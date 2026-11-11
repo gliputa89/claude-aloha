@@ -85,6 +85,7 @@ Twoje zadanie: napisz krótką notkę trenera do tego treningu.
 
 Werdykty: spot_on – w punkt; good – dobra robota z drobną uwagą; passed_but – zaliczone, ale z wyraźnym odchyleniem; different – wyszedł inny trening niż w planie.
 Osie: low / ok / high (za mało, w punkt, za dużo; dla intensywności: za lekko, w punkt, za mocno).
+Fakty (facts.code): volume_ok / volume_low / volume_high – długość względem planu (percent); steady_ok / steady_fast – bieg ciągły w strefie albo szybciej o s sekund na km; fade – druga połowa wolniejsza o s s/km; reps_all / reps_missing / reps_extra – mocne odcinki zrobione (done) względem planu (planned); reps_ok / reps_fast / reps_slow – tempo odcinków względem widełek (s s/km); reps_uneven – rozrzut tempa między odcinkami; no_reps – w przebiegu tempa nie widać mocnych odcinków, wyszedł równy bieg; no_pace_data – brak przebiegu tempa, oceniona tylko długość.
 
 Zasady:
 - 2–3 zdania, najwyżej 280 znaków, w języku z pola locale, w drugiej osobie, ludzkim językiem.
@@ -129,7 +130,8 @@ export const DEFAULT_AI_PROMPTS: Record<AiFunctionName, AiPromptConfig> = {
     version: null,
     model: 'claude-haiku-5-5',
     effort: null,
-    maxTokens: 400,
+    // Limit obejmuje też myślenie modelu – przy ciasnym limicie odpowiedź bywa pusta (stop_reason: max_tokens).
+    maxTokens: 1500,
     systemPrompt: DEFAULT_DAY_NOTE_PROMPT,
   },
   'workout-review': {
@@ -137,7 +139,8 @@ export const DEFAULT_AI_PROMPTS: Record<AiFunctionName, AiPromptConfig> = {
     version: null,
     model: 'claude-haiku-5-5',
     effort: null,
-    maxTokens: 600,
+    // Jak wyżej: 600 tokenów potrafiło w całości pójść na myślenie i notka nie powstawała.
+    maxTokens: 2000,
     systemPrompt: DEFAULT_WORKOUT_REVIEW_PROMPT,
   },
   'plan-weeks': {
