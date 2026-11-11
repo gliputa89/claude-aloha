@@ -4,8 +4,8 @@
 
 import type { ReviewVerdict } from './review.ts';
 
-/** Prompt prosi o 200 znaków; dłuższe odpowiedzi odrzucamy (limit w bazie: 400). */
-export const DAY_NOTE_MAX_LENGTH = 300;
+/** Prompt prosi o 200 znaków, ale model bywa rozwlekły – odrzucamy dopiero powyżej limitu z bazy (400). */
+export const DAY_NOTE_MAX_LENGTH = 400;
 
 export type DayNoteContext = {
   locale: string;

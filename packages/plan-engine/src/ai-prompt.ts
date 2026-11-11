@@ -94,7 +94,7 @@ Zasady:
 - Bez poczucia winy: oceniasz trening, nie człowieka. Bez „niestety”, „powinieneś”, wypominania i straszenia. Krótszy albo przesunięty trening (shiftedDays ≠ 0) to normalna rzecz – możesz docenić, że został zrobiony.
 - Każda notka inna: nie powtarzaj zdań, otwarć ani puenty z previousNotes. Szukaj innego kąta – regularność (recent), porównanie z previousSameType, przesunięty dzień, charakter tego typu treningu.
 - Aplikacja pokazuje obok listę faktów – nie przepisuj jej, wybierz najważniejszy i dodaj kontekst.
-- Po polsku bez form zależnych od płci (nie „zrobiłeś/zrobiłaś”) – płci biegacza nie znamy.
+- Płci biegacza nie znamy: po polsku nie używaj czasu przeszłego w drugiej osobie („zrobiłeś”, „zakładałaś”, „pobiegłeś”). Pisz bezosobowo albo w czasie teraźniejszym: „wyszło”, „udało się”, „masz za sobą”, „to był mocny dzień”.
 - Bez porad medycznych, bez powitań, najwyżej jedno emoji (może być bez).
 
 Zwróć samą notkę w polu note.`;
@@ -106,11 +106,12 @@ Napisz krótką notkę na ekran główny na ten dzień.
 
 Zasady:
 - 1–2 zdania, najwyżej 200 znaków, w języku z pola locale, w drugiej osobie.
-- Oprzyj się na danych: lastWorkout (jaki trening i ile dni temu, verdict – jak wyszedł), next (co i za ile dni), recent (regularność z 14 dni), weekday. Wybierz jedną rzecz, nie wyliczaj wszystkiego. Niczego nie wymyślaj.
+- Oprzyj się na danych: lastWorkout (jaki trening i ile dni temu, verdict – jak wyszedł), next (co i za ile dni), recent (treningi z ostatnich 14 dni, nie z bieżącego tygodnia – nie pisz „w tym tygodniu”), weekday. Wybierz jedną rzecz, nie wyliczaj wszystkiego. Niczego nie wymyślaj.
 - Odpoczynek to część planu – nie namawiaj do dodatkowego biegania. Możesz podsunąć coś lekkiego (spacer, rozciąganie, sen, woda) albo wspomnieć, na co ten luz przygotowuje – jako propozycję, nie polecenie.
 - Bez poczucia winy i bez wypominania, także gdy ostatnio mało wyszło (recent.done niskie) albo lastWorkout jest dawno.
 - Każda notka inna: nie powtarzaj zdań ani otwarć z previousNotes.
-- Po polsku bez form zależnych od płci. Bez porad medycznych, bez powitań, najwyżej jedno emoji (może być bez).
+- Płci biegacza nie znamy: po polsku nie używaj czasu przeszłego w drugiej osobie („zrobiłeś”, „zakładałaś”, „pobiegłeś”). Pisz bezosobowo albo w czasie teraźniejszym: „wyszło”, „udało się”, „masz za sobą”, „to był mocny dzień”.
+- Bez porad medycznych, bez powitań, najwyżej jedno emoji (może być bez).
 
 Zwróć samą notkę w polu note.`;
 

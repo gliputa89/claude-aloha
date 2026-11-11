@@ -11,8 +11,8 @@ import type { AiCaller, AiLogger, AiModelRequest, AiModelResult, AiStatus } from
 import { ENGINE_VERSION } from './plan.ts';
 import type { ReviewFact, ReviewVerdict, WorkoutReview } from './review.ts';
 
-/** Prompt prosi o 280 znaków; dłuższe odpowiedzi odrzucamy (limit w bazie: 600). */
-export const WORKOUT_NOTE_MAX_LENGTH = 400;
+/** Prompt prosi o 280 znaków, ale model bywa rozwlekły – odrzucamy dopiero powyżej limitu z bazy (600). */
+export const WORKOUT_NOTE_MAX_LENGTH = 600;
 const WORKOUT_NOTE_MIN_LENGTH = 30;
 
 export const WORKOUT_NOTE_SCHEMA = {
