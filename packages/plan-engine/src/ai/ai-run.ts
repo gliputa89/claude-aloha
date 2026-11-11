@@ -78,6 +78,8 @@ export type AiCallRecord = {
   request_id: string | null;
   stop_reason: string | null;
   price: ModelPrice | null;
+  /** Tylko 'plan-weeks': ilu tygodni szkicu dotyczyło wywołanie (2 po ankiecie, 1 przy kolejnym tygodniu). */
+  weeks?: number | null;
 };
 
 export type AiCallPayload = {
@@ -253,6 +255,7 @@ export async function planWeeksWithAi(opts: PlanWeeksWithAiOptions): Promise<Pla
           request_id: model?.requestId ?? null,
           stop_reason: model?.stopReason ?? null,
           price,
+          weeks: opts.draft.length,
         },
         { request, response: model ? model.raw : { error: errorText }, result },
       )

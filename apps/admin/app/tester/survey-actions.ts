@@ -8,18 +8,22 @@ import {
   planWeeksWithAi,
   surveyTrainingLevel,
   TRAINING_LEVEL_INFO,
+  type PlannedWeek,
+  type PlanWeeksOutcome,
 } from '@aloha/plan-engine';
 import { refresh } from 'next/cache';
 
 import { claudeCaller, hasClaudeKey } from '@/lib/ai/claude';
 import { aiLogger, loadAiRuntime } from '@/lib/ai/runtime';
 import { requireAdmin, type Admin } from '@/lib/auth';
-import { loadTesterUser, todayIn } from '@/lib/plan-tester';
+import { loadTesterUser, MAX_REGENERATE_WEEKS, todayIn } from '@/lib/plan-tester';
 import { createServiceClient } from '@/lib/supabase/server';
 import { presetByKey, validateSurvey, type SurveyErrors, type SurveyValues } from '@/lib/survey';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MAX_BATCH = 20;
+/** Tyle tygodni układa aplikacja po ankiecie (generate-plan). */
+const INITIAL_WEEKS = 2;
 
 export type SurveyResult = { ok: true; message: string } | { ok: false; message: string; errors?: SurveyErrors };
 
@@ -39,11 +43,15 @@ async function saveSurveyRow(admin: Admin, userId: string, values: SurveyValues)
 }
 
 /**
- * Plan od nowa jak w produkcji (Edge Function generate-plan): aktywne parametry silnika, 2 tygodnie od daty
- * startu z ankiety, z AI – szkic poprawiony przez Claude z walidacją; zapis przez save_generated_plan
- * (stary plan → archiwum). Bez AI – sam szkic silnika (np. przy masowym zakładaniu kont testowych).
+ * Plan od nowa jak w produkcji (Edge Function generate-plan): aktywne parametry silnika, tygodnie od daty
+ * startu z ankiety (domyślnie 2, w testerze do wyboru), z AI – szkic poprawiony przez Claude z walidacją; zapis
+ * przez save_generated_plan (stary plan → archiwum). Bez AI – sam szkic silnika (np. przy masowym zakładaniu kont).
+ *
+ * Z AI i więcej niż 2 tygodniami idziemy tak jak aplikacja w czasie: pierwsze wywołanie układa 2 tygodnie po
+ * ankiecie, a każdy kolejny tydzień to osobne wywołanie z poprzednim tygodniem (już po poprawkach) jako kontekstem.
+ * Jedno wywołanie na cały długi plan nie zmieściłoby się w limicie tokenów i operacji.
  */
-async function regeneratePlanRow(admin: Admin, userId: string, useAi = false): Promise<SurveyResult> {
+async function regeneratePlanRow(admin: Admin, userId: string, useAi = false, weekCount = INITIAL_WEEKS): Promise<SurveyResult> {
   const user = await loadTesterUser(userId);
   const { profile, goal, availability } = user ?? {};
   if (!user || !profile?.onboarding_completed_at || !profile.level || !goal || !availability) {
@@ -68,38 +76,53 @@ async function regeneratePlanRow(admin: Admin, userId: string, useAi = false): P
   });
   if (levelRes.error) console.warn('set_training_level failed', levelRes.error.code, levelRes.error.message);
   const input = { ...baseInput, trainingLevel: surveyLevel, params: engine.params };
-  const draft = generateInitialPlan(input);
+  const draft = generateInitialPlan({ ...input, weeks: weekCount });
   if (useAi && !hasClaudeKey()) return { ok: false, message: 'Brak ANTHROPIC_API_KEY w środowisku panelu.' };
-  const outcome = useAi
-    ? await planWeeksWithAi({
-        input: { ...input, startDate: draft.startsOn },
-        draft: draft.weeks,
-        previousWeek: null,
-        athlete: aiAthleteFromSurvey(survey),
-        today,
-        prompt,
-        engine,
-        call: claudeCaller(),
-        log: aiLogger(db),
-        meta: { userId, source: 'tester', isTest: user.isTest },
-      })
-    : null;
-  const plan = {
-    ...draft,
-    weeks: (outcome?.weeks ?? draft.weeks).map((w) => ({
-      ...w,
-      source: outcome?.source ?? 'rules',
-      aiCallId: outcome?.source === 'ai' ? outcome.finalCallId : null,
-      engineConfigVersion: engine.version,
-    })),
-  };
+  // Porcje szkicu dla AI: [tydzień 1–2], [3], [4]… Każda dostaje poprzedni tydzień już po poprawkach.
+  const outcomes: PlanWeeksOutcome[] = [];
+  const reviewed: PlannedWeek[] = [];
+  const weeks = [];
+  for (let from = 0; from < draft.weeks.length; from = reviewed.length) {
+    const chunk = draft.weeks.slice(from, from === 0 ? INITIAL_WEEKS : from + 1);
+    const outcome = useAi
+      ? await planWeeksWithAi({
+          input: { ...input, startDate: draft.startsOn },
+          draft: chunk,
+          previousWeek: reviewed[reviewed.length - 1] ?? null,
+          athlete: aiAthleteFromSurvey(survey),
+          today,
+          prompt,
+          engine,
+          call: claudeCaller(),
+          log: aiLogger(db),
+          meta: { userId, source: 'tester', isTest: user.isTest },
+        })
+      : null;
+    if (outcome) outcomes.push(outcome);
+    // Liczba tygodni z modelu zawsze równa się porcji; `chunk` to bezpiecznik, żeby pętla nie stanęła.
+    const done = outcome && outcome.weeks.length === chunk.length ? outcome.weeks : chunk;
+    reviewed.push(...done);
+    weeks.push(
+      ...done.map((w) => ({
+        ...w,
+        source: outcome?.source ?? ('rules' as const),
+        aiCallId: outcome?.source === 'ai' ? outcome.finalCallId : null,
+        engineConfigVersion: engine.version,
+      })),
+    );
+  }
+  const plan = { ...draft, weeks };
+  const tips: Record<string, string> = Object.assign({}, ...outcomes.map((o) => o.tips));
+  const costUsd = outcomes.reduce((n, o) => n + o.costUsd, 0);
+  const callIds = outcomes.flatMap((o) => o.callIds);
+  const statuses = [...new Set(outcomes.map((o) => o.status))].join(', ');
   const { error } = await db.rpc('save_generated_plan', { p_user_id: userId, p_goal_id: goal.id, p_plan: plan });
   if (error) {
     console.error('save_generated_plan failed', error.code, error.message);
     return { ok: false, message: `Zapis planu nie powiódł się: ${error.message}` };
   }
-  if (outcome && Object.keys(outcome.tips).length > 0) {
-    const { error: tipsError } = await db.rpc('set_session_coach_tips', { p_user_id: userId, p_tips: outcome.tips });
+  if (Object.keys(tips).length > 0) {
+    const { error: tipsError } = await db.rpc('set_session_coach_tips', { p_user_id: userId, p_tips: tips });
     if (tipsError) console.error('set_session_coach_tips failed', tipsError.code, tipsError.message);
   }
   await db.rpc('admin_log', {
@@ -112,10 +135,10 @@ async function regeneratePlanRow(admin: Admin, userId: string, useAi = false): P
       weeks: plan.weeks.length,
       engine_version: plan.engineVersion,
       engine_config_version: engine.version,
-      ai: outcome ? { status: outcome.status, calls: outcome.callIds, cost_usd: outcome.costUsd } : null,
+      ai: outcomes.length ? { status: statuses, calls: callIds, cost_usd: costUsd } : null,
     },
   });
-  const ai = outcome ? ` · AI: ${outcome.status}, ${outcome.callIds.length} wyw., $${outcome.costUsd.toFixed(4)}` : '';
+  const ai = outcomes.length ? ` · AI: ${statuses}, ${callIds.length} wyw., $${costUsd.toFixed(4)}` : '';
   return { ok: true, message: `Nowy plan od ${plan.startsOn}: ${plan.weeks.length} tyg.${ai}` };
 }
 
@@ -127,10 +150,13 @@ export async function saveSurvey(userId: string, values: SurveyValues): Promise<
   return result;
 }
 
-export async function regeneratePlan(userId: string, useAi = false): Promise<SurveyResult> {
+export async function regeneratePlan(userId: string, useAi = false, weekCount: number = INITIAL_WEEKS): Promise<SurveyResult> {
   const admin = await requireAdmin();
   if (!UUID.test(userId)) return { ok: false, message: 'Nieprawidłowy użytkownik.' };
-  const result = await regeneratePlanRow(admin, userId, useAi);
+  if (!Number.isInteger(weekCount) || weekCount < 1 || weekCount > MAX_REGENERATE_WEEKS) {
+    return { ok: false, message: `Liczba tygodni musi być od 1 do ${MAX_REGENERATE_WEEKS}.` };
+  }
+  const result = await regeneratePlanRow(admin, userId, useAi, weekCount);
   if (result.ok) refresh();
   return result;
 }

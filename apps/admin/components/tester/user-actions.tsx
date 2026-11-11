@@ -65,21 +65,40 @@ function ConfirmButton({
   );
 }
 
-export function RegeneratePlanButton({ userId, hasPlan }: { userId: string; hasPlan: boolean }) {
-  const question = hasPlan ? 'Zarchiwizować obecny plan i ułożyć 2 tygodnie od nowa' : 'Ułożyć plan jak po ankiecie';
+export function RegeneratePlanButton({ userId, hasPlan, maxWeeks }: { userId: string; hasPlan: boolean; maxWeeks: number }) {
+  const [weeks, setWeeks] = useState(2);
+  const span = weeks === 1 ? '1 tydzień' : weeks <= 4 ? `${weeks} tygodnie` : `${weeks} tygodni`;
+  const question = hasPlan ? `Zarchiwizować obecny plan i ułożyć ${span} od nowa` : `Ułożyć ${span} planu jak po ankiecie`;
+  // Jak aplikacja w czasie: 2 tygodnie po ankiecie w jednym wywołaniu, każdy kolejny tydzień osobno.
+  const calls = Math.max(1, weeks - 1);
+  const cost = calls === 1 ? 'płatne wywołanie' : `${calls} płatnych wywołań, ok. ${Math.ceil(calls / 2)} min`;
   return (
-    <div className="flex flex-wrap justify-end gap-2">
+    <div className="flex flex-wrap items-center justify-end gap-2">
+      <label className="flex items-center gap-2 text-sm text-text-muted">
+        Tygodni
+        <select
+          value={weeks}
+          onChange={(e) => setWeeks(Number(e.target.value))}
+          className="rounded-button border border-border-strong bg-surface px-2 py-2 text-sm text-text outline-none focus:border-action"
+        >
+          {Array.from({ length: maxWeeks }, (_, i) => i + 1).map((n) => (
+            <option key={n} value={n}>
+              {n}
+            </option>
+          ))}
+        </select>
+      </label>
       <ConfirmButton
         label="Plan od nowa z AI (jak w aplikacji)"
-        question={`${question} – silnik + Claude (płatne wywołanie)?`}
+        question={`${question} – silnik + Claude (${cost})?`}
         confirmLabel="Tak, ułóż z AI"
-        onConfirm={() => regeneratePlan(userId, true)}
+        onConfirm={() => regeneratePlan(userId, true, weeks)}
       />
       <ConfirmButton
         label="Plan od nowa – sam silnik"
         question={`${question} – sam silnik reguł?`}
         confirmLabel="Tak, ułóż"
-        onConfirm={() => regeneratePlan(userId, false)}
+        onConfirm={() => regeneratePlan(userId, false, weeks)}
       />
     </div>
   );
