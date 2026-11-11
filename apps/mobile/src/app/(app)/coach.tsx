@@ -194,7 +194,8 @@ export default function CoachChatScreen() {
             threadId ? (
               <View style={styles.empty}>
                 <Text variant="heading">{t(isAi ? 'chat.emptyAiTitle' : 'chat.emptyHumanTitle')}</Text>
-                <Text variant="caption">{coach?.bio ?? t(isAi ? 'chat.emptyAiBody' : 'chat.emptyHumanBody')}</Text>
+                {/* Pan Aloha mówi o sobie w pierwszej osobie (tekst ze słownika); trener-człowiek ma własny opis z panelu. */}
+                <Text variant="caption">{isAi ? t('chat.emptyAiBody') : (coach?.bio ?? t('chat.emptyHumanBody'))}</Text>
                 <View style={styles.suggestions}>
                   {suggestions.map((s) => (
                     <Chip key={s} label={s} selected={false} onPress={() => send(s)} />

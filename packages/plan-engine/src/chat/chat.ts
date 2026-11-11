@@ -56,7 +56,7 @@ export const COACH_CHAT_SCHEMA = {
         op: { type: 'string', enum: ['none', ...CHAT_CHANGE_KINDS] },
         date: { type: ['string', 'null'] },
         toDate: { type: ['string', 'null'] },
-        type: { type: ['string', 'null'], enum: [...AI_SESSION_TYPES, null] },
+        type: { anyOf: [{ type: 'string', enum: [...AI_SESSION_TYPES] }, { type: 'null' }] },
         durationMin: { type: ['integer', 'null'] },
         summary: { type: 'string' },
       },
