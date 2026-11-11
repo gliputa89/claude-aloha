@@ -154,9 +154,8 @@ export default async function Home({ params }: PageProps<"/[lang]">) {
         {/* Ekrany aplikacji – zrzuty z symulatora, telefony wychodzą z dolnej krawędzi sekcji */}
         <section className="overflow-hidden bg-surface-brand pt-20 text-white sm:pt-28">
           <div className={shell}>
-            <h2 className={h2}>{t.screens.title}</h2>
-            <p className="mt-4 max-w-[60ch] text-lg leading-relaxed text-white/85">{t.screens.lead}</p>
-            {t.screens.note && <p className="mt-2 text-sm text-white/70">{t.screens.note}</p>}
+            <h2 className={`${h2} max-w-3xl`}>{t.screens.title}</h2>
+            {t.screens.note && <p className="mt-4 text-sm text-white/70">{t.screens.note}</p>}
           </div>
           <ul className="mx-auto mt-12 flex w-full max-w-6xl snap-x snap-mandatory gap-5 overflow-x-auto overflow-y-hidden overscroll-x-contain px-5 [scrollbar-width:none] sm:px-8 lg:grid lg:grid-cols-4 lg:gap-7 lg:overflow-visible">
             {t.screens.items.map((item, index) => (

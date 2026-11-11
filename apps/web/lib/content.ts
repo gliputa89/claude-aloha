@@ -45,7 +45,6 @@ export type Content = {
   audience: { title: string; body: string };
   screens: {
     title: string;
-    lead: string;
     note?: string;
     items: { image: "today" | "plan" | "workout" | "review"; title: string; body: string; alt: string }[];
   };
@@ -142,8 +141,7 @@ const pl: Content = {
     body: "Większość planów zakłada idealny tydzień. Aloha zaczyna od Twojego: ile masz dni, ile minut i w jakiej jesteś formie. Bez tabel z tętnem na start i bez poczucia winy, kiedy coś wypadnie.",
   },
   screens: {
-    title: "Tak to wygląda w telefonie",
-    lead: "Otwierasz aplikację i od razu wiesz, co dziś biegasz. To cztery ekrany, z których korzystasz najczęściej.",
+    title: "Otwierasz aplikację i od razu wiesz, co dziś biegasz.",
     items: [
       {
         image: "today",
@@ -468,8 +466,7 @@ const en: Content = {
     body: "Most plans assume a perfect week. Aloha starts from yours: how many days you have, how many minutes, and where your fitness is today. No heart-rate tables to begin with, and no guilt when life gets in the way.",
   },
   screens: {
-    title: "What it looks like on your phone",
-    lead: "Open the app and you know straight away what you're running today. These are the four screens you'll use most.",
+    title: "Open the app and you know what you're running today.",
     note: "Screens shown in Polish. The app is also in English.",
     items: [
       {
