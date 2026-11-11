@@ -17,22 +17,19 @@ import { createClient, type SupabaseClient } from 'jsr:@supabase/supabase-js@2';
 import { claudeCaller, claudeKey } from '../_shared/claude.ts';
 import { userModules } from '../_shared/modules.ts';
 import {
-  addDaysIso,
   CHAT_DAILY_LIMIT,
   CHAT_HISTORY_LIMIT,
   CHAT_MESSAGE_MAX_LENGTH,
   chatChangeWrite,
+  chatContextFromRows,
   checkChatChange,
   coachChatWithAi,
-  describeSteps,
   engineFromRow,
-  isoWeekday,
   mentionsHealth,
-  noteActual,
+  paramsOf,
   planInputFromSurvey,
   plannedWeekFromRow,
   promptFromRow,
-  stepsOf,
   type AiCallPayload,
   type AiCallRecord,
   type ChatChange,
@@ -111,57 +108,18 @@ async function loadPlan(db: SupabaseClient, userId: string) {
 type Loaded = Awaited<ReturnType<typeof loadPlan>>;
 
 async function buildContext(db: SupabaseClient, loaded: Loaded, focusId: string | null): Promise<CoachChatContext> {
-  const { weeks, today, profile, goal } = loaded;
-  const from = addDaysIso(today, -7);
-  const to = addDaysIso(today, 14);
-  const all = weeks.flatMap((w) => w.sessions).filter((s) => s.type !== 'rest');
-  const shown = all.filter((s) => s.scheduled_on >= from && s.scheduled_on <= to).sort((a, b) => a.scheduled_on.localeCompare(b.scheduled_on));
-  const focus = focusId ? (all.find((s) => s.id === focusId) ?? null) : null;
-  const ids = [...new Set([...shown.map((s) => s.id), ...(focus ? [focus.id] : [])])];
+  const ids = loaded.weeks.flatMap((w) => w.sessions).map((s) => s.id);
   const reviews = ids.length > 0 ? await db.from('session_reviews').select('session_id, verdict, facts, note').in('session_id', ids) : { data: [] };
-  const reviewOf = new Map((reviews.data ?? []).map((r) => [r.session_id as string, r]));
-
-  // Wolne dni: od dziś do końca ostatniego tygodnia planu w oknie, bez treningu.
-  const taken = new Set(all.map((s) => s.scheduled_on));
-  const lastDay = weeks.length > 0 ? addDaysIso(weeks.at(-1)!.starts_on, 6) : today;
-  const freeDays: string[] = [];
-  for (let d = today; d <= to && d <= lastDay; d = addDaysIso(d, 1)) if (!taken.has(d)) freeDays.push(d);
-
-  const focusReview = focus ? reviewOf.get(focus.id) : undefined;
-  return {
-    locale: (profile?.locale as string | undefined) ?? 'pl',
-    today,
-    weekday: isoWeekday(today),
-    athlete: {
-      level: (profile?.level as string | undefined) ?? null,
-      goal: goal ? (goal.type === 'race' ? `zawody ${goal.distance_m} m, ${goal.race_date}` : (goal.general_focus as string | null)) : null,
-    },
-    plan: {
-      sessions: shown.map((s) => ({
-        date: s.scheduled_on,
-        weekday: isoWeekday(s.scheduled_on),
-        type: s.type,
-        durationMin: s.duration_min,
-        status: s.status,
-        canChange: s.status === 'planned' && s.scheduled_on >= today && s.type !== 'race',
-        verdict: (reviewOf.get(s.id)?.verdict as ReviewVerdict | undefined) ?? null,
-      })),
-      freeDays,
-    },
-    focus: focus
-      ? {
-          date: focus.scheduled_on,
-          type: focus.type,
-          durationMin: focus.duration_min,
-          steps: describeSteps(stepsOf(focus)),
-          phase: focus.status === 'planned' ? 'before' : 'after',
-          actual: focus.status === 'planned' ? null : noteActual(focus.actual_distance_m, focus.actual_duration_s),
-          verdict: (focusReview?.verdict as ReviewVerdict | undefined) ?? null,
-          facts: (focusReview?.facts as ReviewFact[] | undefined) ?? [],
-          coachNote: (focusReview?.note as string | null | undefined) ?? null,
-        }
-      : null,
-  };
+  return chatContextFromRows({
+    locale: (loaded.profile?.locale as string | undefined) ?? null,
+    level: (loaded.profile?.level as string | undefined) ?? null,
+    goal: loaded.goal,
+    weeks: loaded.weeks,
+    reviews: (reviews.data ?? []) as { session_id: string; verdict: ReviewVerdict; facts: ReviewFact[]; note: string | null }[],
+    today: loaded.today,
+    focusId,
+    minSessionMin: loaded.input ? paramsOf(loaded.input).minSessionMin : null,
+  });
 }
 
 /** Czy zmianę da się teraz wykonać na planie z bazy; przy `ok` – tydzień po zmianie. */
@@ -279,6 +237,12 @@ Deno.serve(async (req) => {
           return (data as number | null) ?? null;
         },
         meta: { userId, isTest: auth.user.user_metadata?.test_account === true },
+        // Propozycja łamiąca reguły wraca do modelu z powodem; biegacz widzi tylko wykonalną albo samą odpowiedź.
+        check: (change) => {
+          const checked = checkChange(change, loaded);
+          return checked.ok ? null : checked.reason;
+        },
+        rejectedSuffix: loaded.profile?.locale === 'en' ? '(I can’t make this change in the plan – the plan rules don’t allow it.)' : '(Tej zmiany nie mogę wprowadzić w planie – nie pozwalają na nią reguły planu.)',
       });
       if (!outcome.reply) return json({ messages: [saved.data], error: 'ai_unavailable' });
 

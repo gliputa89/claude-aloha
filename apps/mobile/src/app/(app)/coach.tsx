@@ -2,7 +2,7 @@ import type { TranslationKey } from '@aloha/i18n';
 import { router, useLocalSearchParams } from 'expo-router';
 import { PaperPlaneRight, UserCircle, X } from 'phosphor-react-native';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, FlatList, KeyboardAvoidingView, Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { ActivityIndicator, FlatList, Keyboard, Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Mark } from '@/components/brand/mark';
@@ -27,6 +27,23 @@ import { useColors } from '@/hooks/use-colors';
 import { useT } from '@/hooks/use-t';
 import { useAuth } from '@/providers/auth-provider';
 
+/**
+ * Wysokość klawiatury. Arkusz (modal) kończy się na dole ekranu, więc wystarczy podnieść treść o tyle –
+ * KeyboardAvoidingView liczy pozycję względem arkusza i zostawiał pole pisania częściowo pod klawiaturą.
+ */
+function useKeyboardHeight() {
+  const [height, setHeight] = useState(0);
+  useEffect(() => {
+    const show = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow', (e) => setHeight(e.endCoordinates.height));
+    const hide = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide', () => setHeight(0));
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, []);
+  return height;
+}
+
 /** Jak często sprawdzamy, czy trener-człowiek odpisał (odpowiedź AI wraca od razu z wysłaniem). */
 const HUMAN_POLL_MS = 20_000;
 
@@ -39,6 +56,7 @@ export default function CoachChatScreen() {
   const c = useColors();
   const t = useT();
   const insets = useSafeAreaInsets();
+  const keyboard = useKeyboardHeight();
   const params = useLocalSearchParams<{ sessionId?: string; coach?: string }>();
   const { state, refresh } = usePlan();
   const { session: authSession } = useAuth();
@@ -94,6 +112,11 @@ export default function CoachChatScreen() {
     return () => clearInterval(timer);
   }, [kind, threadId, lastId]);
 
+  // Po otwarciu klawiatury lista ma mniej miejsca – najnowsza wiadomość musi zostać widoczna.
+  useEffect(() => {
+    if (keyboard > 0) list.current?.scrollToEnd({ animated: true });
+  }, [keyboard]);
+
   const switchCoach = (next: CoachKind) => {
     if (next === kind) return;
     setLoading(true);
@@ -146,7 +169,7 @@ export default function CoachChatScreen() {
   const errorText = error && !needsConsent ? t(`chat.error.${error}` as TranslationKey) : null;
 
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={[styles.flex, { backgroundColor: c.background }]}>
+    <View style={[styles.flex, { backgroundColor: c.background, paddingBottom: keyboard }]}>
       <View style={[styles.bar, { borderBottomColor: c.border }]}>
         <View style={[styles.grabber, { backgroundColor: c.borderStrong }]} />
         <View style={styles.head}>
@@ -265,7 +288,7 @@ export default function CoachChatScreen() {
         </Text>
       ) : null}
 
-      <View style={[styles.composer, { borderTopColor: c.border, paddingBottom: Math.max(insets.bottom, space[3]) }]}>
+      <View style={[styles.composer, { borderTopColor: c.border, paddingBottom: keyboard > 0 ? space[3] : Math.max(insets.bottom, space[3]) }]}>
         <TextInput
           value={draft}
           onChangeText={setDraft}
@@ -287,7 +310,7 @@ export default function CoachChatScreen() {
           <PaperPlaneRight size={20} weight="bold" color={c.textOnBrand} />
         </Pressable>
       </View>
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 

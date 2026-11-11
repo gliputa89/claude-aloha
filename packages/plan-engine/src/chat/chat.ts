@@ -9,6 +9,9 @@ import { AI_SESSION_TYPES, applyOperations, type AiOperation, type AiSessionType
 import { costUsd, modelPrice } from '../ai/ai-pricing.ts';
 import type { AiPromptConfig } from '../ai/ai-prompt.ts';
 import type { AiCaller, AiLogger, AiMessage, AiModelRequest, AiModelResult, AiStatus } from '../ai/ai-run.ts';
+import { noteActual } from '../coach/review-note.ts';
+import { addDaysIso, isoWeekday } from '../core/dates.ts';
+import { describeSteps, stepsOf } from '../core/workout.ts';
 import { ENGINE_VERSION, type PlanInput, type PlannedSession, type PlannedWeek } from '../plan/plan.ts';
 import type { ReviewFact, ReviewVerdict } from '../review/review.ts';
 
@@ -85,7 +88,8 @@ export type CoachChatContext = {
   today: string;
   weekday: number;
   athlete: { level: string | null; goal: string | null };
-  plan: { sessions: ChatSessionContext[]; freeDays: string[] };
+  /** `minSessionMin` – krótszego treningu reguły planu nie przyjmą. */
+  plan: { sessions: ChatSessionContext[]; freeDays: string[]; minSessionMin: number | null };
   /** Rozmowa przy konkretnym treningu: pytania przed albo po. */
   focus: {
     date: string;
@@ -99,6 +103,88 @@ export type CoachChatContext = {
     coachNote: string | null;
   } | null;
 };
+
+/** Wiersze z bazy potrzebne do kontekstu rozmowy (te same w Edge Function i w testerze w panelu). */
+export type ChatContextRows = {
+  locale: string | null;
+  level: string | null;
+  goal: { type: string; general_focus: string | null; distance_m: number | null; race_date: string | null } | null;
+  weeks: {
+    starts_on: string;
+    sessions: {
+      id: string;
+      scheduled_on: string;
+      type: string;
+      duration_min: number | null;
+      structure: unknown;
+      status: string;
+      actual_distance_m: number | null;
+      actual_duration_s: number | null;
+    }[];
+  }[];
+  reviews: { session_id: string; verdict: ReviewVerdict; facts: ReviewFact[]; note: string | null }[];
+  /** Dziś w strefie biegacza. */
+  today: string;
+  /** Trening, przy którym toczy się rozmowa (wątek „przed / po”). */
+  focusId: string | null;
+  /** Najkrótszy trening dopuszczany przez reguły dla tego biegacza (z parametrów silnika). */
+  minSessionMin?: number | null;
+};
+
+/** Kontekst rozmowy: plan od tygodnia wstecz do dwóch naprzód, wolne dni i – w wątku przy treningu – ten trening. */
+export function chatContextFromRows(rows: ChatContextRows): CoachChatContext {
+  const { today } = rows;
+  const from = addDaysIso(today, -7);
+  const to = addDaysIso(today, 14);
+  const all = rows.weeks.flatMap((w) => w.sessions).filter((s) => s.type !== 'rest');
+  const shown = all.filter((s) => s.scheduled_on >= from && s.scheduled_on <= to).sort((a, b) => a.scheduled_on.localeCompare(b.scheduled_on));
+  const focus = rows.focusId ? (all.find((s) => s.id === rows.focusId) ?? null) : null;
+  const reviewOf = new Map(rows.reviews.map((r) => [r.session_id, r]));
+
+  // Wolne dni: od dziś do końca ostatniego tygodnia planu w oknie, bez treningu.
+  const taken = new Set(all.map((s) => s.scheduled_on));
+  const lastStart = rows.weeks.map((w) => w.starts_on).sort().at(-1);
+  const lastDay = lastStart ? addDaysIso(lastStart, 6) : today;
+  const freeDays: string[] = [];
+  for (let d = today; d <= to && d <= lastDay; d = addDaysIso(d, 1)) if (!taken.has(d)) freeDays.push(d);
+
+  const focusReview = focus ? reviewOf.get(focus.id) : undefined;
+  return {
+    locale: rows.locale ?? 'pl',
+    today,
+    weekday: isoWeekday(today),
+    athlete: {
+      level: rows.level,
+      goal: rows.goal ? (rows.goal.type === 'race' ? `zawody ${rows.goal.distance_m} m, ${rows.goal.race_date}` : rows.goal.general_focus) : null,
+    },
+    plan: {
+      sessions: shown.map((s) => ({
+        date: s.scheduled_on,
+        weekday: isoWeekday(s.scheduled_on),
+        type: s.type,
+        durationMin: s.duration_min,
+        status: s.status,
+        canChange: s.status === 'planned' && s.scheduled_on >= today && s.type !== 'race',
+        verdict: reviewOf.get(s.id)?.verdict ?? null,
+      })),
+      freeDays,
+      minSessionMin: rows.minSessionMin ?? null,
+    },
+    focus: focus
+      ? {
+          date: focus.scheduled_on,
+          type: focus.type,
+          durationMin: focus.duration_min,
+          steps: describeSteps(stepsOf(focus)),
+          phase: focus.status === 'planned' ? 'before' : 'after',
+          actual: focus.status === 'planned' ? null : noteActual(focus.actual_distance_m, focus.actual_duration_s),
+          verdict: focusReview?.verdict ?? null,
+          facts: focusReview?.facts ?? [],
+          coachNote: focusReview?.note ?? null,
+        }
+      : null,
+  };
+}
 
 /** Historia wątku + ostatnia wiadomość biegacza z doklejonym kontekstem → wiadomości dla modelu. */
 export function coachChatMessages(history: { sender: 'user' | 'coach'; body: string }[], ctx: CoachChatContext): AiMessage[] {
@@ -190,20 +276,57 @@ export type CoachChatOptions = {
   call: AiCaller;
   log: AiLogger;
   meta: { userId: string | null; isTest: boolean; source?: 'app' | 'tester' };
+  /**
+   * Sprawdzenie propozycji regułami planu: null = w porządku, tekst = powód odrzucenia. Odrzucona propozycja
+   * wraca do modelu z powodem (jedna poprawka), żeby biegacz nie dostał odpowiedzi „zaakceptuj poniżej” bez przycisku.
+   */
+  check?: (change: ChatChange) => string | null;
+  /** Dopisek do odpowiedzi, gdy także poprawiona propozycja nie przeszła (w języku biegacza). */
+  rejectedSuffix?: string;
   now?: () => number;
 };
 
 export type CoachChatOutcome = { reply: string | null; change: ChatChange | null; status: AiStatus; callId: number | null };
 
-/** Jedna odpowiedź trenera AI. Nigdy nie rzuca: błąd modelu albo zła odpowiedź = `reply: null` (aplikacja prosi o ponowienie). */
+/**
+ * Odpowiedź trenera AI. Nigdy nie rzuca: błąd modelu albo zła odpowiedź = `reply: null` (aplikacja prosi o ponowienie).
+ * Propozycja, której nie przepuszczają reguły (`opts.check`), wraca do modelu z powodem – wynik to zawsze albo
+ * propozycja wykonalna, albo sama odpowiedź.
+ */
 export async function coachChatWithAi(opts: CoachChatOptions): Promise<CoachChatOutcome> {
+  const messages = coachChatMessages(opts.history, opts.context);
+  const first = await attemptChat(opts, messages, 1, null);
+  const reason = first.change && opts.check ? opts.check(first.change) : null;
+  if (!first.reply || !first.change || !reason) return first;
+
+  const second = await attemptChat(
+    opts,
+    [
+      ...messages,
+      { role: 'assistant', content: JSON.stringify({ reply: first.reply, change: first.change }) },
+      {
+        role: 'user',
+        content: `Aplikacja sprawdziła tę propozycję i jej nie przyjmie: ${reason}. Odpowiedz biegaczowi jeszcze raz (on tamtej wersji nie widział): zaproponuj zmianę zgodną z regułami albo krótko wyjaśnij, czemu się nie da – wtedy change.op = "none".`,
+      },
+    ],
+    2,
+    first.callId,
+  );
+  const fixed = second.reply ? second : first;
+  if (fixed.change && opts.check?.(fixed.change)) {
+    return { ...fixed, change: null, reply: [fixed.reply, opts.rejectedSuffix].filter(Boolean).join('\n\n'), status: 'corrected' };
+  }
+  return { ...fixed, status: second.reply ? 'corrected' : fixed.status };
+}
+
+async function attemptChat(opts: CoachChatOptions, messages: AiMessage[], attempt: number, parentCallId: number | null): Promise<CoachChatOutcome> {
   const now = opts.now ?? Date.now;
   const request: AiModelRequest = {
     model: opts.prompt.model,
     maxTokens: opts.prompt.maxTokens,
     effort: opts.prompt.effort,
     system: [opts.prompt.systemPrompt],
-    messages: coachChatMessages(opts.history, opts.context),
+    messages,
     outputSchema: COACH_CHAT_SCHEMA as unknown as Record<string, unknown>,
   };
 
@@ -248,8 +371,8 @@ export async function coachChatWithAi(opts: CoachChatOptions): Promise<CoachChat
         error,
         source: opts.meta.source ?? 'app',
         is_test: opts.meta.isTest,
-        attempt: 1,
-        parent_call_id: null,
+        attempt,
+        parent_call_id: parentCallId,
         prompt_id: opts.prompt.id,
         prompt_version: opts.prompt.version,
         engine_config_id: null,
