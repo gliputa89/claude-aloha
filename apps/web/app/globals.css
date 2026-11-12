@@ -77,3 +77,115 @@ body {
     animation: none;
   }
 }
+
+/* Strony prawne (regulamin, polityka prywatności): typografia długiego tekstu. */
+.legal {
+  line-height: 1.7;
+}
+
+.legal section + section {
+  margin-top: 3.5rem;
+}
+
+.legal h2 {
+  font-size: 1.625rem;
+  line-height: 1.2;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+
+.legal h3 {
+  margin-top: 2rem;
+  font-size: 1.125rem;
+  font-weight: 700;
+}
+
+.legal p,
+.legal ul,
+.legal ol {
+  margin-top: 1rem;
+}
+
+.legal ul,
+.legal ol {
+  padding-left: 1.4rem;
+}
+
+.legal ul {
+  list-style: disc;
+}
+
+.legal ol {
+  list-style: decimal;
+}
+
+.legal li + li {
+  margin-top: 0.5rem;
+}
+
+.legal li::marker {
+  color: var(--color-text-muted);
+}
+
+.legal a {
+  color: var(--color-text-brand);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.legal strong {
+  font-weight: 700;
+}
+
+/* Wyróżniona informacja (dane o zdrowiu, zastrzeżenie medyczne). */
+.legal .callout {
+  margin-top: 1.5rem;
+  border-radius: var(--radius-card);
+  background: var(--color-surface-accent-soft);
+  color: var(--color-text-on-accent);
+  padding: 1.25rem 1.5rem;
+}
+
+.legal .callout > :first-child {
+  margin-top: 0;
+}
+
+/* Tabele przewijają się w poziomie we własnym pojemniku, strona nie. */
+.legal .table-wrap {
+  margin-top: 1.5rem;
+  overflow-x: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
+}
+
+.legal table {
+  width: 100%;
+  min-width: 38rem;
+  border-collapse: collapse;
+  font-size: 0.9375rem;
+  line-height: 1.55;
+}
+
+.legal th,
+.legal td {
+  padding: 0.875rem 1rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+.legal th {
+  font-weight: 700;
+  border-bottom: 1px solid var(--color-border-strong);
+}
+
+.legal tr + tr td {
+  border-top: 1px solid var(--color-border);
+}
+
+.legal address {
+  margin-top: 1rem;
+  font-style: normal;
+}

@@ -11,6 +11,13 @@ export const isLocale = (value: string): value is Locale =>
 /** PL jest pod adresem głównym, EN pod /en (tak linkuje aplikacja mobilna). */
 export const localePath = (locale: Locale) => (locale === "pl" ? "/" : "/en");
 
+/** Adresy stron prawnych – takie same jak w aplikacji mobilnej (apps/mobile/src/lib/links.ts). */
+export type LegalDoc = "privacy" | "terms";
+export const legalPath: Record<LegalDoc, Record<Locale, string>> = {
+  privacy: { pl: "/polityka-prywatnosci", en: "/en/privacy" },
+  terms: { pl: "/regulamin", en: "/en/terms" },
+};
+
 export type WorkoutKind = "easy" | "long" | "intervals" | "rest";
 
 export type WeekDay = {
@@ -29,8 +36,14 @@ export type WeekDay = {
 
 export type Content = {
   meta: { title: string; description: string };
-  nav: { features: string; how: string; faq: string; download: string; switchLabel: string };
-  store: { ios: [string, string]; android: [string, string]; note: string };
+  nav: { features: string; how: string; faq: string; download: string; soon: string; switchLabel: string };
+  store: {
+    ios: [string, string];
+    android: [string, string];
+    note: string;
+    /** Wersja sprzed premiery: plakietki bez linku, dopóki sklep nie ma adresu (storeLinks). */
+    soon: { ios: [string, string]; android: [string, string] };
+  };
   hero: {
     title: string;
     /** Nagłówek w wierszach; ostatni wiersz kończy zmieniające się słowo. */
@@ -104,8 +117,8 @@ export type Content = {
   how: { title: string; steps: { title: string; body: string }[] };
   voice: { title: string; quotes: string[]; marks: [string, string]; label: string };
   faq: { title: string; items: { q: string; a: string }[] };
-  final: { title: string; body: string; photoAlt: string };
-  footer: { tagline: string; rights: string };
+  final: { title: string; body: string; bodySoon: string; photoAlt: string };
+  footer: { tagline: string; privacy: string; terms: string; legalLabel: string };
 };
 
 const pl: Content = {
@@ -119,12 +132,17 @@ const pl: Content = {
     how: "Jak zacząć",
     faq: "Pytania",
     download: "Pobierz",
+    soon: "Wkrótce",
     switchLabel: "Język",
   },
   store: {
     ios: ["Pobierz w", "App Store"],
     android: ["Pobierz z", "Google Play"],
     note: "Bezpłatnie.",
+    soon: {
+      ios: ["Wkrótce w", "App Store"],
+      android: ["Wkrótce w", "Google Play"],
+    },
   },
   hero: {
     title: "Plan biegowy, który dopasowuje się do Twojego dnia.",
@@ -425,11 +443,15 @@ const pl: Content = {
   final: {
     title: "Pierwszy tydzień możesz mieć za minutę.",
     body: "Pobierz aplikację, odpowiedz na kilka pytań i wyjdź na pierwszy spokojny bieg.",
+    bodySoon:
+      "Aloha App wkrótce pojawi się w App Store i Google Play. Potem wystarczy odpowiedzieć na kilka pytań i wyjść na pierwszy spokojny bieg.",
     photoAlt: "Osoba idąca leśną ścieżką w porannym słońcu",
   },
   footer: {
     tagline: "Plan biegowy, który dopasowuje się do Twojego życia, a nie odwrotnie.",
-    rights: "Aloha App",
+    privacy: "Polityka prywatności",
+    terms: "Regulamin",
+    legalLabel: "Dokumenty",
   },
 };
 
@@ -444,12 +466,17 @@ const en: Content = {
     how: "Getting started",
     faq: "Questions",
     download: "Download",
+    soon: "Coming soon",
     switchLabel: "Language",
   },
   store: {
     ios: ["Download on the", "App Store"],
     android: ["Get it on", "Google Play"],
     note: "Free.",
+    soon: {
+      ios: ["Soon on the", "App Store"],
+      android: ["Soon on", "Google Play"],
+    },
   },
   hero: {
     title: "A running plan that fits around your day.",
@@ -751,18 +778,28 @@ const en: Content = {
   final: {
     title: "Your first week can be ready in a minute.",
     body: "Download the app, answer a few questions and head out for your first easy run.",
+    bodySoon:
+      "Aloha App is coming soon to the App Store and Google Play. After that, answer a few questions and head out for your first easy run.",
     photoAlt: "A person on a forest path in morning sun",
   },
   footer: {
     tagline: "A running plan that fits around your life, not the other way round.",
-    rights: "Aloha App",
+    privacy: "Privacy Policy",
+    terms: "Terms of Service",
+    legalLabel: "Legal",
   },
 };
 
 export const content: Record<Locale, Content> = { pl, en };
 
-/** Linki do sklepów – uzupełnij po publikacji aplikacji (albo ustaw zmienne środowiskowe). */
-export const storeLinks = {
-  ios: process.env.NEXT_PUBLIC_APP_STORE_URL ?? "#pobierz",
-  android: process.env.NEXT_PUBLIC_PLAY_STORE_URL ?? "#pobierz",
+/**
+ * Linki do sklepów. Dopóki zmienna środowiskowa sklepu jest pusta, strona pokazuje plakietkę
+ * „Wkrótce w …” zamiast przycisku. Po publikacji wystarczy ustawić adres.
+ */
+export const storeLinks: Record<"ios" | "android", string | undefined> = {
+  ios: process.env.NEXT_PUBLIC_APP_STORE_URL || undefined,
+  android: process.env.NEXT_PUBLIC_PLAY_STORE_URL || undefined,
 };
+
+/** Czy aplikację da się już pobrać z któregokolwiek sklepu. */
+export const appAvailable = Boolean(storeLinks.ios || storeLinks.android);

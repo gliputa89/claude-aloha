@@ -4,11 +4,12 @@ import { notFound } from "next/navigation";
 import { Mark, Plumeria, Wordmark } from "@/components/brand";
 import { HeroVideo } from "@/components/hero-video";
 import { QuoteRotator } from "@/components/quote-rotator";
+import { SiteFooter } from "@/components/site-footer";
 import { RotatingWord } from "@/components/rotating-word";
 import { StoreButtons } from "@/components/store-buttons";
 import { WeekStrip } from "@/components/week-strip";
 import { getCoaches, type Coach } from "@/lib/coaches";
-import { content, isLocale, localePath, locales, type Content } from "@/lib/content";
+import { appAvailable, content, isLocale, localePath, locales, type Content } from "@/lib/content";
 
 const shell = "mx-auto w-full max-w-6xl px-5 sm:px-8";
 const h2 = "text-3xl font-extrabold tracking-tight text-balance sm:text-5xl sm:leading-[1.05]";
@@ -18,6 +19,8 @@ export default async function Home({ params }: PageProps<"/[lang]">) {
   if (!isLocale(lang)) notFound();
   const t = content[lang];
   const coaches = await getCoaches(lang);
+  // Dopisek „Bezpłatnie” pokazujemy dopiero, gdy aplikację da się pobrać.
+  const storeNote = appAvailable ? t.store.note : null;
 
   return (
     <>
@@ -57,7 +60,7 @@ export default async function Home({ params }: PageProps<"/[lang]">) {
               href="#pobierz"
               className="hidden rounded-button bg-accent px-4 py-2 text-sm font-bold text-text-on-accent hover:bg-white sm:block"
             >
-              {t.nav.download}
+              {appAvailable ? t.nav.download : t.nav.soon}
             </a>
           </div>
         </div>
@@ -96,7 +99,7 @@ export default async function Home({ params }: PageProps<"/[lang]">) {
               </p>
               <div className="mt-8 hidden lg:block">
                 <StoreButtons store={t.store} />
-                <p className="mt-3 text-sm text-white/70">{t.store.note}</p>
+                {storeNote && <p className="mt-3 text-sm text-white/70">{storeNote}</p>}
               </div>
             </div>
 
@@ -116,7 +119,7 @@ export default async function Home({ params }: PageProps<"/[lang]">) {
             {/* Na telefonie przyciski sklepów stoją pod telefonem, w jednym wierszu */}
             <div className="pt-6 pb-20 lg:hidden">
               <StoreButtons store={t.store} />
-              <p className="mt-3 text-sm text-white/70">{t.store.note}</p>
+              {storeNote && <p className="mt-3 text-sm text-white/70">{storeNote}</p>}
             </div>
           </div>
         </section>
@@ -324,10 +327,10 @@ export default async function Home({ params }: PageProps<"/[lang]">) {
           <div className="grid overflow-hidden rounded-card bg-accent text-text-on-accent lg:grid-cols-2">
             <div className="p-8 sm:p-14">
               <h2 className={h2}>{t.final.title}</h2>
-              <p className="mt-5 max-w-[46ch] text-lg leading-relaxed">{t.final.body}</p>
+              <p className="mt-5 max-w-[46ch] text-lg leading-relaxed">{appAvailable ? t.final.body : t.final.bodySoon}</p>
               <div className="mt-8">
                 <StoreButtons store={t.store} tone="dark" />
-                <p className="mt-3 text-sm font-medium">{t.store.note}</p>
+                {storeNote && <p className="mt-3 text-sm font-medium">{storeNote}</p>}
               </div>
             </div>
             <div className="relative min-h-72">
@@ -343,19 +346,7 @@ export default async function Home({ params }: PageProps<"/[lang]">) {
         </section>
       </main>
 
-      <footer className="border-t border-border">
-        <div
-          className={`${shell} flex flex-col gap-4 py-10 text-sm text-text-muted sm:flex-row sm:items-center sm:justify-between`}
-        >
-          <span className="text-text">
-            <Wordmark />
-          </span>
-          <p className="max-w-md">{t.footer.tagline}</p>
-          <p>
-            © {2026} {t.footer.rights}
-          </p>
-        </div>
-      </footer>
+      <SiteFooter lang={lang} />
     </>
   );
 }
