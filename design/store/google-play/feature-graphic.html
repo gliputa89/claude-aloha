@@ -1,0 +1,73 @@
+<!doctype html>
+<!--
+  Google Play – grafika główna (feature graphic) 1024 × 500.
+  Źródło do PNG: design/store/google-play/aloha-feature-graphic-pl.png
+  Render: Chrome headless, okno 1024×500 (polecenie w README.md obok).
+  Kolory i znak: packages/design-system (Laguna, „Słońce nad falą”), font Plus Jakarta Sans.
+-->
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<title>Aloha Training – grafika główna</title>
+<style>
+  @font-face { font-family: "PJS"; font-weight: 500; src: url("../../../node_modules/@expo-google-fonts/plus-jakarta-sans/500Medium/PlusJakartaSans_500Medium.ttf"); }
+  @font-face { font-family: "PJS"; font-weight: 600; src: url("../../../node_modules/@expo-google-fonts/plus-jakarta-sans/600SemiBold/PlusJakartaSans_600SemiBold.ttf"); }
+  @font-face { font-family: "PJS"; font-weight: 800; src: url("../../../node_modules/@expo-google-fonts/plus-jakarta-sans/800ExtraBold/PlusJakartaSans_800ExtraBold.ttf"); }
+
+  :root {
+    --brand: #0E6E66;
+    --brand-deep: #0A5852;
+    --accent: #FFB547;
+    --on-brand: #FFFFFF;
+    --on-brand-muted: #EAF5F3;
+  }
+  html, body { margin: 0; padding: 0; }
+  body { width: 1024px; height: 500px; overflow: hidden; background: var(--brand); font-family: "PJS", sans-serif; }
+
+  .canvas {
+    position: relative; width: 1024px; height: 500px; overflow: hidden;
+    background:
+      radial-gradient(circle at 790px 197px, rgba(255,214,150,.30) 0, rgba(255,214,150,.10) 120px, rgba(255,214,150,0) 230px),
+      linear-gradient(160deg, var(--brand) 0%, var(--brand) 55%, var(--brand-deep) 100%);
+  }
+
+  /* Wzór „Plumerie” – tonalnie, jak na ekranie startowym. */
+  .pattern {
+    position: absolute; inset: 0; opacity: .07; color: #fff;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 56 56' width='112' height='112'><g fill='white'><g transform='translate(4 4) scale(.34)'><ellipse cx='32' cy='18' rx='8.5' ry='14'/><ellipse cx='32' cy='18' rx='8.5' ry='14' transform='rotate(72 32 32)'/><ellipse cx='32' cy='18' rx='8.5' ry='14' transform='rotate(144 32 32)'/><ellipse cx='32' cy='18' rx='8.5' ry='14' transform='rotate(216 32 32)'/><ellipse cx='32' cy='18' rx='8.5' ry='14' transform='rotate(288 32 32)'/><circle cx='32' cy='32' r='6.5'/></g><g transform='translate(32 30) scale(.24) rotate(25 32 32)'><ellipse cx='32' cy='18' rx='8.5' ry='14'/><ellipse cx='32' cy='18' rx='8.5' ry='14' transform='rotate(72 32 32)'/><ellipse cx='32' cy='18' rx='8.5' ry='14' transform='rotate(144 32 32)'/><ellipse cx='32' cy='18' rx='8.5' ry='14' transform='rotate(216 32 32)'/><ellipse cx='32' cy='18' rx='8.5' ry='14' transform='rotate(288 32 32)'/><circle cx='32' cy='32' r='6.5'/></g></g></svg>");
+    background-size: 112px 112px;
+    -webkit-mask-image: linear-gradient(90deg, #000 0%, rgba(0,0,0,.6) 45%, rgba(0,0,0,0) 70%);
+            mask-image: linear-gradient(90deg, #000 0%, rgba(0,0,0,.6) 45%, rgba(0,0,0,0) 70%);
+  }
+
+  .copy { position: absolute; left: 72px; top: 0; bottom: 0; width: 560px; display: flex; flex-direction: column; justify-content: center; }
+  .brand { display: flex; align-items: center; gap: 12px; color: var(--on-brand-muted); font-weight: 600; font-size: 22px; letter-spacing: .01em; margin-bottom: 26px; }
+  .brand svg { width: 34px; height: 34px; }
+  h1 { margin: 0; color: var(--on-brand); font-weight: 800; font-size: 56px; line-height: 1.06; letter-spacing: -0.02em; }
+  h1 em { font-style: normal; color: var(--accent); }
+  .sub { margin: 22px 0 0; color: var(--on-brand-muted); font-weight: 500; font-size: 21px; line-height: 1.4; max-width: 470px; }
+
+  .mark { position: absolute; left: 640px; top: 70px; width: 300px; height: 300px; }
+</style>
+</head>
+<body>
+  <div class="canvas">
+    <div class="pattern"></div>
+
+    <div class="copy">
+      <div class="brand">
+        <svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="27" r="14" fill="#FFB547"/><path d="M6 40c4.3 0 6.5-4.5 13-4.5S27.7 40 32 40s6.5-4.5 13-4.5S53.7 40 58 40v6c-4.3 0-6.5-4.5-13-4.5S36.3 46 32 46s-6.5-4.5-13-4.5S10.3 46 6 46z" fill="#FFFFFF"/><path d="M12 52c3.3 0 5-3 10-3s6.7 3 10 3 5-3 10-3 6.7 3 10 3" fill="none" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round"/></svg>
+        Aloha Training
+      </div>
+      <h1>Plan biegowy, który wie, że <em>masz&nbsp;życie</em></h1>
+      <p class="sub">Jedno pytanie przed treningiem – i plan dopasowuje się do Twojego dnia.</p>
+    </div>
+
+    <svg class="mark" viewBox="0 0 64 64" aria-hidden="true">
+      <circle cx="32" cy="27" r="14" fill="#FFB547"/>
+      <path d="M6 40c4.3 0 6.5-4.5 13-4.5S27.7 40 32 40s6.5-4.5 13-4.5S53.7 40 58 40v6c-4.3 0-6.5-4.5-13-4.5S36.3 46 32 46s-6.5-4.5-13-4.5S10.3 46 6 46z" fill="#FFFFFF"/>
+      <path d="M12 52c3.3 0 5-3 10-3s6.7 3 10 3 5-3 10-3 6.7 3 10 3" fill="none" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round"/>
+    </svg>
+  </div>
+</body>
+</html>
