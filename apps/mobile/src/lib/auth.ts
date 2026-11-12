@@ -1,5 +1,11 @@
 import type { AuthError } from '@supabase/supabase-js';
 import type { TranslationKey } from '@aloha/i18n';
+import {
+  GoogleSignin,
+  isErrorWithCode,
+  isSuccessResponse,
+  statusCodes,
+} from '@react-native-google-signin/google-signin';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Crypto from 'expo-crypto';
 import * as Linking from 'expo-linking';
@@ -124,10 +130,7 @@ export const appleSignInAvailable = Platform.OS === 'ios';
 /**
  * Logowanie / rejestracja przez Apple: systemowy arkusz → identityToken → sesja Supabase.
  * `canceled: true` → użytkownik zamknął arkusz, nie pokazujemy błędu.
- *
- * Konto założone tą drogą nie przechodzi przez formularz rejestracji, więc przy pierwszym
- * logowaniu dopisujemy tu to, co formularz przekazuje triggerowi handle_new_user:
- * zgody (regulamin, prywatność – tekst pod przyciskiem Apple), język i imię.
+ * Pierwsze logowanie uzupełnia konto (zgody, język, imię) – patrz `completeSocialAccount`.
  */
 export function signInWithApple(locale: 'pl' | 'en') {
   return run<{ canceled: boolean }>(async () => {
@@ -163,12 +166,84 @@ export function signInWithApple(locale: 'pl' | 'en') {
     }
 
     // Uzupełnienie konta nie może zablokować logowania – przy błędzie ponowimy przy następnym.
-    await completeAppleAccount(data.user.id, locale, credential.fullName?.givenName ?? null).catch(() => {});
+    await completeSocialAccount(data.user.id, locale, credential.fullName?.givenName ?? null).catch(() => {});
     return { ok: true, data: { canceled: false } };
   });
 }
 
-async function completeAppleAccount(userId: string, locale: 'pl' | 'en', givenName: string | null) {
+/**
+ * Identyfikatory klientów OAuth z Google Cloud (publiczne, nie sekrety).
+ * Web client ID jest odbiorcą tokenu na Androidzie i musi być też w Supabase (Providers → Google → Client IDs),
+ * iOS client ID wymaga dodatkowo schematu URL w buildzie – dopisuje go `app.config.ts`.
+ */
+const GOOGLE_WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ?? '';
+const GOOGLE_IOS_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID ?? '';
+
+/** Logowanie przez Google jest natywne (iOS i Android, development build) i pojawia się dopiero po ustawieniu client ID. */
+export const googleSignInAvailable =
+  !!GOOGLE_WEB_CLIENT_ID && (Platform.OS === 'android' || (Platform.OS === 'ios' && !!GOOGLE_IOS_CLIENT_ID));
+
+let googleConfigured = false;
+
+/**
+ * Logowanie / rejestracja przez Google: natywny wybór konta → idToken → sesja Supabase.
+ * Biblioteka nie przekazuje nonce, a SDK na iOS dokłada własny – dlatego w Supabase
+ * dostawca Google ma włączone „Skip nonce checks”.
+ * Pierwsze logowanie uzupełnia konto tak samo jak przy Apple.
+ */
+export function signInWithGoogle(locale: 'pl' | 'en') {
+  return run<{ canceled: boolean }>(async () => {
+    if (!googleConfigured) {
+      GoogleSignin.configure({
+        webClientId: GOOGLE_WEB_CLIENT_ID,
+        iosClientId: GOOGLE_IOS_CLIENT_ID || undefined,
+      });
+      googleConfigured = true;
+    }
+
+    let idToken: string | null;
+    let givenName: string | null;
+    try {
+      if (Platform.OS === 'android') {
+        await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+      }
+      const response = await GoogleSignin.signIn();
+      if (!isSuccessResponse(response)) return { ok: true, data: { canceled: true } };
+      idToken = response.data.idToken;
+      givenName = response.data.user.givenName;
+    } catch (e) {
+      if (isErrorWithCode(e)) {
+        if (e.code === statusCodes.SIGN_IN_CANCELLED || e.code === statusCodes.IN_PROGRESS) {
+          return { ok: true, data: { canceled: true } };
+        }
+        if (e.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
+          return { ok: false, error: 'authErrors.googlePlayServices' };
+        }
+      }
+      return { ok: false, error: 'authErrors.googleFailed' };
+    }
+    if (!idToken) return { ok: false, error: 'authErrors.googleFailed' };
+
+    const { data, error } = await supabase.auth.signInWithIdToken({ provider: 'google', token: idToken });
+    if (error || !data.user) {
+      const key = error ? mapError(error) : 'authErrors.generic';
+      return { ok: false, error: key === 'authErrors.generic' ? 'authErrors.googleFailed' : key };
+    }
+
+    await completeSocialAccount(data.user.id, locale, givenName).catch(() => {});
+    return { ok: true, data: { canceled: false } };
+  });
+}
+
+/** Na tym urządzeniu da się zalogować co najmniej jednym kontem zewnętrznym (Apple / Google). */
+export const socialSignInAvailable = appleSignInAvailable || googleSignInAvailable;
+
+/**
+ * Konto z Apple lub Google nie przechodzi przez formularz rejestracji, więc przy pierwszym
+ * logowaniu dopisujemy to, co formularz przekazuje triggerowi handle_new_user:
+ * zgody (regulamin, prywatność – tekst pod przyciskami), język i imię.
+ */
+async function completeSocialAccount(userId: string, locale: 'pl' | 'en', givenName: string | null) {
   const { data: accepted, error } = await supabase
     .from('consents')
     .select('id')
@@ -186,6 +261,7 @@ async function completeAppleAccount(userId: string, locale: 'pl' | 'en', givenNa
   }
 
   // Apple podaje imię tylko przy pierwszej autoryzacji – zapisujemy je, jeśli profil go nie ma.
+  // Google podaje je zawsze, ale też nie nadpisujemy imienia, które użytkownik już ma.
   const name = givenName?.trim().slice(0, 80);
   if (name) {
     await supabase.from('profiles').update({ display_name: name }).eq('id', userId).is('display_name', null);
@@ -203,4 +279,6 @@ export function exchangeCode(code: string) {
 
 export async function signOut() {
   await supabase.auth.signOut();
+  // Bez tego Google przy następnym logowaniu od razu wybrałby to samo konto.
+  if (googleSignInAvailable) await GoogleSignin.signOut().catch(() => {});
 }

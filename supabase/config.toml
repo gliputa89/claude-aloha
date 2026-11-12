@@ -341,6 +341,20 @@ skip_nonce_check = false
 # If enabled, it will allow the user to successfully authenticate when the provider does not return an email address.
 email_optional = false
 
+# Logowanie przez Google w aplikacji jest natywne (idToken → signInWithIdToken).
+# client_id: Web client ID i iOS client ID z Google Cloud, rozdzielone przecinkiem (Web pierwszy).
+# skip_nonce_check: biblioteka natywna nie przekazuje nonce, a SDK Google na iOS dokłada własny.
+# Lokalnie wyłączone, dopóki nie ustawisz SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID – pusty client_id blokuje `supabase start`.
+# Na staging i prod: Authentication → Providers → Google (Client IDs, Client Secret z Web clienta, Skip nonce checks).
+[auth.external.google]
+enabled = false
+client_id = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID)"
+secret = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET)"
+redirect_uri = ""
+url = ""
+skip_nonce_check = true
+email_optional = false
+
 # Allow Solana wallet holders to sign in to your project via the Sign in with Solana (SIWS) standard.
 # You can configure "web3" rate limit in the [auth.rate_limit] section and set up [auth.captcha] if self-hosting.
 [auth.web3.solana]
