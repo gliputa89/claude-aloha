@@ -78,6 +78,8 @@ export type AiCallRecord = {
   request_id: string | null;
   stop_reason: string | null;
   price: ModelPrice | null;
+  /** Tylko 'plan-weeks': ilu tygodni szkicu dotyczyło wywołanie (2 po ankiecie, 1 przy kolejnym tygodniu). */
+  weeks?: number | null;
 };
 
 export type AiCallPayload = {
@@ -139,6 +141,8 @@ export type PlanWeeksOutcome = {
   source: 'ai' | 'rules';
   status: AiStatus;
   summary: string | null;
+  /** Powitanie od trenera po ułożeniu pierwszego planu; `null` przy kolejnych tygodniach i planie z samych reguł. */
+  welcome: string | null;
   /** Rady trenera od modelu: dzień treningu → tekst (puste, gdy plan z samych reguł). */
   tips: Record<string, string>;
   callIds: number[];
@@ -251,6 +255,7 @@ export async function planWeeksWithAi(opts: PlanWeeksWithAiOptions): Promise<Pla
           request_id: model?.requestId ?? null,
           stop_reason: model?.stopReason ?? null,
           price,
+          weeks: opts.draft.length,
         },
         { request, response: model ? model.raw : { error: errorText }, result },
       )
@@ -280,6 +285,7 @@ export async function planWeeksWithAi(opts: PlanWeeksWithAiOptions): Promise<Pla
     source: reviewed ? 'ai' : 'rules',
     status: final.status,
     summary: reviewed ? (final.response?.summary ?? null) : null,
+    welcome: reviewed ? (final.response?.welcome ?? null) : null,
     tips: reviewed && final.response ? coachTipsFor(final.weeks, final.response.tips) : {},
     callIds,
     finalCallId: callIds[callIds.length - 1] ?? null,

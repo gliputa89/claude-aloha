@@ -1,4 +1,5 @@
 import type { Locale, TranslationKey } from '@aloha/i18n';
+import { needsFuel } from '@aloha/plan-engine';
 import { useEffect, useState } from 'react';
 
 import type { PlanSession } from '@/features/plan/api';
@@ -43,7 +44,8 @@ function pick<T>(items: T[], seed: string): T | undefined {
 
 /**
  * Rada trenera do treningu: najpierw ta od AI (zapisana w treningu), potem z bazy rad,
- * a bez sieci – stały tekst ze słownika.
+ * a bez sieci – stały tekst ze słownika. Przy biegu dłuższym niż 75 min gotowa rada dostaje dopisek o jedzeniu
+ * w trakcie (AI ma to w swoich regułach i pisze o tym sama).
  */
 export function useCoachTip(session: PlanSession): string {
   const t = useT();
@@ -65,5 +67,9 @@ export function useCoachTip(session: PlanSession): string {
     };
   }, [locale, session.coach_tip, session.id, session.type]);
 
-  return session.coach_tip ?? (fromDb?.id === session.id ? fromDb.text : fallback);
+  if (session.coach_tip) return session.coach_tip;
+  const tip = fromDb?.id === session.id ? fromDb.text : fallback;
+  return needsFuel({ type: session.type, durationMin: session.duration_min, distanceM: session.distance_m })
+    ? `${tip} ${t('workoutDetail.tipFuel')}`
+    : tip;
 }

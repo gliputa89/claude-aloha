@@ -13,6 +13,8 @@ export type AiCallRow = {
   email: string | null;
   is_test: boolean;
   function_name: string;
+  /** plan-weeks: liczba tygodni szkicu; inne funkcje i starsze wpisy – brak. */
+  weeks?: number | null;
   model: string;
   source: 'app' | 'tester';
   attempt: number;

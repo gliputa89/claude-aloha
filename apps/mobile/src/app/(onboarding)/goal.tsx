@@ -6,12 +6,14 @@ import { StyleSheet, View } from 'react-native';
 
 import { OnboardingStep, StepSection } from '@/components/onboarding/onboarding-step';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Chip } from '@/components/ui/chip';
 import { OptionCard } from '@/components/ui/option-card';
 import { TextField } from '@/components/ui/text-field';
 import { radius, space } from '@/constants/theme';
-import { targetTimeS, useOnboardingDraft, type GoalChoice } from '@/features/onboarding/draft';
+import { RACE_NAME_MAX, targetTimeS, useOnboardingDraft, type GoalChoice } from '@/features/onboarding/draft';
 import { addDays, fromIsoDate, toIsoDate } from '@/features/onboarding/time';
+import { confirmEliteTime, sanityOf } from '@/features/onboarding/time-check';
 import { useColors } from '@/hooks/use-colors';
 import { useT } from '@/hooks/use-t';
 
@@ -38,14 +40,21 @@ export default function GoalStep() {
       raceDate: goal === 'race' && !draft.raceDate ? toIsoDate(raceDate) : draft.raceDate,
     });
 
-  const valid = !!draft.goal && (!isRace || (!!draft.raceDate && target !== undefined));
+  // Czas szybszy niż rekord świata to pomyłka we wpisie – nie puszczamy dalej; poziom zawodowy – dopytujemy.
+  const sanity = isRace ? sanityOf(draft.raceDistanceM, target) : 'ok';
+  const valid = !!draft.goal && (!isRace || (!!draft.raceDate && target !== undefined && sanity !== 'impossible'));
+  const next = () => {
+    const go = () => router.push('/level');
+    if (sanity === 'elite' && target) confirmEliteTime(t, draft.raceDistanceM, target, go);
+    else go();
+  };
 
   return (
     <OnboardingStep
       step={1}
       title={t('onboarding.goal.title')}
       subtitle={t('onboarding.goal.subtitle')}
-      footer={<Button label={t('onboarding.next')} disabled={!valid} onPress={() => router.push('/level')} />}>
+      footer={<Button label={t('onboarding.next')} disabled={!valid} onPress={next} />}>
       <View style={styles.options} accessibilityRole="radiogroup">
         {GOALS.map((g) => (
           <OptionCard
@@ -61,6 +70,16 @@ export default function GoalStep() {
 
       {isRace ? (
         <View style={[styles.race, { backgroundColor: c.surface, borderColor: c.border }]}>
+          <TextField
+            label={t('onboarding.goal.nameLabel')}
+            placeholder={t('onboarding.goal.namePlaceholder')}
+            value={draft.raceName}
+            onChangeText={(v) => update({ raceName: v })}
+            autoCapitalize="words"
+            maxLength={RACE_NAME_MAX}
+            returnKeyType="done"
+          />
+
           <StepSection label={t('onboarding.goal.distanceLabel')}>
             <View style={styles.chips} accessibilityRole="radiogroup">
               {RACE_DISTANCES_M.map((d) => (
@@ -87,17 +106,26 @@ export default function GoalStep() {
             />
           </StepSection>
 
-          <TextField
-            label={t('onboarding.goal.targetLabel')}
-            placeholder={t('onboarding.goal.targetPlaceholder')}
-            hint={t('onboarding.goal.targetHint')}
-            value={draft.targetTime}
-            onChangeText={(v) => update({ targetTime: v })}
-            error={target === undefined ? t('onboarding.errors.timeInvalid') : undefined}
-            keyboardType="numbers-and-punctuation"
-            autoCorrect={false}
-            maxLength={8}
-          />
+          <StepSection label={t('onboarding.goal.targetLabel')} hint={draft.targetSuggest ? t('onboarding.goal.targetUnknownHint') : undefined}>
+            {draft.targetSuggest ? null : (
+              <TextField
+                label={t('onboarding.goal.targetField')}
+                placeholder={t('onboarding.goal.targetPlaceholder')}
+                hint={t('onboarding.goal.targetHint')}
+                value={draft.targetTime}
+                onChangeText={(v) => update({ targetTime: v })}
+                error={target === undefined ? t('onboarding.errors.timeInvalid') : sanity === 'impossible' ? t('onboarding.errors.timeImpossible') : undefined}
+                keyboardType="numbers-and-punctuation"
+                autoCorrect={false}
+                maxLength={8}
+              />
+            )}
+            <Checkbox
+              checked={draft.targetSuggest}
+              onChange={(targetSuggest) => update({ targetSuggest })}
+              label={t('onboarding.goal.targetUnknown')}
+            />
+          </StepSection>
         </View>
       ) : null}
     </OnboardingStep>

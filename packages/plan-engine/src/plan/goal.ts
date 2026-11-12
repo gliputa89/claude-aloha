@@ -1,10 +1,36 @@
 // Walidacja celu z ankiety startowej (docs/PROJECT.md 4.2): gdy cel jest nierealny,
 // aplikacja łagodnie to mówi i proponuje realny cel pośredni. Reguły deterministyczne, bez AI.
+// Realny czas liczy plan/forecast.ts (tabele Danielsa + objętość + malejąca poprawa); w aplikacji prognozę
+// w tych widełkach doprecyzowuje model (ai/race-forecast.ts).
+
+import { forecastRace } from './forecast.ts';
 
 export type Level = 'beginner' | 'intermediate' | 'advanced';
 
 export const RACE_DISTANCES_M = [5000, 10000, 21097, 42195] as const;
 export type RaceDistanceM = (typeof RACE_DISTANCES_M)[number];
+
+/**
+ * Granice wiarygodności czasu na dystansie (sekundy):
+ *   * `impossible` – szybciej niż rekord świata; to na pewno pomyłka we wpisie (np. minuty zamiast godzin),
+ *   * `elite`      – poziom zawodowy (ok. 10 km poniżej 30 min); możliwe, ale rzadkie – dopytujemy, a takiego biegacza
+ *                    lepiej poprowadzi prawdziwy trener niż plan z aplikacji.
+ */
+export const TIME_LIMITS_S: Record<RaceDistanceM, { impossible: number; elite: number }> = {
+  5000: { impossible: 12 * 60 + 35, elite: 14 * 60 + 30 },
+  10000: { impossible: 26 * 60 + 11, elite: 30 * 60 },
+  21097: { impossible: 57 * 60 + 30, elite: 66 * 60 },
+  42195: { impossible: 2 * 3600 + 35, elite: 2 * 3600 + 20 * 60 },
+};
+
+export type TimeSanity = 'ok' | 'elite' | 'impossible';
+
+/** Czy czas na dystansie jest wiarygodny dla biegacza-amatora. Dystans spoza listy zawodów → zawsze `ok`. */
+export function timeSanity(distanceM: number, timeS: number): TimeSanity {
+  const limits = TIME_LIMITS_S[distanceM as RaceDistanceM];
+  if (!limits) return 'ok';
+  return timeS < limits.impossible ? 'impossible' : timeS < limits.elite ? 'elite' : 'ok';
+}
 
 export type RaceGoal = {
   distanceM: RaceDistanceM;
@@ -37,10 +63,9 @@ export const MIN_PREP_WEEKS: Record<Level, Record<RaceDistanceM, number>> = {
   advanced: { 5000: 3, 10000: 4, 21097: 8, 42195: 12 },
 };
 
-/** Realna poprawa formy: ok. 0,5% tygodniowo, najwyżej 15% w cyklu. */
-const IMPROVEMENT_PER_WEEK = 0.005;
-const MAX_IMPROVEMENT = 0.15;
-/** Wykładnik Riegela – przeliczanie wyniku między dystansami. */
+/** Obecna liczba biegów w tygodniu, gdy ankieta jej nie podała – do szacunku objętości. */
+const DEFAULT_RUNS_PER_WEEK: Record<Level, number> = { beginner: 1, intermediate: 2, advanced: 4 };
+/** Wykładnik Riegela – szybkie przeliczenie wyniku na 10 km (strefy tempa, poziom). Prognozy startu liczy forecast.ts. */
 const RIEGEL = 1.06;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -70,6 +95,11 @@ export function assessRaceGoal(input: {
   recent?: RecentResult | null;
   /** Dzisiejsza data, `YYYY-MM-DD`. */
   today: string;
+  /** Obecny kilometraż tygodniowy (np. ze Stravy) – od niego zależy, ile szybkości przeniesie się na długi dystans. */
+  weeklyKm?: number | null;
+  runsPerWeek?: number | null;
+  /** Ile minut w tygodniu biegacz ma na treningi. */
+  weeklyMinutesCap?: number | null;
 }): GoalAssessment {
   const { goal, level, recent, today } = input;
   const weeks = weeksUntil(goal.raceDate, today);
@@ -90,16 +120,22 @@ export function assessRaceGoal(input: {
   }
 
   if (goal.targetTimeS && recent && recent.distanceM > 0 && recent.timeS > 0) {
-    const predicted = predictTimeS(recent, goal.distanceM);
-    const improvement = Math.min(MAX_IMPROVEMENT, weeks * IMPROVEMENT_PER_WEEK);
-    const fastestRealistic = predicted * (1 - improvement);
-    if (goal.targetTimeS < fastestRealistic) {
+    const forecast = forecastRace({
+      distanceM: goal.distanceM,
+      weeks,
+      level,
+      recent,
+      weeklyKm: input.weeklyKm ?? null,
+      runsPerWeek: input.runsPerWeek ?? DEFAULT_RUNS_PER_WEEK[level],
+      weeklyMinutesCap: input.weeklyMinutesCap ?? null,
+    });
+    if (forecast && goal.targetTimeS < forecast.raceDayS) {
       return {
         status: 'target_too_fast',
         weeks,
-        predictedTimeS: Math.round(predicted),
+        predictedTimeS: forecast.todayS,
         // Zaokrąglone w górę do pełnej minuty – łatwiej zapamiętać i nie obiecuje za dużo.
-        suggestion: { kind: 'target_time', targetTimeS: Math.ceil(fastestRealistic / 60) * 60 },
+        suggestion: { kind: 'target_time', targetTimeS: Math.ceil(forecast.raceDayS / 60) * 60 },
       };
     }
   }

@@ -11,6 +11,13 @@ export const isLocale = (value: string): value is Locale =>
 /** PL jest pod adresem głównym, EN pod /en (tak linkuje aplikacja mobilna). */
 export const localePath = (locale: Locale) => (locale === "pl" ? "/" : "/en");
 
+/** Adresy stron prawnych – takie same jak w aplikacji mobilnej (apps/mobile/src/lib/links.ts). */
+export type LegalDoc = "privacy" | "terms";
+export const legalPath: Record<LegalDoc, Record<Locale, string>> = {
+  privacy: { pl: "/polityka-prywatnosci", en: "/en/privacy" },
+  terms: { pl: "/regulamin", en: "/en/terms" },
+};
+
 export type WorkoutKind = "easy" | "long" | "intervals" | "rest";
 
 export type WeekDay = {
@@ -29,8 +36,14 @@ export type WeekDay = {
 
 export type Content = {
   meta: { title: string; description: string };
-  nav: { features: string; how: string; faq: string; download: string; switchLabel: string };
-  store: { ios: [string, string]; android: [string, string]; note: string };
+  nav: { features: string; how: string; faq: string; download: string; soon: string; switchLabel: string };
+  store: {
+    ios: [string, string];
+    android: [string, string];
+    note: string;
+    /** Wersja sprzed premiery: plakietki bez linku, dopóki sklep nie ma adresu (storeLinks). */
+    soon: { ios: [string, string]; android: [string, string] };
+  };
   hero: {
     title: string;
     /** Nagłówek w wierszach; ostatni wiersz kończy zmieniające się słowo. */
@@ -45,7 +58,6 @@ export type Content = {
   audience: { title: string; body: string };
   screens: {
     title: string;
-    lead: string;
     note?: string;
     items: { image: "today" | "plan" | "workout" | "review"; title: string; body: string; alt: string }[];
   };
@@ -105,8 +117,8 @@ export type Content = {
   how: { title: string; steps: { title: string; body: string }[] };
   voice: { title: string; quotes: string[]; marks: [string, string]; label: string };
   faq: { title: string; items: { q: string; a: string }[] };
-  final: { title: string; body: string; photoAlt: string };
-  footer: { tagline: string; rights: string };
+  final: { title: string; body: string; bodySoon: string; photoAlt: string };
+  footer: { tagline: string; privacy: string; terms: string; legalLabel: string };
 };
 
 const pl: Content = {
@@ -120,12 +132,17 @@ const pl: Content = {
     how: "Jak zacząć",
     faq: "Pytania",
     download: "Pobierz",
+    soon: "Wkrótce",
     switchLabel: "Język",
   },
   store: {
     ios: ["Pobierz w", "App Store"],
     android: ["Pobierz z", "Google Play"],
     note: "Bezpłatnie.",
+    soon: {
+      ios: ["Wkrótce w", "App Store"],
+      android: ["Wkrótce w", "Google Play"],
+    },
   },
   hero: {
     title: "Plan biegowy, który dopasowuje się do Twojego dnia.",
@@ -142,8 +159,7 @@ const pl: Content = {
     body: "Większość planów zakłada idealny tydzień. Aloha zaczyna od Twojego: ile masz dni, ile minut i w jakiej jesteś formie. Bez tabel z tętnem na start i bez poczucia winy, kiedy coś wypadnie.",
   },
   screens: {
-    title: "Tak to wygląda w telefonie",
-    lead: "Prawdziwe ekrany aplikacji, bez makiet. Otwierasz, widzisz, co dziś biegasz, i wychodzisz.",
+    title: "Otwierasz aplikację i od razu wiesz, co dziś biegasz.",
     items: [
       {
         image: "today",
@@ -293,7 +309,7 @@ const pl: Content = {
   },
   chat: {
     title: "Coś wypadło? Napisz do trenera.",
-    body: "W aplikacji jest czat z Panem Aloha, trenerem AI, który zna Twój plan i ostatnie biegi. Piszesz zwykłymi słowami, odpowiedź masz od razu.",
+    body: "W aplikacji jest czat z trenerem AI – to Keanu Biegała, który zna Twój plan i ostatnie biegi. Piszesz zwykłymi słowami, odpowiedź masz od razu.",
     points: [
       "Przed treningiem zapytasz, jak go pobiec albo co zrobić, gdy masz mniej czasu. Po treningu: jak poszło i co poprawić następnym razem.",
       "Trener może zaproponować zmianę w planie: przenieść, skrócić, zmienić rodzaj albo odpuścić trening. To zawsze propozycja, decyzja jest Twoja.",
@@ -301,7 +317,7 @@ const pl: Content = {
     ],
     coaches: [
       {
-        name: "Pan Aloha",
+        name: "Keanu Biegała 🌺",
         kind: "Trener AI",
         body: "Odpowiada od razu, o każdej porze. Do 40 wiadomości na dobę.",
       },
@@ -312,7 +328,7 @@ const pl: Content = {
       },
     ],
     demo: {
-      name: "Pan Aloha",
+      name: "Keanu Biegała 🌺",
       role: "Trener AI",
       user: "Nie mam jutro czasu na trening",
       reply: "Jasne, zdarza się. Jutrzejsze interwały możemy przenieść na piątek. Sobota zostaje spokojna, więc nogi zdążą odpocząć przed niedzielą.",
@@ -408,7 +424,7 @@ const pl: Content = {
       },
       {
         q: "Kto jest trenerem w Aloha?",
-        a: "Na co dzień Pan Aloha, czyli trener AI. Plan powstaje według zasad treningowych, a rady, notatki i odpowiedzi na czacie pisze AI. Rozmowa z prawdziwym trenerem, człowiekiem, to osobny pakiet.",
+        a: "Na co dzień Keanu Biegała, czyli trener AI. Plan powstaje według zasad treningowych, a rady, notatki i odpowiedzi na czacie pisze AI. Rozmowa z prawdziwym trenerem, człowiekiem, to osobny pakiet.",
       },
       {
         q: "Wracam po kontuzji albo po dłuższej przerwie. Co wtedy?",
@@ -427,11 +443,15 @@ const pl: Content = {
   final: {
     title: "Pierwszy tydzień możesz mieć za minutę.",
     body: "Pobierz aplikację, odpowiedz na kilka pytań i wyjdź na pierwszy spokojny bieg.",
+    bodySoon:
+      "Aloha App wkrótce pojawi się w App Store i Google Play. Potem wystarczy odpowiedzieć na kilka pytań i wyjść na pierwszy spokojny bieg.",
     photoAlt: "Osoba idąca leśną ścieżką w porannym słońcu",
   },
   footer: {
     tagline: "Plan biegowy, który dopasowuje się do Twojego życia, a nie odwrotnie.",
-    rights: "Aloha App",
+    privacy: "Polityka prywatności",
+    terms: "Regulamin",
+    legalLabel: "Dokumenty",
   },
 };
 
@@ -446,12 +466,17 @@ const en: Content = {
     how: "Getting started",
     faq: "Questions",
     download: "Download",
+    soon: "Coming soon",
     switchLabel: "Language",
   },
   store: {
     ios: ["Download on the", "App Store"],
     android: ["Get it on", "Google Play"],
     note: "Free.",
+    soon: {
+      ios: ["Soon on the", "App Store"],
+      android: ["Soon on", "Google Play"],
+    },
   },
   hero: {
     title: "A running plan that fits around your day.",
@@ -468,8 +493,7 @@ const en: Content = {
     body: "Most plans assume a perfect week. Aloha starts from yours: how many days you have, how many minutes, and where your fitness is today. No heart-rate tables to begin with, and no guilt when life gets in the way.",
   },
   screens: {
-    title: "What it looks like on your phone",
-    lead: "Real screens from the app, not mock-ups. Open it, see what you're running today, and head out.",
+    title: "Open the app and you know what you're running today.",
     note: "Screens shown in Polish. The app is also in English.",
     items: [
       {
@@ -620,7 +644,7 @@ const en: Content = {
   },
   chat: {
     title: "Something came up? Message your coach.",
-    body: "The app has a chat with Mr Aloha, an AI coach who knows your plan and your recent runs. Write in plain words and get an answer straight away.",
+    body: "The app has a chat with Keanu Biegała, an AI coach who knows your plan and your recent runs. Write in plain words and get an answer straight away.",
     points: [
       "Before a workout, ask how to run it or what to do with less time. Afterwards, ask how it went and what to improve next time.",
       "The coach can suggest a change to your plan: move, shorten, swap or skip a workout. It is always a suggestion, and the decision is yours.",
@@ -628,7 +652,7 @@ const en: Content = {
     ],
     coaches: [
       {
-        name: "Mr Aloha",
+        name: "Keanu Biegała 🌺",
         kind: "AI coach",
         body: "Replies straight away, at any hour. Up to 40 messages a day.",
       },
@@ -639,7 +663,7 @@ const en: Content = {
       },
     ],
     demo: {
-      name: "Mr Aloha",
+      name: "Keanu Biegała 🌺",
       role: "AI coach",
       user: "I have no time to train tomorrow",
       reply: "Sure, it happens. We can move tomorrow's intervals to Friday. Saturday stays easy, so your legs get a rest before Sunday.",
@@ -735,7 +759,7 @@ const en: Content = {
       },
       {
         q: "Who is the coach in Aloha?",
-        a: "Day to day it is Mr Aloha, an AI coach. The plan follows training rules, and the tips, notes and chat replies are written by AI. Chatting with a real, human coach is a separate package.",
+        a: "Day to day it is Keanu Biegała, an AI coach. The plan follows training rules, and the tips, notes and chat replies are written by AI. Chatting with a real, human coach is a separate package.",
       },
       {
         q: "I'm coming back from an injury or a long break. What then?",
@@ -754,18 +778,28 @@ const en: Content = {
   final: {
     title: "Your first week can be ready in a minute.",
     body: "Download the app, answer a few questions and head out for your first easy run.",
+    bodySoon:
+      "Aloha App is coming soon to the App Store and Google Play. After that, answer a few questions and head out for your first easy run.",
     photoAlt: "A person on a forest path in morning sun",
   },
   footer: {
     tagline: "A running plan that fits around your life, not the other way round.",
-    rights: "Aloha App",
+    privacy: "Privacy Policy",
+    terms: "Terms of Service",
+    legalLabel: "Legal",
   },
 };
 
 export const content: Record<Locale, Content> = { pl, en };
 
-/** Linki do sklepów – uzupełnij po publikacji aplikacji (albo ustaw zmienne środowiskowe). */
-export const storeLinks = {
-  ios: process.env.NEXT_PUBLIC_APP_STORE_URL ?? "#pobierz",
-  android: process.env.NEXT_PUBLIC_PLAY_STORE_URL ?? "#pobierz",
+/**
+ * Linki do sklepów. Dopóki zmienna środowiskowa sklepu jest pusta, strona pokazuje plakietkę
+ * „Wkrótce w …” zamiast przycisku. Po publikacji wystarczy ustawić adres.
+ */
+export const storeLinks: Record<"ios" | "android", string | undefined> = {
+  ios: process.env.NEXT_PUBLIC_APP_STORE_URL || undefined,
+  android: process.env.NEXT_PUBLIC_PLAY_STORE_URL || undefined,
 };
+
+/** Czy aplikację da się już pobrać z któregokolwiek sklepu. */
+export const appAvailable = Boolean(storeLinks.ios || storeLinks.android);

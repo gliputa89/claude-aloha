@@ -27,10 +27,10 @@ export default function GeneratingScreen() {
     started.current = true;
     setTask(
       generatePlan()
-        .then((plan) => planLoaderResult(plan, locale))
+        .then((plan) => planLoaderResult(plan, locale, t('planLoader.welcome')))
         .catch(() => null),
     );
-  }, [locale]);
+  }, [locale, t]);
 
   const metaName = session?.user.user_metadata?.display_name;
   const days = [...draft.days]

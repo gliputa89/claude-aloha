@@ -7,6 +7,7 @@ import { ActivityIndicator, FlatList, Keyboard, Platform, Pressable, StyleSheet,
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Mark } from '@/components/brand/mark';
+import { TypingBubble } from '@/components/chat/typing-bubble';
 import { Button } from '@/components/ui/button';
 import { Chip } from '@/components/ui/chip';
 import { fontFamily, Text } from '@/components/ui/text';
@@ -22,6 +23,7 @@ import {
   type Coach,
   type CoachKind,
 } from '@/features/chat/api';
+import { replyClock, typingStartDelayMs } from '@/features/chat/typing';
 import { useModule } from '@/features/modules/use-module';
 import { allSessions, usePlan } from '@/features/plan/plan-provider';
 import { useColors } from '@/hooks/use-colors';
@@ -49,7 +51,7 @@ function useKeyboardHeight() {
 const HUMAN_POLL_MS = 20_000;
 
 /**
- * Arkusz rozmowy z trenerem: Pan Aloha (AI) albo prawdziwy trener (osobny pakiet). Bez parametrów – rozmowa
+ * Arkusz rozmowy z trenerem: Keanu Biegała (AI) albo prawdziwy trener (osobny pakiet). Bez parametrów – rozmowa
  * ogólna; z `sessionId` – wątek przy treningu (pytania przed i po). Trener może zaproponować zmianę w planie –
  * biegacz ją akceptuje albo zostawia plan bez zmian.
  */
@@ -75,6 +77,8 @@ export default function CoachChatScreen() {
   const [error, setError] = useState<ChatError | null>(null);
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
+  // Kropki „pisze…” – pojawiają się chwilę po wysłaniu, jakby trener najpierw czytał wiadomość.
+  const [typing, setTyping] = useState(false);
   const [answering, setAnswering] = useState<number | null>(null);
   const list = useRef<FlatList<ChatMessage>>(null);
   /** Tymczasowe (ujemne) id wiadomości, zanim serwer nada prawdziwe. */
@@ -135,7 +139,14 @@ export default function CoachChatScreen() {
     tempId.current -= 1;
     const pending: ChatMessage = { id: tempId.current, thread_id: threadId, sender: 'user', body, proposal: null, proposal_status: null, created_at: '' };
     setMessages((all) => [...all, pending]);
+    const clock = replyClock();
+    const typingTimer = isAi ? setTimeout(() => setTyping(true), typingStartDelayMs()) : null;
     const result = await sendChat(threadId, body);
+    // Trener AI: odpowiedź nie wcześniej niż po czasie zależnym od jej długości, za każdym razem trochę innym.
+    const reply = isAi && 'messages' in result ? result.messages.findLast((m) => m.sender === 'coach') : undefined;
+    if (reply) await clock.hold(reply.body.length);
+    if (typingTimer) clearTimeout(typingTimer);
+    setTyping(false);
     setMessages((all) => [...all.filter((m) => m.id !== pending.id), ...('messages' in result ? result.messages : [])]);
     if (!('messages' in result)) setDraft(body);
     if (result.error) setError(result.error);
@@ -228,7 +239,7 @@ export default function CoachChatScreen() {
             threadId ? (
               <View style={styles.empty}>
                 <Text variant="heading">{t(isAi ? 'chat.emptyAiTitle' : 'chat.emptyHumanTitle')}</Text>
-                {/* Pan Aloha mówi o sobie w pierwszej osobie (tekst ze słownika); trener-człowiek ma własny opis z panelu. */}
+                {/* Trener AI mówi o sobie w pierwszej osobie (tekst ze słownika); trener-człowiek ma własny opis z panelu. */}
                 <Text variant="caption">{isAi ? t('chat.emptyAiBody') : (coachHeadline ?? t('chat.emptyHumanBody'))}</Text>
                 <View style={styles.suggestions}>
                   {suggestions.map((s) => (
@@ -239,10 +250,8 @@ export default function CoachChatScreen() {
             ) : undefined
           }
           ListFooterComponent={
-            sending && isAi ? (
-              <Text variant="caption" style={styles.typing}>
-                {t('chat.typing')}
-              </Text>
+            typing && isAi ? (
+              <TypingBubble label={t('chat.typing')} />
             ) : !isAi && messages.at(-1)?.sender === 'user' ? (
               <Text variant="caption" style={styles.typing}>
                 {t('chat.humanWait')}

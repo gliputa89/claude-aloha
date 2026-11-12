@@ -18,7 +18,7 @@ import { TextLink } from '@/components/ai/ui';
 import { AiPreviewPanel } from '@/components/tester/ai-preview';
 import { SurveyPanel } from '@/components/tester/survey-form';
 import { WorkoutChart, WorkoutSteps } from '@/components/workout/workout-chart';
-import { DeleteUserButton, RegeneratePlanButton } from '@/components/tester/user-actions';
+import { DeleteUserButton, RegeneratePlanButton, ResetUserButton } from '@/components/tester/user-actions';
 import { NextWeekWithReviewButton, SetLevelForm } from '@/components/tester/level-controls';
 import { StravaControls } from '@/components/tester/strava-controls';
 import { GenerateWeekForm, WeekActions } from '@/components/tester/week-controls';
@@ -43,7 +43,7 @@ import {
   weekdayShort,
   WEEK_FOCUS_LABEL,
 } from '@/lib/format';
-import { loadTesterUser, todayIn, type TesterUser, type TesterWeek } from '@/lib/plan-tester';
+import { loadTesterUser, MAX_REGENERATE_WEEKS, todayIn, type TesterUser, type TesterWeek } from '@/lib/plan-tester';
 import { loadStrava, type StravaData } from '@/lib/strava';
 import { createServiceClient } from '@/lib/supabase/server';
 import { surveyValuesFromRows } from '@/lib/survey';
@@ -107,7 +107,10 @@ async function UserDetail({ params, searchParams }: Pick<PageProps<'/tester/[use
               </span>
             ) : null}
           </h1>
-          <DeleteUserButton userId={user.id} email={user.email} isTest={user.isTest} />
+          <div className="flex flex-wrap items-start justify-end gap-2">
+            <ResetUserButton userId={user.id} email={user.email} isTest={user.isTest} />
+            <DeleteUserButton userId={user.id} email={user.email} isTest={user.isTest} />
+          </div>
         </div>
         <p className="flex flex-wrap gap-x-3 text-sm text-text-muted">
           {user.email ? <span>{user.email}</span> : null}
@@ -164,7 +167,7 @@ async function UserDetail({ params, searchParams }: Pick<PageProps<'/tester/[use
           {canGenerate ? (
             <div className="flex flex-col items-end gap-2">
               <GenerateWeekForm userId={user.id} defaultWeek={nextIndex + 1} />
-              <RegeneratePlanButton userId={user.id} hasPlan={!!user.plan} />
+              <RegeneratePlanButton userId={user.id} hasPlan={!!user.plan} maxWeeks={MAX_REGENERATE_WEEKS} />
             </div>
           ) : (
             <p className="rounded-md bg-surface-accent-soft px-3 py-2 text-sm text-text-accent-strong">

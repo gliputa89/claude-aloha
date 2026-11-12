@@ -91,7 +91,7 @@ export function WeekActions({
           type="button"
           autoFocus
           onClick={() => run(confirming)}
-          className={`${buttonBase} ${confirming === 'delete' ? 'bg-workout-tempo text-white' : 'bg-action text-text-on-brand hover:bg-action-hover'}`}
+          className={`${buttonBase} ${confirming === 'delete' ? 'bg-danger text-white' : 'bg-action text-text-on-brand hover:bg-action-hover'}`}
         >
           {confirming === 'delete' ? 'Tak, usuń' : 'Tak, generuj'}
         </button>
@@ -122,7 +122,7 @@ export function WeekActions({
       <button
         type="button"
         disabled={pending}
-        className={`${buttonBase} border border-border-strong text-workout-tempo hover:bg-background`}
+        className={`${buttonBase} border border-border-strong text-danger hover:bg-background`}
         onClick={() => setConfirming('delete')}
       >
         Usuń

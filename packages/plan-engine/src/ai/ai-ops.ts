@@ -11,11 +11,10 @@ import type { LevelParams } from '../plan/params.ts';
 import { buildFromMainSets, paceZonesFrom, PACE_ZONES, type MainSet, type PaceZone } from '../core/workout.ts';
 import {
   dayCap,
-  intervals,
   isFullWeek,
   paramsOf,
+  qualityStructure,
   round5,
-  tempo,
   walkRun,
   weeklyGrowth,
   weekMinutes,
@@ -56,9 +55,17 @@ export type AiTip = { date: string; text: string };
 /** Najdłuższa rada (znaki) – dłuższe przycinamy. */
 export const AI_TIP_MAX_LENGTH = 180;
 
+/** Najdłuższe powitanie po ułożeniu planu (znaki) – dłuższe przycinamy. */
+export const AI_WELCOME_MAX_LENGTH = 600;
+
 export type AiPlanResponse = {
   /** Krótkie, ludzkie uzasadnienie dla użytkownika w jego języku. */
   summary: string;
+  /**
+   * Powitanie od trenera pokazywane raz, tuż po ułożeniu pierwszego planu – o planie jako całości,
+   * nie o pojedynczym treningu. `null` przy kolejnych tygodniach (i w starszych odpowiedziach).
+   */
+  welcome: string | null;
   operations: AiOperation[];
   /** Rady trenera do treningów planu (po operacjach), w języku biegacza. */
   tips: AiTip[];
@@ -77,11 +84,19 @@ export const AI_OPERATION_LABEL: Record<AiOperationKind, string> = {
 export const AI_PLAN_RESPONSE_SCHEMA = {
   type: 'object',
   additionalProperties: false,
-  required: ['summary', 'operations', 'tips'],
+  required: ['summary', 'welcome', 'operations', 'tips'],
   properties: {
     summary: {
       type: 'string',
       description: 'Krótkie (1–3 zdania), ciepłe uzasadnienie zmian dla biegacza, w jego języku.',
+    },
+    welcome: {
+      type: ['string', 'null'],
+      description:
+        'Tylko gdy task to nowy plan po ankiecie – inaczej null. Powitanie od trenera pokazywane raz, tuż po ułożeniu planu: ' +
+        '2–3 krótkie zdania w języku biegacza, w drugiej osobie. Powiedz, do czego ten plan prowadzi (jego cel), jak wyglądają ' +
+        'pierwsze tygodnie jako całość (rytm, liczba treningów, od czego zaczynamy) i dodaj jedno zdanie zachęty. ' +
+        'Nie opisuj pojedynczego treningu ani pierwszego dnia, nie wyliczaj zmian względem szkicu, bez porad medycznych.',
     },
     operations: {
       type: 'array',
@@ -184,7 +199,8 @@ export function parseAiPlanResponse(raw: unknown): { ok: true; value: AiPlanResp
       reason: typeof o.reason === 'string' ? o.reason.slice(0, 500) : '',
     });
   }
-  return { ok: true, value: { summary: r.summary.slice(0, 2000), operations, tips: parseTips(r.tips) } };
+  const welcome = typeof r.welcome === 'string' ? r.welcome.trim().slice(0, AI_WELCOME_MAX_LENGTH) : '';
+  return { ok: true, value: { summary: r.summary.slice(0, 2000), welcome: welcome || null, operations, tips: parseTips(r.tips) } };
 }
 
 /** Rady są dodatkiem – błędne pozycje pomijamy, zamiast odrzucać całą odpowiedź. */
@@ -323,7 +339,7 @@ export function validateWeeks(weeks: PlannedWeek[], ctx: ValidationContext): Vio
     // Jak capGrowth w silniku: tydzień zawodów (i tydzień po nim) nie jest punktem odniesienia,
     // a tygodnia z samymi minimalnymi treningami nie da się już skrócić.
     const atFloor = regular.every((s) => (s.durationMin ?? 0) <= p.minSessionMin);
-    if (week.focus !== 'race' && prev && prev.focus !== 'race' && !atFloor && isFullWeek(prev) && isFullWeek(week) && weekMinutes(prev) > 0) {
+    if (week.focus !== 'race' && prev && prev.focus !== 'race' && prev.focus !== 'recovery' && !atFloor && isFullWeek(prev) && isFullWeek(week) && weekMinutes(prev) > 0) {
       const limit = weekMinutes(prev) * weeklyGrowth(p);
       if (minutes > limit + 1e-9) add('growth', week.weekIndex, null, `${minutes} > ${Math.floor(limit)} min`);
     }
@@ -371,9 +387,9 @@ export function buildSession(
       case 'walk_run':
         return { ...base, intensity: 'easy' as Intensity, structure: walkRun(duration, weekIndex, gentle) };
       case 'intervals':
-        return { ...base, intensity: 'hard' as Intensity, structure: intervals(duration, trainingLevelOf(input)) };
+        return { ...base, intensity: 'hard' as Intensity, structure: qualityStructure(input, weekIndex, 'intervals', duration) };
       case 'tempo':
-        return { ...base, intensity: 'moderate' as Intensity, structure: tempo(duration) };
+        return { ...base, intensity: 'moderate' as Intensity, structure: qualityStructure(input, weekIndex, 'tempo', duration) };
       default:
         return { ...base, intensity: 'easy' as Intensity, structure: { kind: 'steady' as const } };
     }
@@ -426,6 +442,7 @@ function execute(weeks: PlannedWeek[], op: AiOperation, input: PlanInput): strin
           walkRunOnly: trainingLevelOf(input) === 1,
           gentle: input.hasContraindications,
           maxHardSharePct: paramsOf(input).maxHardSharePct,
+          maxTempoSharePct: paramsOf(input).maxTempoSharePct,
         },
         paceZonesFrom(input.recentResult),
       );

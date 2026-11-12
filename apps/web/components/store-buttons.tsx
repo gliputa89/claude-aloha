@@ -8,27 +8,44 @@ const icons = {
     "M22.018 13.298l-3.919 2.218-3.515-3.493 3.543-3.521 3.891 2.202a1.49 1.49 0 0 1 0 2.594zM1.337.924a1.486 1.486 0 0 0-.112.568v21.017c0 .217.045.419.124.6l11.155-11.087L1.337.924zm12.207 10.065l3.258-3.238L3.45.195a1.466 1.466 0 0 0-.946-.179l11.04 10.973zm0 2.067l-11 10.933c.298.036.612-.016.906-.183l13.324-7.54-3.23-3.21z",
 };
 
-/** Przyciski sklepów. Adresy w lib/content.ts (storeLinks) – do uzupełnienia po publikacji. */
+/**
+ * Przyciski sklepów. Sklep bez adresu (storeLinks) dostaje plakietkę „Wkrótce w …”:
+ * ten sam kształt, ale bez linku i z obrysem zamiast wypełnienia, żeby nie udawała przycisku.
+ */
 export function StoreButtons({ store, tone = "light" }: Props) {
   const base =
-    "flex min-w-44 items-center gap-3 rounded-button px-4 py-2.5 leading-tight transition-colors duration-150";
-  const skin =
+    "flex min-w-0 items-center gap-2.5 rounded-button px-3 py-2.5 leading-tight sm:min-w-44 sm:gap-3 sm:px-4";
+  const link =
     tone === "light"
-      ? "bg-white text-deep hover:bg-surface-accent-soft"
-      : "bg-deep text-white hover:bg-action-hover";
+      ? "bg-white text-deep transition-colors duration-150 hover:bg-surface-accent-soft"
+      : "bg-deep text-white transition-colors duration-150 hover:bg-action-hover";
+  const soon = tone === "light" ? "border border-white/50 text-white" : "border border-deep/40 text-deep";
   return (
-    <div className="flex flex-wrap gap-3">
-      {(["ios", "android"] as const).map((platform) => (
-        <a key={platform} href={storeLinks[platform]} className={`${base} ${skin}`}>
-          <svg viewBox="0 0 24 24" className="size-7 shrink-0" fill="currentColor" aria-hidden="true">
-            <path d={icons[platform]} />
-          </svg>
-          <span className="flex flex-col">
-            <span className="text-xs font-medium opacity-75">{store[platform][0]}</span>
-            <span className="text-lg font-bold tracking-tight">{store[platform][1]}</span>
-          </span>
-        </a>
-      ))}
+    <div className="grid grid-cols-[repeat(auto-fit,minmax(9.5rem,1fr))] gap-2 sm:flex sm:flex-wrap sm:gap-3">
+      {(["ios", "android"] as const).map((platform) => {
+        const href = storeLinks[platform];
+        const [small, big] = href ? store[platform] : store.soon[platform];
+        const inner = (
+          <>
+            <svg viewBox="0 0 24 24" className="size-6 shrink-0 sm:size-7" fill="currentColor" aria-hidden="true">
+              <path d={icons[platform]} />
+            </svg>
+            <span className="flex flex-col">
+              <span className="text-xs font-medium whitespace-nowrap opacity-75">{small}</span>
+              <span className="text-base font-bold tracking-tight whitespace-nowrap sm:text-lg">{big}</span>
+            </span>
+          </>
+        );
+        return href ? (
+          <a key={platform} href={href} className={`${base} ${link}`}>
+            {inner}
+          </a>
+        ) : (
+          <p key={platform} className={`${base} ${soon}`}>
+            {inner}
+          </p>
+        );
+      })}
     </div>
   );
 }

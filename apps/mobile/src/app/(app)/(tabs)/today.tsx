@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Mark } from '@/components/brand/mark';
 import { MatchPrompts } from '@/components/strava/match-prompt';
+import { RaceCountdown } from '@/components/plan/race-countdown';
 import { SessionRow } from '@/components/plan/session-row';
 import { WeatherCard, WeatherPrompt } from '@/components/plan/weather-card';
 import { Button } from '@/components/ui/button';
@@ -16,6 +17,7 @@ import { todayIso } from '@/features/onboarding/time';
 import { allSessions, usePlan } from '@/features/plan/plan-provider';
 import { PlanStatus } from '@/features/plan/plan-status';
 import { useDayNote } from '@/features/coach/day-note';
+import { daysUntil, useRaceGoal } from '@/features/goal/race-goal';
 import { useModule } from '@/features/modules/use-module';
 import { useWeather } from '@/features/weather/weather-provider';
 import { useColors } from '@/hooks/use-colors';
@@ -54,6 +56,7 @@ export default function TodayScreen() {
   const chat = { ai: useModule('coach_chat'), human: useModule('coach_human') };
   const dayNote = useDayNote(today, modules.coach && state.kind === 'ready' && todayRuns.length === 0);
   const hasWeather = shown.some((s) => weather.bySession.has(s.id));
+  const raceGoal = useRaceGoal(state.kind === 'ready' ? state.plan.id : null);
 
   return (
     <Screen
@@ -73,6 +76,11 @@ export default function TodayScreen() {
       {state.kind === 'ready' ? (
         <>
           {modules.strava ? <MatchPrompts /> : null}
+          {raceGoal && daysUntil(raceGoal.raceDate, today) >= 0 ? (
+            <FadeUp delay={30}>
+              <RaceCountdown goal={raceGoal} today={today} />
+            </FadeUp>
+          ) : null}
           <FadeUp delay={60} style={styles.section}>
             <Text variant="heading" accessibilityRole="header">
               {t('today.title')}

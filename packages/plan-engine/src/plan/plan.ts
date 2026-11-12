@@ -5,7 +5,9 @@
 //  - plan od dnia startu; tydzień 0 trwa do najbliższej niedzieli, kolejne pon–nd,
 //  - treningi tylko w preferowane dni, rozłożone możliwie równo w tygodniu,
 //  - „nie biegam” → marsz-bieg; reszta: spokojne biegi + długi bieg w weekend,
-//  - najwyżej jedna mocniejsza jednostka w tygodniu, nigdy dzień przed/po długim biegu,
+//  - najwyżej jedna mocniejsza jednostka w tygodniu, nigdy dzień przed/po długim biegu; od poziomu 3 interwały
+//    przeplatają się z treningiem progowym, którego odcinki wydłużają się z tygodnia na tydzień,
+//  - na wyższych poziomach cykl obciążenia: kilka tygodni rosnących, potem jeden lżejszy (parametr deloadEveryWeeks),
 //  - objętość i przyrost wg poziomu zaawansowania 1–5 (levels.ts), każdy trening ≤ limit czasu z ankiety,
 //  - przeciwwskazania → tylko spokojne jednostki, krótsze o ok. 20%.
 
@@ -15,17 +17,19 @@ import { trainingLevelOf, type TrainingLevel } from './levels.ts';
 import { paramsForLevel, resolveEngineParams, type EngineParams, type LevelParams } from './params.ts';
 import { paceZonesFrom, stepsFromStructure, type WorkoutItem } from '../core/workout.ts';
 
-export const ENGINE_VERSION = '0.5.0';
+export const ENGINE_VERSION = '0.6.0';
 
 export type SessionType = 'walk_run' | 'easy' | 'long' | 'intervals' | 'tempo' | 'recovery' | 'race';
 export type Intensity = 'easy' | 'moderate' | 'hard';
-export type WeekFocus = 'base' | 'build' | 'race';
+/** `recovery` – lżejszy tydzień cyklu (np. co czwarty): mniejsza objętość, krótsza mocna jednostka. */
+export type WeekFocus = 'base' | 'build' | 'recovery' | 'race';
 
 export type SessionStructure = (
   | { kind: 'walk_run'; warmupWalkMin: number; repeats: number; runMin: number; walkMin: number }
   | { kind: 'steady' }
   | { kind: 'intervals'; warmupMin: number; repeats: number; workMin: number; recoveryMin: number; cooldownMin: number }
-  | { kind: 'tempo'; warmupMin: number; workMin: number; cooldownMin: number }
+  /** Tempo ciągłe albo – z `repeats` – trening progowy w odcinkach (np. 3×10 min z 2 min truchtu). */
+  | { kind: 'tempo'; warmupMin: number; workMin: number; cooldownMin: number; repeats?: number; recoveryMin?: number }
   | { kind: 'race'; distanceM: number }
 ) & {
   /** Odcinki: rozgrzewka → część główna (powtórzenia, przerwy) → schłodzenie; suma = długość treningu. */
@@ -169,6 +173,91 @@ export function tempo(duration: number): SessionStructure {
   return { kind: 'tempo', warmupMin, workMin: Math.max(10, Math.min(25, duration - warmupMin - cooldownMin)), cooldownMin };
 }
 
+/**
+ * Drabinka treningu progowego (strefa tempo): kolejne etapy wydłużają odcinek – od kilku krótszych powtórzeń
+ * do biegu ciągłego. Biegacz przechodzi szczebel wyżej przy każdym kolejnym treningu progowym.
+ */
+export const THRESHOLD_LADDER: readonly { repeats: number; workMin: number; recoveryMin: number }[] = [
+  { repeats: 3, workMin: 6, recoveryMin: 2 },
+  { repeats: 3, workMin: 8, recoveryMin: 2 },
+  { repeats: 3, workMin: 10, recoveryMin: 2 },
+  { repeats: 2, workMin: 15, recoveryMin: 3 },
+  { repeats: 1, workMin: 20, recoveryMin: 0 },
+  { repeats: 1, workMin: 25, recoveryMin: 0 },
+];
+
+/**
+ * Trening progowy na danym etapie drabinki (`stage` = który to już trening progowy w planie, od 0).
+ * Poziomy 4–5 zaczynają szczebel wyżej. Gdy etap nie mieści się w treningu (czas albo limit minut w strefie tempo),
+ * schodzimy na niższy; gdy nie mieści się żaden – zostaje tempo ciągłe.
+ */
+export function threshold(duration: number, level: TrainingLevel, stage: number, maxTempoSharePct: number): SessionStructure {
+  const minWarmupMin = 10;
+  const cooldownMin = 5;
+  const target = Math.min(THRESHOLD_LADDER.length - 1, (level >= 4 ? 1 : 0) + Math.max(0, stage));
+  for (let i = target; i >= 0; i--) {
+    const rung = THRESHOLD_LADDER[i]!;
+    const fits = rung.repeats * (rung.workMin + rung.recoveryMin) <= duration - minWarmupMin - cooldownMin;
+    if (!fits || rung.repeats * rung.workMin > (duration * maxTempoSharePct) / 100) continue;
+    // W długim treningu zapas czasu dzielimy między rozgrzewkę (do 20 min) i schłodzenie, zamiast doklejać go na koniec.
+    const spare = duration - rung.repeats * (rung.workMin + rung.recoveryMin);
+    const warmupMin = Math.min(20, Math.max(10, Math.floor(spare / 10) * 5));
+    return rung.repeats === 1
+      ? { kind: 'tempo', warmupMin, workMin: rung.workMin, cooldownMin }
+      : { kind: 'tempo', warmupMin, workMin: rung.workMin, cooldownMin, repeats: rung.repeats, recoveryMin: rung.recoveryMin };
+  }
+  return tempo(duration);
+}
+
+/**
+ * Czy mocna jednostka przeplata interwały z treningiem progowym: od poziomu 3, przy celu „popraw formę” i zawodach
+ * do 10 km. Półmaraton i maraton mają co tydzień tempo ciągłe, poziom 2 – same krótkie interwały.
+ */
+const mixesThreshold = (input: PlanInput) =>
+  trainingLevelOf(input) >= 3 && !(input.goal.type === 'race' && input.goal.distanceM >= 21097);
+
+/** Długość cyklu obciążenia w tygodniach (ostatni jest lżejszy); 0 = bez lżejszych tygodni. Cykl krótszy niż 3 nie ma sensu. */
+const deloadCycle = (input: PlanInput) => {
+  const n = paramsOf(input).deloadEveryWeeks;
+  return n >= 3 ? n : 0;
+};
+
+/** Czy to lżejszy tydzień cyklu (np. przy cyklu 4: tygodnie 4., 8., 12. planu). */
+export function isDeloadWeek(input: PlanInput, weekIndex: number) {
+  const n = deloadCycle(input);
+  return n > 0 && weekIndex % n === n - 1;
+}
+
+/** Ile lżejszych tygodni było przed tygodniem `weekIndex` – one nie liczą się do przyrostu ani do progresji mocnych jednostek. */
+const deloadsBefore = (input: PlanInput, weekIndex: number) => {
+  const n = deloadCycle(input);
+  return n > 0 ? Math.floor(weekIndex / n) : 0;
+};
+
+/** Który to tydzień z mocną jednostką (0 = pierwszy), bez lżejszych tygodni; ujemny przed ich startem. */
+const qualityWeek = (input: PlanInput, weekIndex: number) => weekIndex - (qualityFrom(input) ?? 0) - deloadsBefore(input, weekIndex);
+
+/** Rodzaj mocnej jednostki w tygodniu: co drugi tydzień trening progowy zamiast interwałów. */
+export function qualityTypeFor(input: PlanInput, weekIndex: number): 'intervals' | 'tempo' {
+  if (input.goal.type === 'race' && input.goal.distanceM >= 21097) return 'tempo';
+  // Lżejszy tydzień: krótkie interwały dla podtrzymania szybkości, bez kolejnego szczebla progu.
+  if (isDeloadWeek(input, weekIndex)) return 'intervals';
+  return mixesThreshold(input) && qualityWeek(input, weekIndex) % 2 === 1 ? 'tempo' : 'intervals';
+}
+
+/** Domyślna część główna mocnej jednostki danego typu w danym tygodniu planu. */
+export function qualityStructure(input: PlanInput, weekIndex: number, type: 'intervals' | 'tempo', duration: number): SessionStructure {
+  const level = trainingLevelOf(input);
+  if (type === 'intervals') {
+    const full = intervals(duration, level);
+    // Lżejszy tydzień: ok. 60% powtórzeń – bodziec zostaje, zmęczenie nie.
+    return isDeloadWeek(input, weekIndex) && full.kind === 'intervals' ? { ...full, repeats: Math.max(3, Math.ceil(full.repeats * 0.6)) } : full;
+  }
+  if (!mixesThreshold(input)) return tempo(duration);
+  const stage = Math.floor(Math.max(0, qualityWeek(input, weekIndex)) / 2);
+  return threshold(duration, level, stage, paramsOf(input).maxTempoSharePct);
+}
+
 /** Czy w planie są mocniejsze jednostki (interwały / tempo) i w którym tygodniu się zaczynają. */
 function qualityFrom(input: PlanInput): number | null {
   if (paramsOf(input).maxHardPerWeek < 1) return null;
@@ -185,8 +274,11 @@ function buildWeek(input: PlanInput, weekIndex: number, startsOn: string, endsOn
   const p = paramsOf(input);
   const level = trainingLevelOf(input);
   const gentle = input.hasContraindications;
-  const baseEasyMin = volumeBase ?? p.baseEasyMin * weeklyGrowth(p) ** weekIndex;
-  const baseEasy = baseEasyMin * (gentle ? 1 - p.gentleReductionPct / 100 : 1);
+  const deload = isDeloadWeek(input, weekIndex);
+  // Baza rośnie tylko w tygodniach obciążenia; lżejszy tydzień stoi na bazie poprzedniego i schodzi z objętości
+  // o ustawiony procent. Zapisujemy bazę bez tej obniżki – tydzień po lżejszym rośnie od niej dalej.
+  const baseEasyMin = volumeBase ?? p.baseEasyMin * weeklyGrowth(p) ** (weekIndex - deloadsBefore(input, weekIndex) - (deload ? 1 : 0));
+  const baseEasy = baseEasyMin * (gentle ? 1 - p.gentleReductionPct / 100 : 1) * (deload ? 1 - p.deloadReductionPct / 100 : 1);
   const MIN_SESSION = p.minSessionMin;
 
   // Dni tego tygodnia (tydzień 0 może być niepełny).
@@ -217,8 +309,7 @@ function buildWeek(input: PlanInput, weekIndex: number, startsOn: string, endsOn
     const pick = sorted.find((d) => dist(d) >= p.minDaysHardToLong);
     qualityDay = pick ?? null;
   }
-  const qualityType: SessionType =
-    input.goal.type === 'race' && input.goal.distanceM >= 21097 ? 'tempo' : 'intervals';
+  const qualityType = qualityTypeFor(input, weekIndex);
 
   let sessions: PlannedSession[] = chosen.map((weekday) => {
     const scheduledOn = dateOf(weekday);
@@ -246,14 +337,14 @@ function buildWeek(input: PlanInput, weekIndex: number, startsOn: string, endsOn
         durationMin: duration,
         distanceM: null,
         intensity: qualityType === 'intervals' ? 'hard' : 'moderate',
-        structure: qualityType === 'intervals' ? intervals(duration, level) : tempo(duration),
+        structure: qualityStructure(input, weekIndex, qualityType, duration),
       };
     }
     const duration = Math.max(MIN_SESSION, Math.min(cap, round5(baseEasy)));
     return { scheduledOn, type: 'easy', durationMin: duration, distanceM: null, intensity: 'easy', structure: { kind: 'steady' } };
   });
 
-  let focus: WeekFocus = weekIndex === 0 ? 'base' : 'build';
+  let focus: WeekFocus = deload ? 'recovery' : weekIndex === 0 ? 'base' : 'build';
 
   // Zawody w tym tygodniu: start w dniu zawodów, dzień przed i po – wolne, ostatnie 3 dni bez mocnych jednostek.
   if (input.goal.type === 'race' && input.goal.raceDate >= startsOn && input.goal.raceDate <= endsOn) {
@@ -293,7 +384,8 @@ export const isFullWeek = (w: PlannedWeek) => daysBetween(w.startsOn, w.endsOn) 
  * Przycina po 5 min najdłuższe treningi (poza zawodami), nie schodząc poniżej minimum.
  */
 function capGrowth(input: PlanInput, prev: PlannedWeek, week: PlannedWeek): PlannedWeek {
-  if (week.focus === 'race' || !isFullWeek(prev)) return week;
+  // Lżejszy tydzień nie jest punktem odniesienia: tydzień po nim wraca na bazę sprzed niego (plus przyrost).
+  if (week.focus === 'race' || prev.focus === 'recovery' || !isFullWeek(prev)) return week;
   const p = paramsOf(input);
   const MIN_SESSION = p.minSessionMin;
   const limit = weekMinutes(prev) * weeklyGrowth(p);
@@ -305,8 +397,9 @@ function capGrowth(input: PlanInput, prev: PlannedWeek, week: PlannedWeek): Plan
       .sort((a, b) => (b.durationMin ?? 0) - (a.durationMin ?? 0))[0];
     if (!longest || longest.durationMin === null) break;
     longest.durationMin -= 5;
-    if (longest.structure.kind === 'intervals') longest.structure = intervals(longest.durationMin, trainingLevelOf(input));
-    if (longest.structure.kind === 'tempo') longest.structure = tempo(longest.durationMin);
+    if (longest.structure.kind === 'intervals' || longest.structure.kind === 'tempo') {
+      longest.structure = qualityStructure(input, week.weekIndex, longest.structure.kind, longest.durationMin);
+    }
     if (longest.structure.kind === 'walk_run') {
       longest.structure = { ...longest.structure, repeats: Math.max(3, longest.structure.repeats - 1) };
     }
@@ -382,7 +475,7 @@ export function generateNextWeek(input: PlanInput, prev: PlannedWeek, change: Le
       ? p.baseEasyMin * weeklyGrowth(p) ** weekIndex
       : change === 'down'
         ? Math.min(prevBase, p.baseEasyMin)
-        : prev.focus === 'race'
+        : prev.focus === 'race' || isDeloadWeek(input, weekIndex)
           ? prevBase
           : prevBase * weeklyGrowth(p);
   const week = buildWeek(input, weekIndex, startsOn, endsOn, base);

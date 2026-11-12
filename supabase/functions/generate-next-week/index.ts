@@ -10,6 +10,8 @@
 // Wywołania:
 //   * cron (pg_cron + pg_net, codziennie) – nagłówek Authorization: Bearer <SERVICE_ROLE_KEY> → wszyscy, którym wypada termin,
 //   * aplikacja – token zalogowanego użytkownika → tylko on (np. po otwarciu aplikacji, gdy brak tygodnia na jutro).
+//     TYMCZASOWO (do testów, do usunięcia razem z przyciskiem w zakładce „Plan”): { force: true, weeks: 1–2 } dokłada
+//     kolejne tygodnie od razu, bez czekania na termin.
 // Logika: packages/plan-engine (kopiowane do _shared/plan-engine przez scripts/sync-plan-engine.sh).
 
 import { createClient, type SupabaseClient } from 'jsr:@supabase/supabase-js@2';
@@ -53,6 +55,8 @@ async function processUser(
   db: SupabaseClient,
   userId: string,
   ctx: { engine: AiEngineConfig; prompt: AiPromptConfig; apiKey: string | null; isTest: (id: string) => Promise<boolean> },
+  // TYMCZASOWE: pominięcie terminu dla przycisku testowego w aplikacji.
+  force = false,
 ): Promise<Outcome> {
   const [profileRes, goalRes, availabilityRes, planRes] = await Promise.all([
     db
@@ -101,6 +105,7 @@ async function processUser(
     checkIns: checkInsRes.data ?? [],
     params: ctx.engine.params,
     today,
+    force,
   });
   if (!next.ok) return { userId, status: 'skipped', detail: next.reason };
 
@@ -169,6 +174,8 @@ Deno.serve(async (req) => {
 
   // Cron (klucz service_role) → wszyscy z terminem; inaczej tylko zalogowany użytkownik.
   let userIds: string[];
+  // TYMCZASOWE: ile tygodni dołożyć od ręki (przycisk testowy w aplikacji); 0 = zwykły tryb z terminem.
+  let forcedWeeks = 0;
   if (token === serviceKey) {
     const horizon = addDaysIso(new Date().toISOString().slice(0, 10), NEXT_WEEK_LEAD_DAYS + 1);
     const { data, error } = await db.from('plans').select('user_id').eq('status', 'active').lte('ends_on', horizon);
@@ -178,6 +185,8 @@ Deno.serve(async (req) => {
     const { data, error } = await db.auth.getUser(token);
     if (error || !data.user) return json({ error: 'unauthorized' }, 401);
     userIds = [data.user.id];
+    const body = await req.json().catch(() => null);
+    if (body?.force === true) forcedWeeks = body.weeks === 2 ? 2 : 1;
   }
 
   const [promptRes, configRes] = await Promise.all([db.rpc('get_ai_prompt', { p_function: 'plan-weeks' }), db.rpc('get_engine_config')]);
@@ -195,6 +204,15 @@ Deno.serve(async (req) => {
   const results: Outcome[] = [];
   for (const id of userIds) {
     try {
+      if (forcedWeeks > 0) {
+        // Tydzień po tygodniu, jak w czasie: drugi powstaje z pierwszego już zapisanego. Stop przy pierwszym niepowodzeniu.
+        for (let i = 0; i < forcedWeeks; i++) {
+          const outcome = await processUser(db, id, ctx, true);
+          results.push(outcome);
+          if (outcome.status !== 'created') break;
+        }
+        continue;
+      }
       results.push(await processUser(db, id, ctx));
     } catch (e) {
       console.error('generate-next-week failed', id, e);

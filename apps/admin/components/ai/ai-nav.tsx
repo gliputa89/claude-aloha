@@ -10,6 +10,7 @@ const TABS = [
   { href: '/ai/rules', label: 'Ramy planu' },
   { href: '/ai/review-test', label: 'Test ocen' },
   { href: '/ai/chat-test', label: 'Test czatu' },
+  { href: '/ai/forecast-test', label: 'Prognoza startu' },
 ] as const;
 
 export function AiNav() {

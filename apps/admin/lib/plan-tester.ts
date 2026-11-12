@@ -234,3 +234,9 @@ export function plannedWeekFromRow(w: TesterWeek): PlannedWeek {
       })),
   };
 }
+
+/**
+ * Najwięcej tygodni przy „plan od nowa” w testerze. Z AI każdy tydzień ponad dwa pierwsze to osobne wywołanie
+ * modelu (ok. pół minuty), a akcja serwera ma na wszystko kilka minut.
+ */
+export const MAX_REGENERATE_WEEKS = 8;

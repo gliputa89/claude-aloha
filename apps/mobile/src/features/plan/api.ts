@@ -129,9 +129,29 @@ export type GeneratedPlan = {
   /** Liczba treningów w wygenerowanych tygodniach. */
   sessions: number;
   source: 'ai' | 'rules';
-  /** Krótkie uzasadnienie od trenera (AI) w języku użytkownika. */
+  /** Uzasadnienie zmian w szkicu od AI (dla panelu; aplikacja go nie pokazuje). */
   summary: string | null;
+  /** Powitanie od trenera (AI) do pokazania raz po ułożeniu planu; brak przy planie z samych reguł i w starszej funkcji. */
+  welcome?: string | null;
 };
+
+/**
+ * TYMCZASOWE (przycisk testowy w zakładce „Plan”): dokłada kolejne tygodnie od ręki, bez czekania na termin.
+ * Zwraca liczbę dodanych tygodni i – gdy coś poszło nie tak – powód (np. `after_race`).
+ */
+export async function generateNextWeeks(weeks: 1 | 2 = 2): Promise<{ created: number; problem: string | null }> {
+  try {
+    const { data, error } = await supabase.functions.invoke<{
+      created?: number;
+      results?: { status: string; detail?: string }[];
+    }>('generate-next-week', { method: 'POST', body: { force: true, weeks } });
+    if (error || !data) return { created: 0, problem: 'failed' };
+    const stopped = (data.results ?? []).find((r) => r.status !== 'created');
+    return { created: data.created ?? 0, problem: stopped ? (stopped.detail ?? stopped.status) : null };
+  } catch {
+    return { created: 0, problem: 'failed' };
+  }
+}
 
 /** Generuje plan na serwerze (Edge Function generate-plan) z odpowiedzi z ankiety. */
 export async function generatePlan(): Promise<GeneratedPlan | null> {

@@ -17,8 +17,7 @@ import { useT } from '@/hooks/use-t';
 const SAMPLE: PlanLoaderResult = {
   sessions: 6,
   startLabel: 'poniedziałek, 16 listopada',
-  summary:
-    'Zaczynamy spokojnie: trzy biegi w tygodniu, w tym jeden dłuższy w sobotę. W drugim tygodniu dokładam kilka krótkich przebieżek, żeby nogi przypomniały sobie szybsze tempo.',
+  note: 'Ten plan prowadzi Cię do dychy w kwietniu. Zaczynamy spokojnie: trzy biegi w tygodniu, w tym jeden dłuższy w weekend, żeby bieganie weszło Ci w rytm. Będzie dobrze – jestem obok.',
 };
 
 type Scenario = { key: string; label: string; ms: number; result: PlanLoaderResult | null };
@@ -27,7 +26,7 @@ const SCENARIOS: Scenario[] = [
   { key: 'fast', label: 'Szybko 2 s', ms: 2000, result: SAMPLE },
   { key: 'typical', label: 'Typowo 12 s', ms: 12000, result: SAMPLE },
   { key: 'slow', label: 'Wolno 40 s', ms: 40000, result: SAMPLE },
-  { key: 'rules', label: 'Bez AI', ms: 6000, result: { ...SAMPLE, summary: null } },
+  { key: 'rules', label: 'Bez AI', ms: 6000, result: { ...SAMPLE, note: 'Plan jest ułożony pod Twój cel i Twoje dni. Zaczynamy spokojnie – pierwsze tygodnie mają wejść Ci w nawyk, a resztę dopasuję po drodze.' } },
   { key: 'error', label: 'Błąd', ms: 6000, result: null },
 ];
 

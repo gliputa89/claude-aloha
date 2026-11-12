@@ -109,7 +109,7 @@ export function AiPreviewPanel({
               </Link>
             ))}
           </div>
-          {preview.error ? <p className="text-sm text-workout-tempo">{preview.error} – pokazany szkic silnika.</p> : null}
+          {preview.error ? <p className="text-sm text-danger">{preview.error} – pokazany szkic silnika.</p> : null}
           {preview.summary ? (
             <blockquote className="rounded-md border-l-4 border-action bg-surface-brand-soft px-4 py-3 text-sm">{preview.summary}</blockquote>
           ) : null}

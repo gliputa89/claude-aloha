@@ -1,7 +1,8 @@
 import Constants from 'expo-constants';
-import { Heart, Heartbeat, Lightning, Watch, type IconProps } from 'phosphor-react-native';
+import { router } from 'expo-router';
+import { CaretRight, Heart, Heartbeat, Lightning, MapPin, Smiley, Watch, type IconProps } from 'phosphor-react-native';
 import { useEffect, useState, type ComponentType } from 'react';
-import { ActivityIndicator, Alert, Platform, Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Alert, Platform, Pressable, StyleSheet, Switch, View } from 'react-native';
 
 import { Button } from '@/components/ui/button';
 import { Chip } from '@/components/ui/chip';
@@ -9,9 +10,11 @@ import { FadeUp } from '@/components/ui/fade-up';
 import { Screen } from '@/components/ui/screen';
 import { Text } from '@/components/ui/text';
 import { radius, space } from '@/constants/theme';
+import { useCheckInEnabled } from '@/features/checkin/api';
 import { useModule } from '@/features/modules/use-module';
 import { usePlan } from '@/features/plan/plan-provider';
 import { connectStrava, disconnectStrava, fetchRecentStravaRuns, fetchStravaStatus, type StravaStatus } from '@/features/strava/api';
+import { useWeather } from '@/features/weather/weather-provider';
 import { useColors } from '@/hooks/use-colors';
 import { useLocale, useT } from '@/hooks/use-t';
 import { signOut } from '@/lib/auth';
@@ -48,6 +51,30 @@ export default function ProfileScreen() {
   const { reload } = usePlan();
   // Strava jest modułem pakietu – bez niego nie ma jej na liście integracji.
   const stravaModule = useModule('strava');
+  // Check-in = zgoda na dane o zdrowiu. Włączenie wymaga wyraźnego „tak”, wyłączenie działa od razu.
+  const checkIn = useCheckInEnabled();
+  const [checkInBusy, setCheckInBusy] = useState(false);
+  const saveCheckIn = async (on: boolean) => {
+    setCheckInBusy(true);
+    if (!(await checkIn.set(on))) Alert.alert(t('profile.checkIn'), t('profile.checkInFailed'));
+    setCheckInBusy(false);
+  };
+  const toggleCheckIn = (on: boolean) => {
+    if (!on) return void saveCheckIn(false);
+    Alert.alert(t('profile.checkInConsentTitle'), t('profile.checkInConsentBody'), [
+      { text: t('profile.cancel'), style: 'cancel' },
+      { text: t('profile.checkInConsentAgree'), onPress: () => void saveCheckIn(true) },
+    ]);
+  };
+
+  // Domyślne miejsce prognozy: wpisana miejscowość albo okolica z lokalizacji telefonu.
+  const weatherModule = useModule('weather');
+  const weather = useWeather();
+  const weatherPlace = weather.place
+    ? t(weather.place.custom ? 'profile.weatherPlaceCustom' : 'profile.weatherPlaceDevice', {
+        name: weather.place.name ?? t('weather.location.here'),
+      })
+    : t(weather.access === 'granted' ? 'profile.weatherPlaceDeviceUnknown' : 'profile.weatherPlaceNone');
   const integrations = INTEGRATIONS.filter((i) => i.key !== 'strava' || stravaModule);
   const [stravaBusy, setStravaBusy] = useState(false);
 
@@ -240,6 +267,61 @@ export default function ProfileScreen() {
           })}
         </View>
       </FadeUp>
+
+      <FadeUp delay={140} style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <Text variant="heading" accessibilityRole="header">
+            {t('profile.checkIn')}
+          </Text>
+          <Text variant="caption">{t('profile.checkInHint')}</Text>
+        </View>
+        <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
+          <View style={styles.row}>
+            <View style={[styles.icon, { backgroundColor: c.surfaceBrandSoft }]}>
+              <Smiley size={20} weight="bold" color={c.textBrand} />
+            </View>
+            <View style={styles.name}>
+              <Text weight="semibold">{t('profile.checkInRow')}</Text>
+              <Text variant="caption">{t(checkIn.enabled ? 'profile.checkInOn' : 'profile.checkInOff')}</Text>
+            </View>
+            <Switch
+              accessibilityLabel={t('profile.checkInRow')}
+              value={checkIn.enabled === true}
+              disabled={checkIn.enabled === null || checkInBusy}
+              onValueChange={toggleCheckIn}
+              trackColor={{ true: c.action, false: c.borderStrong }}
+            />
+          </View>
+        </View>
+      </FadeUp>
+
+      {weatherModule ? (
+        <FadeUp delay={160} style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text variant="heading" accessibilityRole="header">
+              {t('profile.weather')}
+            </Text>
+            <Text variant="caption">{t('profile.weatherHint')}</Text>
+          </View>
+          <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`${t('profile.weatherPlace')}: ${weatherPlace}`}
+              accessibilityHint={t('profile.weatherChange')}
+              onPress={() => router.push('/weather-location')}
+              style={({ pressed }) => [styles.row, { opacity: pressed ? 0.6 : 1 }]}>
+              <View style={[styles.icon, { backgroundColor: c.surfaceBrandSoft }]}>
+                <MapPin size={20} weight="bold" color={c.textBrand} />
+              </View>
+              <View style={styles.name}>
+                <Text weight="semibold">{t('profile.weatherPlace')}</Text>
+                <Text variant="caption">{weatherPlace}</Text>
+              </View>
+              <CaretRight size={18} weight="bold" color={c.textMuted} />
+            </Pressable>
+          </View>
+        </FadeUp>
+      ) : null}
 
       <FadeUp delay={200} style={styles.section}>
         <Text variant="heading" accessibilityRole="header">

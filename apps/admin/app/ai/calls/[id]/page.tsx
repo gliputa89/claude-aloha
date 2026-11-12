@@ -103,7 +103,7 @@ async function CallDetail({ params }: Pick<PageProps<'/ai/calls/[id]'>, 'params'
             {call.error ? (
               <>
                 <dt className="text-text-muted">Błąd</dt>
-                <dd className="text-workout-tempo">{call.error}</dd>
+                <dd className="text-danger">{call.error}</dd>
               </>
             ) : null}
           </dl>
@@ -208,7 +208,7 @@ function CostCard({ call }: { call: AiCallDetail['call'] }) {
           </tr>
         </tbody>
       </table>
-      {!p ? <p className="text-xs text-workout-tempo">Model spoza cennika – koszt nieznany. Dopisz go w plan-engine (ai-pricing.ts).</p> : null}
+      {!p ? <p className="text-xs text-danger">Model spoza cennika – koszt nieznany. Dopisz go w plan-engine (ai-pricing.ts).</p> : null}
     </Card>
   );
 }

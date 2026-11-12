@@ -1,6 +1,8 @@
+import type { StravaSurveyProposal } from '@aloha/plan-engine';
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 
+import { todayIso } from '@/features/onboarding/time';
 import { supabase } from '@/lib/supabase';
 
 /** Bieg ze Stravy przypisany do treningu z planu. */
@@ -139,9 +141,9 @@ export type StravaConnectResult = 'connected' | 'cancelled' | 'no_activity_scope
  * „Połącz przez Stravę”: ekran zgody Stravy w systemowym oknie logowania. Funkcja strava-oauth zapisuje
  * połączenie po stronie serwera i wraca do aplikacji z wynikiem – tokeny nie przechodzą przez telefon.
  */
-export async function connectStrava(): Promise<StravaConnectResult> {
+export async function connectStrava(returnPath = '/profile'): Promise<StravaConnectResult> {
   try {
-    const returnTo = Linking.createURL('/profile');
+    const returnTo = Linking.createURL(returnPath);
     const { data, error } = await supabase.functions.invoke<{ url: string }>('strava-oauth', {
       method: 'POST',
       body: { action: 'start', returnTo },
@@ -157,6 +159,30 @@ export async function connectStrava(): Promise<StravaConnectResult> {
     return result === 'cancelled' || result === 'no_activity_scope' || result === 'athlete_limit' ? result : 'failed';
   } catch {
     return 'failed';
+  }
+}
+
+export type StravaSurveyResult =
+  | { status: 'ready'; proposal: StravaSurveyProposal }
+  | { status: 'not_connected' }
+  | { status: 'failed' };
+
+/**
+ * Ankieta startowa: propozycja odpowiedzi z biegów z ostatnich 26 tygodni (Edge Function strava-history).
+ * Serwer niczego nie zapisuje – wynik trafia tylko do szkicu ankiety. Nigdy nie rzuca: bez Stravy ankietę
+ * wypełnia się ręcznie.
+ */
+export async function fetchStravaSurvey(): Promise<StravaSurveyResult> {
+  try {
+    const { data, error } = await supabase.functions.invoke<{ connected?: boolean; proposal?: StravaSurveyProposal; error?: string }>(
+      'strava-history',
+      { method: 'POST', body: { today: todayIso() } },
+    );
+    if (error || !data) return { status: 'failed' };
+    if (!data.connected) return { status: 'not_connected' };
+    return data.proposal ? { status: 'ready', proposal: data.proposal } : { status: 'failed' };
+  } catch {
+    return { status: 'failed' };
   }
 }
 

@@ -132,6 +132,7 @@ async function Calls({ searchParams }: Pick<PageProps<'/ai/calls'>, 'searchParam
                     </td>
                     <td className="py-2">
                       {r.function_name}
+                      {r.weeks ? <span className="text-text-muted"> · {r.weeks} tyg.</span> : null}
                       <span className="block text-xs text-text-muted">{r.source === 'tester' ? 'tester' : 'aplikacja'}</span>
                     </td>
                     <td className="py-2 text-xs">{r.model}</td>
@@ -148,7 +149,7 @@ async function Calls({ searchParams }: Pick<PageProps<'/ai/calls'>, 'searchParam
                     <td className="py-2 text-right text-text-muted tabular-nums">{formatMs(r.duration_ms)}</td>
                     <td className="py-2 pl-3">
                       <StatusBadge status={r.validation_status} />
-                      {r.error ? <span className="mt-1 block max-w-[14rem] truncate text-xs text-workout-tempo" title={r.error}>{r.error}</span> : null}
+                      {r.error ? <span className="mt-1 block max-w-[14rem] truncate text-xs text-danger" title={r.error}>{r.error}</span> : null}
                     </td>
                   </tr>
                 ))}

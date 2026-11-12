@@ -9,14 +9,12 @@ import { Chip } from '@/components/ui/chip';
 import { Notice } from '@/components/ui/notice';
 import { Stepper } from '@/components/ui/stepper';
 import { space } from '@/constants/theme';
-import { startBeforeRace, useOnboardingDraft } from '@/features/onboarding/draft';
+import { startBeforeRace, useOnboardingDraft, WEEKDAY_MINUTES, WEEKEND_MINUTES } from '@/features/onboarding/draft';
 import { addDays, fromIsoDate, toIsoDate } from '@/features/onboarding/time';
 import { useColors } from '@/hooks/use-colors';
 import { useT } from '@/hooks/use-t';
 
 const DAYS = [1, 2, 3, 4, 5, 6, 7] as const;
-const WEEKDAY_MINUTES = [30, 45, 60, 90] as const;
-const WEEKEND_MINUTES = [30, 45, 60, 90, 120] as const;
 
 export default function AvailabilityStep() {
   const t = useT();
@@ -42,6 +40,8 @@ export default function AvailabilityStep() {
       title={t('onboarding.availability.title')}
       subtitle={t('onboarding.availability.subtitle')}
       footer={<Button label={t('onboarding.next')} disabled={!valid} onPress={() => router.push('/health')} />}>
+      {draft.strava?.availability ? <Notice tone="success" message={t('onboarding.availability.fromStrava')} /> : null}
+
       <StepSection label={t('onboarding.availability.startLabel')} hint={t('onboarding.availability.startHint')}>
         <DateTimePicker
           value={fromIsoDate(draft.planStartDate)}

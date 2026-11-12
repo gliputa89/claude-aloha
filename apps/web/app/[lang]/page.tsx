@@ -4,11 +4,12 @@ import { notFound } from "next/navigation";
 import { Mark, Plumeria, Wordmark } from "@/components/brand";
 import { HeroVideo } from "@/components/hero-video";
 import { QuoteRotator } from "@/components/quote-rotator";
+import { SiteFooter } from "@/components/site-footer";
 import { RotatingWord } from "@/components/rotating-word";
 import { StoreButtons } from "@/components/store-buttons";
 import { WeekStrip } from "@/components/week-strip";
 import { getCoaches, type Coach } from "@/lib/coaches";
-import { content, isLocale, localePath, locales, type Content } from "@/lib/content";
+import { appAvailable, content, isLocale, localePath, locales, type Content } from "@/lib/content";
 
 const shell = "mx-auto w-full max-w-6xl px-5 sm:px-8";
 const h2 = "text-3xl font-extrabold tracking-tight text-balance sm:text-5xl sm:leading-[1.05]";
@@ -18,6 +19,8 @@ export default async function Home({ params }: PageProps<"/[lang]">) {
   if (!isLocale(lang)) notFound();
   const t = content[lang];
   const coaches = await getCoaches(lang);
+  // Dopisek „Bezpłatnie” pokazujemy dopiero, gdy aplikację da się pobrać.
+  const storeNote = appAvailable ? t.store.note : null;
 
   return (
     <>
@@ -57,7 +60,7 @@ export default async function Home({ params }: PageProps<"/[lang]">) {
               href="#pobierz"
               className="hidden rounded-button bg-accent px-4 py-2 text-sm font-bold text-text-on-accent hover:bg-white sm:block"
             >
-              {t.nav.download}
+              {appAvailable ? t.nav.download : t.nav.soon}
             </a>
           </div>
         </div>
@@ -73,12 +76,12 @@ export default async function Home({ params }: PageProps<"/[lang]">) {
           />
           <div className="absolute inset-0 z-10 bg-gradient-to-t from-deep/90 via-deep/55 to-deep/50" />
           <div
-            className={`${shell} relative z-20 grid items-end gap-x-10 pt-28 lg:grid-cols-[minmax(0,1fr)_19rem] lg:items-center lg:pt-24 lg:pb-16`}
+            className={`${shell} relative z-20 grid items-end gap-x-10 pt-24 lg:grid-cols-[minmax(0,1fr)_19rem] lg:items-center lg:pt-24 lg:pb-16`}
           >
-            <div className="rise max-w-4xl pb-12 lg:pb-0">
+            <div className="rise max-w-4xl pb-8 lg:pb-0">
               <h1
                 aria-label={t.hero.title}
-                className="text-[clamp(2.5rem,5.6vw,3.75rem)] leading-[1] font-extrabold tracking-[-0.035em]"
+                className="text-[clamp(2.125rem,5.6vw,3.75rem)] leading-[1] font-extrabold tracking-[-0.035em]"
               >
                 <span aria-hidden="true">
                   <span className="block">{t.hero.titleLines[0]}</span>
@@ -91,17 +94,17 @@ export default async function Home({ params }: PageProps<"/[lang]">) {
                   </span>
                 </span>
               </h1>
-              <p className="mt-6 max-w-xl text-lg leading-relaxed text-white/85 sm:text-xl">
+              <p className="mt-4 max-w-xl text-lg leading-relaxed text-white/85 sm:text-xl lg:mt-6">
                 {t.hero.lead}
               </p>
-              <div className="mt-8">
+              <div className="mt-8 hidden lg:block">
                 <StoreButtons store={t.store} />
-                <p className="mt-3 text-sm text-white/70">{t.store.note}</p>
+                {storeNote && <p className="mt-3 text-sm text-white/70">{storeNote}</p>}
               </div>
             </div>
 
             {/* Telefon z ekranem „Dzisiaj” – zawsze w całości, bez przycinania */}
-            <div className="rise rise-late mx-auto mb-14 w-60 overflow-hidden rounded-[2.5rem] border-[8px] border-deep bg-deep shadow-2xl lg:mb-0 lg:w-full">
+            <div className="rise rise-late mx-auto w-56 overflow-hidden rounded-[2.5rem] border-[8px] border-deep bg-deep shadow-2xl lg:mb-0 lg:w-full">
               <Image
                 src="/media/app/today.png"
                 alt={t.hero.phoneAlt}
@@ -111,6 +114,12 @@ export default async function Home({ params }: PageProps<"/[lang]">) {
                 sizes="(min-width: 1024px) 290px, 224px"
                 className="h-auto w-full rounded-[2rem]"
               />
+            </div>
+
+            {/* Na telefonie przyciski sklepów stoją pod telefonem, w jednym wierszu */}
+            <div className="pt-6 pb-20 lg:hidden">
+              <StoreButtons store={t.store} />
+              {storeNote && <p className="mt-3 text-sm text-white/70">{storeNote}</p>}
             </div>
           </div>
         </section>
@@ -136,7 +145,7 @@ export default async function Home({ params }: PageProps<"/[lang]">) {
               </div>
             </div>
             {coaches.length > 0 && (
-              <ul className="mt-14 grid gap-x-8 gap-y-12 sm:grid-cols-2 lg:grid-cols-3">
+              <ul className="-mx-5 mt-14 flex snap-x snap-mandatory gap-5 overflow-x-auto overflow-y-hidden overscroll-x-contain px-5 [scrollbar-width:none] sm:mx-0 sm:grid sm:grid-cols-2 sm:gap-x-8 sm:gap-y-12 sm:overflow-visible sm:px-0 lg:grid-cols-3">
                 {coaches.map((coach) => (
                   <CoachCard key={coach.id} coach={coach} labels={t.coaches} />
                 ))}
@@ -148,11 +157,10 @@ export default async function Home({ params }: PageProps<"/[lang]">) {
         {/* Ekrany aplikacji – zrzuty z symulatora, telefony wychodzą z dolnej krawędzi sekcji */}
         <section className="overflow-hidden bg-surface-brand pt-20 text-white sm:pt-28">
           <div className={shell}>
-            <h2 className={h2}>{t.screens.title}</h2>
-            <p className="mt-4 max-w-[60ch] text-lg leading-relaxed text-white/85">{t.screens.lead}</p>
-            {t.screens.note && <p className="mt-2 text-sm text-white/70">{t.screens.note}</p>}
+            <h2 className={`${h2} max-w-3xl`}>{t.screens.title}</h2>
+            {t.screens.note && <p className="mt-4 text-sm text-white/70">{t.screens.note}</p>}
           </div>
-          <ul className="mx-auto mt-12 flex w-full max-w-6xl snap-x snap-mandatory gap-5 overflow-x-auto px-5 sm:px-8 lg:grid lg:grid-cols-4 lg:gap-7 lg:overflow-visible">
+          <ul className="mx-auto mt-12 flex w-full max-w-6xl snap-x snap-mandatory gap-5 overflow-x-auto overflow-y-hidden overscroll-x-contain px-5 [scrollbar-width:none] sm:px-8 lg:grid lg:grid-cols-4 lg:gap-7 lg:overflow-visible">
             {t.screens.items.map((item, index) => (
               <li
                 key={item.image}
@@ -220,7 +228,7 @@ export default async function Home({ params }: PageProps<"/[lang]">) {
           </div>
         </section>
 
-        {/* Czat z trenerem: Pan Aloha (AI) i prawdziwy trener */}
+        {/* Czat z trenerem: Keanu Biegała (AI) i prawdziwy trener */}
         <section className={`${shell} grid items-center gap-12 py-20 sm:py-28 lg:grid-cols-12 lg:gap-16`}>
           <ChatDemo demo={t.chat.demo} />
           <div className="lg:col-span-7">
@@ -319,10 +327,10 @@ export default async function Home({ params }: PageProps<"/[lang]">) {
           <div className="grid overflow-hidden rounded-card bg-accent text-text-on-accent lg:grid-cols-2">
             <div className="p-8 sm:p-14">
               <h2 className={h2}>{t.final.title}</h2>
-              <p className="mt-5 max-w-[46ch] text-lg leading-relaxed">{t.final.body}</p>
+              <p className="mt-5 max-w-[46ch] text-lg leading-relaxed">{appAvailable ? t.final.body : t.final.bodySoon}</p>
               <div className="mt-8">
                 <StoreButtons store={t.store} tone="dark" />
-                <p className="mt-3 text-sm font-medium">{t.store.note}</p>
+                {storeNote && <p className="mt-3 text-sm font-medium">{storeNote}</p>}
               </div>
             </div>
             <div className="relative min-h-72">
@@ -338,19 +346,7 @@ export default async function Home({ params }: PageProps<"/[lang]">) {
         </section>
       </main>
 
-      <footer className="border-t border-border">
-        <div
-          className={`${shell} flex flex-col gap-4 py-10 text-sm text-text-muted sm:flex-row sm:items-center sm:justify-between`}
-        >
-          <span className="text-text">
-            <Wordmark />
-          </span>
-          <p className="max-w-md">{t.footer.tagline}</p>
-          <p>
-            © {2026} {t.footer.rights}
-          </p>
-        </div>
-      </footer>
+      <SiteFooter lang={lang} />
     </>
   );
 }
@@ -404,7 +400,7 @@ function CoachCard({ coach, labels }: { coach: Coach; labels: Content["coaches"]
     coach.years ? labels.years.replace("{n}", String(coach.years)) : null,
   ].filter(Boolean);
   return (
-    <li>
+    <li className="w-[74vw] max-w-80 shrink-0 snap-center sm:w-auto sm:max-w-none">
       <div className="relative aspect-[4/5] overflow-hidden rounded-card bg-surface-brand-soft">
         {coach.photo && (
           // Zdjęcia trenerów leżą poza stroną (adres z bazy), więc zwykły <img>.
@@ -478,7 +474,7 @@ function WeatherCard({ card }: { card: Content["weather"]["card"] }) {
       <div className="mt-5">
         <div className="relative h-10 overflow-hidden rounded-md bg-background">
           {/* 6–9 unikaj, 16–18:30 najlepiej; skala 16 godzin */}
-          <span className="absolute inset-y-0 left-0 w-[18.75%] bg-workout-tempo/80" />
+          <span className="absolute inset-y-0 left-0 w-[18.75%] bg-accent/80" />
           <span className="absolute inset-y-0 left-[62.5%] w-[15.6%] bg-workout-easy" />
         </div>
         <div className="mt-1.5 flex justify-between text-xs text-text-muted tabular-nums">
@@ -497,7 +493,7 @@ function WeatherCard({ card }: { card: Content["weather"]["card"] }) {
         </div>
         <div>
           <dt className="flex items-center gap-2 text-sm text-text-muted">
-            <span className="size-2.5 rounded-pill bg-workout-tempo" />
+            <span className="size-2.5 rounded-pill bg-accent" />
             {card.avoid}
           </dt>
           <dd className="mt-1 text-xl font-extrabold tracking-tight">{card.avoidTime}</dd>

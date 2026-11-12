@@ -5,6 +5,7 @@
 // Do modelu NIE trafiają: imię, e-mail, id użytkownika – tylko dane treningowe.
 
 import { DEFAULT_COACH_CHAT_PROMPT } from '../chat/prompt.ts';
+import { DEFAULT_RACE_FORECAST_PROMPT } from './race-forecast-prompt.ts';
 import { DEFAULT_DAY_NOTE_PROMPT, DEFAULT_WORKOUT_REVIEW_PROMPT } from '../coach/prompts.ts';
 import { isoWeekday } from '../core/dates.ts';
 import type { ModuleId } from '../core/modules.ts';
@@ -13,7 +14,7 @@ import { AI_OPERATION_KINDS, AI_SESSION_TYPES, AI_TIP_MAX_LENGTH, freePreferredD
 import type { AiEffort } from './ai-pricing.ts';
 import { TRAINING_LEVEL_INFO, type TrainingLevel } from '../plan/levels.ts';
 import { ENGINE_RULES, paramsForLevel, type EngineParams } from '../plan/params.ts';
-import { describeSteps, paceZonesFrom, stepsOf, ZONE_INFO, formatPace } from '../core/workout.ts';
+import { describeSteps, FUEL_FROM_MIN, paceZonesFrom, stepsOf, ZONE_INFO, formatPace } from '../core/workout.ts';
 import { weekMinutes, type PlanInput, type PlannedWeek } from '../plan/plan.ts';
 
 export const AI_FUNCTIONS = {
@@ -39,8 +40,13 @@ export const AI_FUNCTIONS = {
   },
   'coach-chat': {
     module: 'coach_chat',
-    label: 'Rozmowa z trenerem AI (Pan Aloha)',
+    label: 'Rozmowa z trenerem AI (Keanu Biegała)',
     description: 'Czat: Claude odpowiada na pytania biegacza z kontekstem planu i może zaproponować jedną zmianę w planie.',
+  },
+  'race-forecast': {
+    module: 'plan_ai',
+    label: 'Prognoza czasu na zawody',
+    description: 'Podsumowanie ankiety przy celu „zawody”: Claude ocenia realny czas dziś i na start – w widełkach z reguł (tabele Danielsa, objętość, poprawa formy; forecast.ts).',
   },
 } as const satisfies Record<string, { module: ModuleId; label: string; description: string }>;
 
@@ -71,6 +77,7 @@ Jak pracować:
 - Operacje identyfikujesz datą treningu (date). Jeden trening dziennie. Przenosić i dodawać możesz tylko na wolne dni z listy freeDays.
 
 Pole summary: 1–3 krótkie zdania do biegacza, w jego języku (locale), w drugiej osobie, bez żargonu. Powiedz, co dopasowałeś i dlaczego. Bez porad medycznych.
+Pole welcome: tylko przy nowym planie po ankiecie (inaczej null) – powitanie pokazywane raz po ułożeniu planu: 2–3 zdania o planie jako całości (cel, rytm pierwszych tygodni, zachęta), nie o pojedynczym treningu ani o zmianach w szkicu.
 Pole reason w operacji: krótko, po co ta zmiana (dla zespołu, po polsku).`;
 
 export const DEFAULT_AI_PROMPTS: Record<AiFunctionName, AiPromptConfig> = {
@@ -110,6 +117,16 @@ export const DEFAULT_AI_PROMPTS: Record<AiFunctionName, AiPromptConfig> = {
     maxTokens: 2000,
     systemPrompt: DEFAULT_WORKOUT_REVIEW_PROMPT,
   },
+  'race-forecast': {
+    id: null,
+    version: null,
+    // Opus: ocena wymaga ważenia kilku rzeczy naraz (źródło wyniku, skok dystansu, objętość, czas do startu).
+    model: 'claude-opus-5-5',
+    effort: 'medium',
+    // Limit obejmuje myślenie modelu; sama odpowiedź to kilka liczb i dwa zdania.
+    maxTokens: 4000,
+    systemPrompt: DEFAULT_RACE_FORECAST_PROMPT,
+  },
   'plan-weeks': {
     id: null,
     version: null,
@@ -130,8 +147,10 @@ export function rulesPromptBlock(params: EngineParams, level: TrainingLevel): st
     '- set_duration: date + durationMin. set_type: date + type (+ opcjonalnie durationMin). move: date + toDate. remove: date. add: date + type + durationMin. set_main: date + sets. Niewykorzystane pola = null.',
     '- Zmiana długości lub typu przywraca domyślną część główną – jeśli chcesz własną, daj set_main PO set_duration / set_type tego dnia.',
     `- set_main: część główna jako serie {repeat, workS, workZone, recoveryS, recoveryZone}; rozgrzewkę i schłodzenie dokłada silnik z reszty czasu (min. 15 min w interwałach i tempie, 5 min w pozostałych). Strefy: ${Object.entries(ZONE_INFO).map(([z, i]) => `${z} (${i.effort})`).join(', ')}.`,
-    `- Strefy wg typu: walk_run – walk/recovery/easy; easy – do steady + przebieżki (sprint ≤ 30 s, razem ≤ 3 min); recovery – do easy; long – do tempo; intervals i tempo – wszystkie. Mocne strefy (tempo, interval, sprint) ≤ ${p.maxHardSharePct}% czasu treningu.`,
+    `- Strefy wg typu: walk_run – walk/recovery/easy; easy – do steady + przebieżki (sprint ≤ 30 s, razem ≤ 3 min); recovery – do easy; long – do tempo; intervals i tempo – wszystkie. Strefy interval i sprint razem ≤ ${p.maxHardSharePct}% czasu treningu; razem ze strefą tempo ≤ ${p.maxTempoSharePct}%.`,
+    '- Długość odcinka zależy od strefy: interval to krótkie powtórzenia (1–5 min), tempo (próg) to długie odcinki – np. 3×8, 3×10, 2×15 min z 2–3 min truchtu albo 20–25 min ciągiem. Odcinki w strefie tempo wydłużaj z tygodnia na tydzień (patrz previousWeek), zamiast zostawać przy 3–5 min; nie skracaj drabinki progowej ze szkicu bez powodu.',
     '- Używaj set_main tam, gdzie urozmaicenie ma sens (np. drabinka, fartlek, progresja, przebieżki na koniec spokojnego biegu, tempo w długim biegu przy celu zawody) – nie w każdym treningu.',
+    '- Tydzień z focus „recovery” to lżejszy tydzień cyklu (po kilku rosnących): zostaw go lżejszym – nie wydłużaj treningów ani części mocnej ponad szkic. Tydzień po nim wraca do obciążenia sprzed niego.',
     '- Tylko dni z ankiety (preferredDays), najwyżej jeden trening dziennie, nie więcej treningów w tygodniu niż w szkicu.',
     `- Każdy trening co najmniej ${p.minSessionMin} min i nie dłużej niż limit dnia (dayCapMin). Długości zaokrąglane do 5 min.`,
     `- Mocne jednostki (intervals, tempo): najwyżej ${p.maxHardPerWeek} w tygodniu, co najmniej ${p.qualityMinMin} min, odstęp co najmniej ${p.minDaysHardToLong} dni od długiego biegu i innej mocnej jednostki.`,
@@ -146,6 +165,7 @@ export function rulesPromptBlock(params: EngineParams, level: TrainingLevel): st
     '- W języku biegacza (locale), w drugiej osobie, ton „trener, ale kumpel”: ciepło, konkretnie, bez moralizowania i bez porad medycznych.',
     '- Dopasuj do osoby i do tego konkretnego treningu: poziom, cel, miejsce w tygodniu (np. pierwszy mocny trening, dzień po długim biegu, bliski start), to, co zmieniłeś.',
     '- Każda rada inna – nie powtarzaj tych samych zdań. Bez liczb tempa (aplikacja pokazuje je sama).',
+    `- Trening dłuższy niż ${FUEL_FROM_MIN} min (i start od półmaratonu wzwyż): w radzie wspomnij, żeby zabrać coś do zjedzenia i picia – konkretnie i po ludzku, np. żel, banan albo daktyle, pierwsza porcja po ok. 45 min, potem co 30–40 min. Bez suplementów, dawek i porad medycznych.`,
     '- Po polsku bez form zależnych od płci (nie „zrobiłeś/zrobiłaś”) – płci biegacza nie znamy.',
     '',
     'LOGIKA SILNIKA (dla kontekstu):',

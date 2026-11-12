@@ -21,13 +21,15 @@ type FloatingPetalsProps = {
   width: number;
   color?: ColorRole;
   opacity?: number;
+  /** Mnożnik tempa: 1 – spokojnie (ekran startowy), 2 – dwa razy szybciej i gęściej (ekran układania planu). */
+  speed?: number;
 };
 
 /**
  * Kilka kwiatów plumerii powoli unosi się od dołu ku górze, kołysząc się i obracając.
  * Tylko ekran startowy / onboarding. Przy „Ogranicz ruch” nic nie jest rysowane.
  */
-export function FloatingPetals({ height, width, color = 'textOnBrand', opacity = 0.08 }: FloatingPetalsProps) {
+export function FloatingPetals({ height, width, color = 'textOnBrand', opacity = 0.08, speed = 1 }: FloatingPetalsProps) {
   const c = useColors();
   const reduced = useReducedMotion();
   if (reduced || height <= 0) return null;
@@ -47,8 +49,8 @@ export function FloatingPetals({ height, width, color = 'textOnBrand', opacity =
                 '85%': { opacity: 1 },
                 '100%': { transform: [{ translateY: -(height + p.size * 2) }], opacity: 0 },
               },
-              animationDuration: p.rise,
-              animationDelay: p.delay,
+              animationDuration: p.rise / speed,
+              animationDelay: p.delay / speed,
               animationTimingFunction: 'linear',
               animationIterationCount: 'infinite',
               animationFillMode: 'backwards',
@@ -62,7 +64,7 @@ export function FloatingPetals({ height, width, color = 'textOnBrand', opacity =
                 from: { transform: [{ translateX: -p.sway }] },
                 to: { transform: [{ translateX: p.sway }] },
               },
-              animationDuration: p.rise / 4,
+              animationDuration: p.rise / 4 / speed,
               animationTimingFunction: EASE_SINE,
               animationIterationCount: 'infinite',
               animationDirection: 'alternate',
@@ -73,7 +75,7 @@ export function FloatingPetals({ height, width, color = 'textOnBrand', opacity =
                   from: { transform: [{ rotate: '0deg' }] },
                   to: { transform: [{ rotate: i % 2 ? '-360deg' : '360deg' }] },
                 },
-                animationDuration: p.spin,
+                animationDuration: p.spin / speed,
                 animationTimingFunction: 'linear',
                 animationIterationCount: 'infinite',
               }}>

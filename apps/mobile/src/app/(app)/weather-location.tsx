@@ -80,7 +80,7 @@ export default function WeatherLocationScreen() {
             {t('weather.location.title')}
           </Text>
           <Text color="textMuted">
-            {day ? t('weather.location.bodySession', { day }) : t('weather.location.body')}
+            {day ? t('weather.location.bodySession', { day }) : t(place ? 'weather.location.body' : 'weather.location.bodyUnknown')}
           </Text>
           {place ? (
             <Text variant="label" color="textBrand">

@@ -40,13 +40,24 @@ W MVP każdy pakiet ma wszystkie moduły, więc bramki niczego nie blokują.
 
 ## Notka na dzień bez treningu
 
+`check-in` – „Jak się dziś czujesz?” na karcie „Dzisiaj”: jedno tapnięcie 1–5 (plus podpowiedzi przy słabszym dniu),
+bez AI. Zapisuje odpowiedź w `check_ins` i – przy ocenie 1–2 albo „mało czasu” – proponuje lżejszą wersję dzisiejszego
+treningu (reguły: `packages/plan-engine/src/checkin/checkin.ts`, zapis w `adjustments`). Propozycja ma kształt zmiany
+z czatu i wykonuje ją ten sam kod (`_shared/plan-change.ts`). Wymaga zgody `health_data` – to ona jest włącznikiem
+check-inu w Profilu. „Coś boli” niczego nie proponuje: aplikacja otwiera czat z trenerem.
+
+`race-forecast` – podsumowanie ankiety przy celu „zawody”: realny czas dziś i na start. Reguły
+(`packages/plan-engine/src/plan/forecast.ts`: tabele Danielsa / VDOT, objętość potrzebna na dystans, malejąca poprawa
+formy) dają liczby odniesienia i widełki; w nich prognozę ustala Claude Opus (funkcja AI `race-forecast`). Bez klucza
+albo przy błędzie modelu wraca prognoza z samych reguł. Niczego nie zapisuje poza logiem wywołania AI.
+
 `day-note` – ekran „Dzisiaj”, gdy dziś nie ma biegu: Claude (funkcja AI `day-note`, Haiku) pisze 1–2 zdania z kontekstu
 planu (ostatni i następny trening, regularność). Jedna notka na użytkownika i dzień, zapisana w `day_notes`.
 Bez klucza `ANTHROPIC_API_KEY` albo przy błędzie modelu aplikacja pokazuje tekst ze słownika.
 
 ## Rozmowa z trenerem
 
-`coach-chat` – czat z trenerem AI („Pan Aloha”, moduł `coach_chat`) i z prawdziwym trenerem (moduł `coach_human`).
+`coach-chat` – czat z trenerem AI („Keanu Biegała”, moduł `coach_chat`) i z prawdziwym trenerem (moduł `coach_human`).
 Akcje: `open` (wątek ogólny albo przy treningu), `send` (wiadomość; przy AI od razu z odpowiedzią), `answer` (akceptacja
 albo odrzucenie propozycji zmiany planu). Model (funkcja AI `coach-chat`, Sonnet) dostaje plan, oceny i historię wątku –
 bez danych osobowych – i może zwrócić jedną operację na planie; `packages/plan-engine/src/chat/chat.ts` sprawdza ją
@@ -82,6 +93,11 @@ aplikacja prosi o jednorazową zgodę i wysyła wiadomość ponownie.
 - Testowanie oceny: `packages/plan-engine/src/review/review-sim.ts` generuje sztuczne biegi (idealne, trochę inne, zupełnie
   inne; z tętnem i bez) i trzyma macierz scenariuszy z oczekiwanym werdyktem – sprawdzają ją testy silnika.
   Te same scenariusze przez prawdziwy prompt notki puszcza panel: AI → „Test ocen” (nic nie zapisuje użytkownikom).
+- `strava-history` – ankieta startowa (krok „Jak teraz biegasz?” → „Połącz ze Stravą”): pobiera aktywności z ostatnich
+  26 tygodni i zwraca propozycję odpowiedzi – poziom i dni z ostatnich 12 tygodni, biegi w tygodniu z ostatnich 4,
+  najlepszy wynik z całego okna (`packages/plan-engine/src/strava/history.ts`). Dla najwyżej 8 biegów (zawody,
+  najszybsze na dystansie, treningi jakościowe) dociąga najszybsze odcinki (`best_efforts`), bo życiówka bywa
+  fragmentem dłuższego biegu. Niczego nie zapisuje i nie czyta tętna; biegacz może wszystko zmienić.
 - Ręczne pobranie: Profil → Strava → „Pobierz biegi z 3 dni” wywołuje `strava-sync` z `{ manual: true }` – od razu,
   okno 3 dni, najwyżej raz na 3 godziny na użytkownika (`strava_connections.last_manual_sync_at`).
 - `strava-oauth` – „Połącz przez Stravę” w aplikacji (Profil → Strava) i w panelu (tester → użytkownik → karta

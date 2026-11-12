@@ -60,6 +60,87 @@ export const refreshTokens = async (client: StravaClient, refreshToken: string) 
 export const exchangeCode = (client: StravaClient, code: string) =>
   tokenRequest(client, { grant_type: 'authorization_code', code });
 
+/** Kolumny połączenia potrzebne do zdobycia ważnego tokenu dostępu. */
+export type StravaTokenRow = {
+  user_id: string;
+  refresh_token: string;
+  access_token: string | null;
+  access_token_expires_at: string | null;
+};
+
+/** Ważny token dostępu: zapisany, a gdy wygasa – odświeżony i zapisany w połączeniu. */
+export async function accessToken(db: SupabaseClient, conn: StravaTokenRow, client: StravaClient) {
+  const expires = conn.access_token_expires_at ? Date.parse(conn.access_token_expires_at) : 0;
+  if (conn.access_token && expires - Date.now() > 5 * 60 * 1000) return conn.access_token;
+  const tokens = await refreshTokens(client, conn.refresh_token);
+
+  // Strava może wydać nowy refresh token – stary przestaje wtedy działać, więc zapisujemy zawsze najnowszy.
+  const { error } = await db.from('strava_connections').update(tokens).eq('user_id', conn.user_id);
+  if (error) console.error('strava token save failed', error.code, error.message);
+  return tokens.access_token;
+}
+
+/** Aktywność z listy Stravy (GET /athlete/activities) – tylko pola, których używamy. */
+export type StravaActivity = {
+  id: number;
+  name?: string;
+  sport_type?: string;
+  type?: string;
+  start_date: string;
+  start_date_local: string;
+  distance?: number;
+  moving_time?: number;
+  elapsed_time?: number;
+  total_elevation_gain?: number;
+  has_heartrate?: boolean;
+  average_heartrate?: number;
+  max_heartrate?: number;
+  /** 1 = zawody (biegi). */
+  workout_type?: number | null;
+  athlete?: { id?: number };
+};
+
+const PER_PAGE = 100;
+const MAX_PAGES = 3;
+
+/** Aktywności sportowca od `afterEpochS`; `complete: false`, gdy było ich więcej niż mieścimy w limicie stron. */
+export async function fetchActivities(token: string, afterEpochS: number, maxPages = MAX_PAGES) {
+  const all: StravaActivity[] = [];
+  for (let page = 1; page <= maxPages; page++) {
+    const res = await fetch(`${STRAVA}/api/v3/athlete/activities?after=${afterEpochS}&per_page=${PER_PAGE}&page=${page}`, {
+      headers: { Authorization: `Bearer ${token}` },
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (res.status === 401) throw new Unauthorized('activities');
+    if (res.status === 429) throw new RateLimited();
+    if (!res.ok) throw new Error(`activities ${res.status}`);
+    const items = (await res.json()) as StravaActivity[];
+    all.push(...items);
+    if (items.length < PER_PAGE) return { activities: all, complete: true };
+  }
+  return { activities: all, complete: false };
+}
+
+/**
+ * Najszybsze odcinki z biegu (GET /activities/{id} → best_efforts): ciągłe fragmenty o długości 400 m … maraton,
+ * z czasem od początku do końca odcinka. `null` – Strava nie oddała szczegółów (limit, błąd, brak dostępu).
+ */
+export async function fetchBestEfforts(token: string, activityId: number): Promise<{ distanceM: number; timeS: number }[] | null> {
+  try {
+    const res = await fetch(`${STRAVA}/api/v3/activities/${activityId}?include_all_efforts=false`, {
+      headers: { Authorization: `Bearer ${token}` },
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!res.ok) return null;
+    const body = (await res.json()) as { best_efforts?: { distance?: number; elapsed_time?: number }[] };
+    return (body.best_efforts ?? [])
+      .filter((e) => typeof e.distance === 'number' && typeof e.elapsed_time === 'number' && e.elapsed_time > 0)
+      .map((e) => ({ distanceM: e.distance!, timeS: e.elapsed_time! }));
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Zapisuje połączenie użytkownika. Konto Stravy należy do jednego użytkownika naraz: jeśli było podpięte
  * do kogoś innego, tamto połączenie (i pobrane u niego biegi) znika – ostatnie połączenie wygrywa.

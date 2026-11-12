@@ -13,6 +13,8 @@ import { TRAINING_LEVELS, type TrainingLevel } from './levels.ts';
 export type LevelParams = {
   baseEasyMin: number;
   weeklyGrowthPct: number;
+  deloadEveryWeeks: number;
+  deloadReductionPct: number;
   longFactor: number;
   minSessionMin: number;
   qualityMinMin: number;
@@ -23,6 +25,7 @@ export type LevelParams = {
   gentleReductionPct: number;
   raceEasyDaysBefore: number;
   maxHardSharePct: number;
+  maxTempoSharePct: number;
   aiMaxIncreasePct: number;
   levelUpMinWeeks: number;
   levelUpMinDonePct: number;
@@ -83,6 +86,28 @@ export const METRIC_SPECS: readonly MetricSpec[] = [
     min: 0,
     max: 15,
     step: 1,
+  },
+  {
+    metric: 'deloadEveryWeeks',
+    group: 'volume',
+    label: 'Cykl z lżejszym tygodniem',
+    description: 'Długość cyklu obciążenia: np. 4 = trzy tygodnie rosnące, czwarty lżejszy. 0 = bez lżejszych tygodni (wartości 1–2 też wyłączają).',
+    unit: 'tyg.',
+    defaults: { 1: 0, 2: 0, 3: 0, 4: 4, 5: 4 },
+    min: 0,
+    max: 6,
+    step: 1,
+  },
+  {
+    metric: 'deloadReductionPct',
+    group: 'volume',
+    label: 'Lżejszy tydzień – mniej o',
+    description: 'O ile krótsze są treningi w lżejszym tygodniu cyklu względem poprzedniego tygodnia.',
+    unit: '%',
+    defaults: same(25),
+    min: 10,
+    max: 40,
+    step: 5,
   },
   {
     metric: 'longFactor',
@@ -186,12 +211,24 @@ export const METRIC_SPECS: readonly MetricSpec[] = [
   {
     metric: 'maxHardSharePct',
     group: 'safety',
-    label: 'Mocne minuty w treningu',
-    description: 'Najwyżej tyle procent treningu w strefach tempo / interwał / przebieżka (gdy AI układa część główną).',
+    label: 'Bardzo mocne minuty w treningu',
+    description: 'Najwyżej tyle procent treningu w strefach interwał / przebieżka (gdy AI układa część główną).',
     unit: '%',
     defaults: same(35),
     min: 20,
     max: 50,
+    step: 5,
+  },
+  {
+    metric: 'maxTempoSharePct',
+    group: 'safety',
+    label: 'Mocne minuty razem z tempem',
+    description:
+      'Najwyżej tyle procent treningu w strefach tempo + interwał + przebieżka. Wyższy niż limit bardzo mocnych minut, żeby zmieścił się trening progowy (3×10, 2×15 min); ogranicza też drabinkę progową silnika.',
+    unit: '%',
+    defaults: same(55),
+    min: 35,
+    max: 65,
     step: 5,
   },
   {
@@ -345,7 +382,9 @@ export const ENGINE_RULES: readonly { title: string; detail: string }[] = [
   { title: 'Liczba treningów', detail: 'Tyle, ile w ankiecie; w niepełnym tygodniu proporcjonalnie mniej (co najmniej 1).' },
   { title: 'Marszobieg', detail: 'Poziom 1 → tylko marszobieg (bez długiego biegu i mocnych jednostek).' },
   { title: 'Długi bieg', detail: 'Przy 2+ treningach: ostatni dzień weekendowy (albo ostatni w tygodniu).' },
-  { title: 'Mocne jednostki', detail: 'Od poziomu 2. Interwały (tempo przy półmaratonie i maratonie) od 2. tygodnia, od 1. na poziomie 4–5; tylko przy celu „popraw formę” albo zawodach i przy 3+ treningach.' },
+  { title: 'Mocne jednostki', detail: 'Od poziomu 2, od 2. tygodnia (od 1. na poziomie 4–5); tylko przy celu „popraw formę” albo zawodach i przy 3+ treningach. Półmaraton i maraton: co tydzień tempo ciągłe. Pozostałe cele: poziom 2 – interwały; od poziomu 3 na zmianę interwały i trening progowy.' },
+  { title: 'Cykl obciążenia', detail: 'Na poziomach z ustawionym cyklem (domyślnie 4–5: co 4. tydzień) ostatni tydzień cyklu jest lżejszy: treningi krótsze o ustawiony procent, mocna jednostka to krótkie interwały z ok. 60% powtórzeń. Objętość i drabinka progowa w tym tygodniu nie rosną; tydzień po nim wraca na poziom sprzed lżejszego plus przyrost.' },
+  { title: 'Trening progowy', detail: 'Odcinki w strefie tempo wydłużają się z każdym kolejnym treningiem progowym: 3×6 → 3×8 → 3×10 → 2×15 → 20 → 25 min ciągiem (poziomy 4–5 zaczynają od 3×8). Etap, który nie mieści się w długości treningu albo w limicie mocnych minut, jest zastępowany niższym.' },
   { title: 'Limit czasu', detail: 'Każdy trening ≤ limit z ankiety na ten dzień (dzień roboczy / weekend).' },
   { title: 'Zmiana poziomu', detail: 'Co tydzień przy generowaniu kolejnego tygodnia: najpierw spadek (ból / czerwona flaga, przerwa, mało wykonanych treningów), potem nowa ankieta lub wynik (o jeden w stronę poziomu z ankiety), potem awans. Zawsze o jeden poziom; obowiązuje od nowego tygodnia.' },
   { title: 'Objętość po zmianie poziomu', detail: 'Kolejny tydzień liczony od bazy poprzedniego tygodnia × przyrost nowego poziomu – bez skoku do bazowego treningu nowego poziomu. Po spadku: bez przyrostu, najwyżej bazowy trening nowego poziomu.' },
@@ -353,6 +392,6 @@ export const ENGINE_RULES: readonly { title: string; detail: string }[] = [
   { title: 'Przeciwwskazania', detail: 'Tylko spokojne jednostki, krótsze o ustawiony procent.' },
   { title: 'Zawody', detail: 'Start w dniu zawodów, dzień przed i po – wolne, ostatnie dni przed startem tylko spokojnie i krótko.' },
   { title: 'Struktura treningu', detail: 'Każdy trening to odcinki: rozgrzewka → część główna → schłodzenie; suma = długość treningu. Domyślną część główną liczy silnik z typu (marszobieg, spokojny, interwały, tempo).' },
-  { title: 'Część główna od AI', detail: 'AI może ułożyć część główną z serii (powtórzenia × odcinek + przerwa, różne strefy). Rozgrzewkę i schłodzenie dokłada silnik; strefy muszą pasować do typu treningu, a mocne minuty mieszczą się w limicie.' },
+  { title: 'Część główna od AI', detail: 'AI może ułożyć część główną z serii (powtórzenia × odcinek + przerwa, różne strefy). Rozgrzewkę i schłodzenie dokłada silnik; strefy muszą pasować do typu treningu, a mocne minuty mieszczą się w limitach (osobno interwał / przebieżka, osobno razem z tempem).' },
   { title: 'Tempo odcinków', detail: 'Z ostatniego wyniku z ankiety (przeliczenie na 10 km); bez wyniku – tylko strefa wysiłku.' },
 ];

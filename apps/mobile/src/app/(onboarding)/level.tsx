@@ -4,13 +4,16 @@ import { Couch, PersonSimpleRun, PersonSimpleWalk } from 'phosphor-react-native'
 import { StyleSheet, View } from 'react-native';
 
 import { OnboardingStep, StepSection } from '@/components/onboarding/onboarding-step';
+import { StravaSurveyCard } from '@/components/strava/strava-survey-card';
 import { Button } from '@/components/ui/button';
 import { Chip } from '@/components/ui/chip';
 import { OptionCard } from '@/components/ui/option-card';
 import { Stepper } from '@/components/ui/stepper';
 import { TextField } from '@/components/ui/text-field';
 import { space } from '@/constants/theme';
-import { recentTimeS, useOnboardingDraft, type LevelChoice } from '@/features/onboarding/draft';
+import { draftFromStrava, recentTimeS, useOnboardingDraft, weeklyKmOf, type LevelChoice } from '@/features/onboarding/draft';
+import { useModule } from '@/features/modules/use-module';
+import { confirmEliteTime, sanityOf } from '@/features/onboarding/time-check';
 import { useT } from '@/hooks/use-t';
 
 const LEVELS = [
@@ -26,14 +29,28 @@ export default function LevelStep() {
   const { draft, update } = useOnboardingDraft();
   const runs = draft.level && draft.level !== 'none';
   const recent = recentTimeS(draft);
-  const valid = !!draft.level && recent !== undefined;
+  const weeklyKm = weeklyKmOf(draft);
+  // Wynik szybszy niż rekord świata to pomyłka we wpisie – nie puszczamy dalej; poziom zawodowy – dopytujemy.
+  const sanity = sanityOf(draft.recentDistanceM, recent);
+  const valid = !!draft.level && recent !== undefined && weeklyKm !== undefined && sanity !== 'impossible';
+  const next = () => {
+    const go = () => router.push('/availability');
+    if (sanity === 'elite' && recent) confirmEliteTime(t, draft.recentDistanceM, recent, go);
+    else go();
+  };
+  // Strava jest modułem pakietu – bez niego zostają same pytania.
+  const stravaModule = useModule('strava');
 
   return (
     <OnboardingStep
       step={2}
       title={t('onboarding.level.title')}
       subtitle={t('onboarding.level.subtitle')}
-      footer={<Button label={t('onboarding.next')} disabled={!valid} onPress={() => router.push('/availability')} />}>
+      footer={<Button label={t('onboarding.next')} disabled={!valid} onPress={next} />}>
+      {stravaModule ? (
+        <StravaSurveyCard proposal={draft.strava} onProposal={(proposal) => update(draftFromStrava(proposal, draft))} />
+      ) : null}
+
       <View style={styles.options} accessibilityRole="radiogroup">
         {LEVELS.map((l) => (
           <OptionCard
@@ -61,6 +78,19 @@ export default function LevelStep() {
             />
           </StepSection>
 
+          <StepSection label={t('onboarding.level.weeklyKmLabel')}>
+            <TextField
+              label={t('onboarding.level.weeklyKmField')}
+              placeholder={t('onboarding.level.weeklyKmPlaceholder')}
+              hint={t('onboarding.level.weeklyKmHint')}
+              value={draft.weeklyKm}
+              onChangeText={(v) => update({ weeklyKm: v })}
+              error={weeklyKm === undefined ? t('onboarding.errors.weeklyKmInvalid') : undefined}
+              keyboardType="decimal-pad"
+              maxLength={5}
+            />
+          </StepSection>
+
           <StepSection label={t('onboarding.level.resultLabel')}>
             <View style={styles.chips} accessibilityRole="radiogroup">
               {RACE_DISTANCES_M.map((d) => (
@@ -78,7 +108,7 @@ export default function LevelStep() {
               hint={t('onboarding.level.resultHint')}
               value={draft.recentTime}
               onChangeText={(v) => update({ recentTime: v })}
-              error={recent === undefined ? t('onboarding.errors.timeInvalid') : undefined}
+              error={recent === undefined ? t('onboarding.errors.timeInvalid') : sanity === 'impossible' ? t('onboarding.errors.timeImpossible') : undefined}
               keyboardType="numbers-and-punctuation"
               autoCorrect={false}
               maxLength={8}
