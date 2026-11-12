@@ -447,3 +447,8 @@ verify_jwt = false
 # funkcja sama sprawdza klucz administracyjny albo token zalogowanego użytkownika.
 [functions.strava-sync]
 verify_jwt = false
+
+# Jak strava-sync: panel admina woła usuwanie konta kluczem tajnym (sb_secret_…), aplikacja – tokenem użytkownika;
+# funkcja sama sprawdza jedno albo drugie.
+[functions.delete-account]
+verify_jwt = false

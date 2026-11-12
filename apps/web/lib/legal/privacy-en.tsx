@@ -52,7 +52,8 @@ export const privacyEn: LegalDocument = {
                   <td>
                     E-mail address, a hash of your password (we never know the password itself), the name you
                     give us, language, time zone. If you sign in with Apple or Google: the account
-                    identifier, e-mail address and first name.
+                    identifier, e-mail address and first name; with Apple also an Apple token, stored only on
+                    our server and used solely to disconnect the app from your Apple ID when you delete your account.
                   </td>
                   <td>You, Apple or Google</td>
                 </tr>
@@ -463,14 +464,27 @@ export const privacyEn: LegalDocument = {
       body: (
         <>
           <p>
-            To delete your account, write to us <Contact lang="en" /> from the e-mail address linked to the
-            account. We delete the account and all related data – plan, workouts, check-ins, conversations,
-            Strava activities and records of AI calls – within 30 days. Only the record of deletion described
+            You can delete your account in two ways:
+          </p>
+          <ul>
+            <li>
+              <strong>in the app:</strong> Profile → Delete account. Your account and all related data are
+              deleted right away;
+            </li>
+            <li>
+              <strong>by e-mail:</strong> write to us <Contact lang="en" /> from the e-mail address linked to
+              the account – we delete it within 30 days.
+            </li>
+          </ul>
+          <p>
+            We delete the account and all related data – plan, workouts, check-ins, conversations, Strava
+            activities and records of AI calls. Only the record of deletion (e-mail address and date) described
             in section 10 remains.
           </p>
           <p>
-            If your account was connected to Strava, you can additionally revoke the app’s access in your
-            Strava settings.
+            When we delete your account – in the app or at your e-mail request – we also revoke the app’s access to your Strava account and,
+            if you sign in with Apple, revoke the link to your Apple ID. You can also revoke access yourself in
+            your Strava, Apple ID or Google account settings.
           </p>
         </>
       ),

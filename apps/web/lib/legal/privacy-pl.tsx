@@ -51,7 +51,8 @@ export const privacyPl: LegalDocument = {
                   <td>
                     Adres e-mail, hasło w postaci skrótu (nie znamy Twojego hasła), imię lub nazwa, którą
                     podajesz, język, strefa czasowa. Przy logowaniu przez Apple lub Google: identyfikator
-                    konta, adres e-mail i imię.
+                    konta, adres e-mail i imię, a przy Apple także token Apple przechowywany tylko na serwerze –
+                    służy wyłącznie do odłączenia aplikacji od Twojego Apple ID przy usunięciu konta.
                   </td>
                   <td>Od Ciebie, od Apple lub Google</td>
                 </tr>
@@ -461,14 +462,27 @@ export const privacyPl: LegalDocument = {
       body: (
         <>
           <p>
-            Żeby usunąć konto, napisz do nas <Contact lang="pl" /> z adresu e-mail przypisanego do konta.
-            Konto i wszystkie powiązane dane – plan, treningi, check-iny, rozmowy, aktywności ze Stravy i
-            zapisy wywołań AI – usuwamy w ciągu 30 dni. Zostaje wyłącznie zapis o usunięciu konta opisany w
-            punkcie 10.
+            Konto usuniesz na dwa sposoby:
+          </p>
+          <ul>
+            <li>
+              <strong>w aplikacji:</strong> Profil → Usuń konto. Konto i wszystkie powiązane dane znikają od
+              razu;
+            </li>
+            <li>
+              <strong>mailowo:</strong> napisz do nas <Contact lang="pl" /> z adresu e-mail przypisanego do
+              konta – usuniemy je w ciągu 30 dni.
+            </li>
+          </ul>
+          <p>
+            Usuwamy konto i wszystkie powiązane dane – plan, treningi, check-iny, rozmowy, aktywności ze Stravy i
+            zapisy wywołań AI. Zostaje wyłącznie zapis o usunięciu konta (adres e-mail i data) opisany w punkcie
+            10.
           </p>
           <p>
-            Jeśli Twoje konto było połączone ze Stravą, dostęp aplikacji możesz dodatkowo cofnąć w
-            ustawieniach Stravy.
+            Przy usuwaniu konta – w aplikacji i na Twoją prośbę mailową – cofamy też dostęp aplikacji do Twojego konta Strava, a jeśli
+            logujesz się przez Apple – unieważniamy powiązanie z Twoim Apple ID. Dostęp możesz też cofnąć
+            samodzielnie w ustawieniach Stravy, Apple ID albo konta Google.
           </p>
         </>
       ),

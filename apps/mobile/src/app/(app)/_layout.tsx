@@ -23,6 +23,8 @@ export default function AppLayout() {
             {/* Natywny arkusz iOS na prawie cały ekran – zamykany też przeciągnięciem w dół. */}
             <Stack.Screen name="workout/[id]" options={{ presentation: 'modal' }} />
             <Stack.Screen name="weather-location" options={{ presentation: 'modal' }} />
+            {/* Usunięcie konta z Profilu – w trakcie usuwania ekran sam blokuje zamknięcie przeciągnięciem. */}
+            <Stack.Screen name="delete-account" options={{ presentation: 'modal' }} />
             {/* Rozmowa z trenerem – także nad arkuszem treningu (pytania przed i po). */}
             <Stack.Screen name="coach" options={{ presentation: 'modal' }} />
             {/* Zakładka „Cele”: nowy cel oraz wynik i „co dalej” po zakończonym celu. */}

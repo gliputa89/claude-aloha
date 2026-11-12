@@ -280,7 +280,8 @@ export const termsPl: LegalDocument = {
           <ul>
             <li>
               <strong>Rezygnacja w każdej chwili.</strong> Możesz bez podania przyczyny i bez kosztów
-              rozwiązać umowę, prosząc o usunięcie konta. Sposób opisuje{" "}
+              rozwiązać umowę, usuwając konto w aplikacji (Profil → Usuń konto) albo prosząc nas o to mailowo.
+              Szczegóły opisuje{" "}
               <a href={`${legalPath.privacy.pl}#usuniecie`}>Polityka prywatności</a>.
             </li>
             <li>
