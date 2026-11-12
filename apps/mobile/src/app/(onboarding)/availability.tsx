@@ -1,8 +1,8 @@
 import type { TranslationKey } from '@aloha/i18n';
-import { DateTimePicker } from '@expo/ui/community/datetime-picker';
 import { router } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 
+import { DateField } from '@/components/ui/date-field';
 import { OnboardingStep, StepSection } from '@/components/onboarding/onboarding-step';
 import { Button } from '@/components/ui/button';
 import { Chip } from '@/components/ui/chip';
@@ -11,14 +11,12 @@ import { Stepper } from '@/components/ui/stepper';
 import { space } from '@/constants/theme';
 import { startBeforeRace, useOnboardingDraft, WEEKDAY_MINUTES, WEEKEND_MINUTES } from '@/features/onboarding/draft';
 import { addDays, fromIsoDate, toIsoDate } from '@/features/onboarding/time';
-import { useColors } from '@/hooks/use-colors';
 import { useT } from '@/hooks/use-t';
 
 const DAYS = [1, 2, 3, 4, 5, 6, 7] as const;
 
 export default function AvailabilityStep() {
   const t = useT();
-  const c = useColors();
   const { draft, update } = useOnboardingDraft();
   const startOk = startBeforeRace(draft);
   const maxSessions = Math.max(1, draft.days.length);
@@ -43,15 +41,12 @@ export default function AvailabilityStep() {
       {draft.strava?.availability ? <Notice tone="success" message={t('onboarding.availability.fromStrava')} /> : null}
 
       <StepSection label={t('onboarding.availability.startLabel')} hint={t('onboarding.availability.startHint')}>
-        <DateTimePicker
+        <DateField
           value={fromIsoDate(draft.planStartDate)}
-          mode="date"
-          display="compact"
           minimumDate={new Date()}
           maximumDate={addDays(new Date(), 90)}
-          accentColor={c.action}
-          onValueChange={(_e, date) => update({ planStartDate: toIsoDate(date) })}
-          style={styles.date}
+          accessibilityLabel={t('onboarding.availability.startLabel')}
+          onChange={(date) => update({ planStartDate: toIsoDate(date) })}
         />
         {!startOk ? <Notice message={t('onboarding.errors.startAfterRace')} /> : null}
       </StepSection>
@@ -116,7 +111,6 @@ export default function AvailabilityStep() {
 }
 
 const styles = StyleSheet.create({
-  date: { alignSelf: 'flex-start' },
   days: { flexDirection: 'row', gap: space[1] },
   // Jeden wiersz – chipy dzielą szerokość po równo.
   chips: { flexDirection: 'row', gap: space[2] },

@@ -1,9 +1,9 @@
 import { RACE_DISTANCES_M } from '@aloha/plan-engine';
-import { DateTimePicker } from '@expo/ui/community/datetime-picker';
 import { router } from 'expo-router';
 import { CalendarCheck, PersonSimpleRun, SneakerMove, Timer, Trophy } from 'phosphor-react-native';
 import { StyleSheet, View } from 'react-native';
 
+import { DateField } from '@/components/ui/date-field';
 import { OnboardingStep, StepSection } from '@/components/onboarding/onboarding-step';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -115,15 +115,12 @@ export default function GoalStep() {
           </StepSection>
 
           <StepSection label={t('onboarding.goal.dateLabel')}>
-            <DateTimePicker
+            <DateField
               value={raceDate}
-              mode="date"
-              display="compact"
               minimumDate={tomorrow}
               maximumDate={addDays(new Date(), 2 * 365)}
-              accentColor={c.action}
-              onValueChange={(_e, date) => update({ raceDate: toIsoDate(date) })}
-              style={styles.date}
+              accessibilityLabel={t('onboarding.goal.dateLabel')}
+              onChange={(date) => update({ raceDate: toIsoDate(date) })}
             />
           </StepSection>
 
@@ -157,5 +154,4 @@ const styles = StyleSheet.create({
   options: { gap: space[3] },
   race: { gap: space[5], padding: space[4], borderRadius: radius.card, borderWidth: 1.5 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: space[2] },
-  date: { alignSelf: 'flex-start' },
 });

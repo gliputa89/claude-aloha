@@ -7,13 +7,13 @@ import {
   type GoalSpec,
   type RaceDistanceM,
 } from '@aloha/plan-engine';
-import { DateTimePicker } from '@expo/ui/community/datetime-picker';
 import { router, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, ChatCircleDots, X } from 'phosphor-react-native';
 import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { DateField } from '@/components/ui/date-field';
 import { StepSection } from '@/components/onboarding/onboarding-step';
 import { GOAL_ICON } from '@/components/goals/goal-cards';
 import { Button } from '@/components/ui/button';
@@ -242,15 +242,11 @@ export default function GoalNewScreen() {
   );
 
   const datePicker = (value: string, onChange: (iso: string) => void, maxDays = 2 * 365) => (
-    <DateTimePicker
+    <DateField
       value={fromIsoDate(value)}
-      mode="date"
-      display="compact"
       minimumDate={addDays(new Date(), 1)}
       maximumDate={addDays(new Date(), maxDays)}
-      accentColor={c.action}
-      onValueChange={(_e, d) => onChange(toIsoDate(d))}
-      style={styles.date}
+      onChange={(d) => onChange(toIsoDate(d))}
     />
   );
 
@@ -410,7 +406,6 @@ const styles = StyleSheet.create({
   kindIcon: { width: 44, height: 44, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center' },
   coach: { flexDirection: 'row', alignItems: 'center', gap: space[3], padding: space[4], borderRadius: radius.card },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: space[2] },
-  date: { alignSelf: 'flex-start' },
   roles: { gap: space[2] },
   impact: { gap: space[1], padding: space[4], borderRadius: radius.card },
   footer: { paddingHorizontal: space[5], paddingTop: space[3], paddingBottom: space[2], borderTopWidth: StyleSheet.hairlineWidth },
