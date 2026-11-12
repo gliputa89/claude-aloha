@@ -1,6 +1,7 @@
 // Treści landing page'a (PL + EN). Opisujemy wyłącznie funkcje, które działają w aplikacji –
-// stan na 11.11.2026: plan z ankiety, kolejne tygodnie układane na bieżąco, pogoda, Strava,
-// ocena treningu, notatki trenera. Check-in przed treningiem NIE jest jeszcze zbudowany.
+// stan na 12.11.2026: plan z ankiety, kolejne tygodnie układane na bieżąco, pogoda, Strava,
+// ocena treningu, notatki trenera, czat z trenerem AI, check-in „Jak się dziś czujesz?”,
+// zakładka Cele (cel prowadzący + do 3 obok, starty A/B/C, prognoza czasu, odliczanie do startu).
 
 export const locales = ["pl", "en"] as const;
 export type Locale = (typeof locales)[number];
@@ -20,6 +21,20 @@ export const legalPath: Record<LegalDoc, Record<Locale, string>> = {
 
 export type WorkoutKind = "easy" | "long" | "intervals" | "rest";
 
+/** Rodzaje celów – jak w aplikacji (packages/plan-engine, GoalRow["kind"]). */
+export type GoalKind = "race" | "performance" | "continuous" | "consistency" | "volume";
+
+/** Wiersz celu na przykładowej planszy „Cele”. */
+export type GoalItem = {
+  kind: GoalKind;
+  title: string;
+  line: string;
+  /** Plakietka po prawej, np. „B” przy starcie kontrolnym. */
+  badge?: string;
+  /** Kropki tygodni przy regularności: [zaliczone, wszystkie]. */
+  weeks?: [number, number];
+};
+
 export type WeekDay = {
   short: string;
   name: string;
@@ -36,7 +51,15 @@ export type WeekDay = {
 
 export type Content = {
   meta: { title: string; description: string };
-  nav: { features: string; how: string; faq: string; download: string; soon: string; switchLabel: string };
+  nav: {
+    goals: string;
+    features: string;
+    how: string;
+    faq: string;
+    download: string;
+    soon: string;
+    switchLabel: string;
+  };
   store: {
     ios: [string, string];
     android: [string, string];
@@ -56,6 +79,31 @@ export type Content = {
     phoneAlt: string;
   };
   audience: { title: string; body: string };
+  goals: {
+    title: string;
+    body: string;
+    points: string[];
+    kinds: { kind: GoalKind; name: string; body: string }[];
+    board: {
+      title: string;
+      add: string;
+      alt: string;
+      lead: {
+        label: string;
+        badge: string;
+        title: string;
+        meta: string;
+        week: string;
+        /** Postęp przygotowań, 0–1. */
+        progress: number;
+        tiles: [string, string][];
+      };
+      alsoTitle: string;
+      also: GoalItem[];
+      achievedTitle: string;
+      achieved: GoalItem[];
+    };
+  };
   screens: {
     title: string;
     note?: string;
@@ -125,9 +173,10 @@ const pl: Content = {
   meta: {
     title: "Aloha App – plan biegowy, który dopasowuje się do Twojego dnia",
     description:
-      "Plan biegowy dla zapracowanych amatorów. Aloha układa każdy kolejny tydzień na podstawie tego, jak poszedł poprzedni, podpowiada najlepszą porę na bieg i ocenia trening po synchronizacji ze Stravą.",
+      "Plan biegowy dla zapracowanych amatorów. Wyznacz cel – zawody, wynik, regularność albo kilometry – a Aloha układa każdy kolejny tydzień na podstawie tego, jak poszedł poprzedni, podpowiada najlepszą porę na bieg i ocenia trening po synchronizacji ze Stravą.",
   },
   nav: {
+    goals: "Cele",
     features: "Co potrafi",
     how: "Jak zacząć",
     faq: "Pytania",
@@ -147,7 +196,7 @@ const pl: Content = {
   hero: {
     title: "Plan biegowy, który dopasowuje się do Twojego dnia.",
     titleLines: ["Plan biegowy, który", "dopasowuje się", "do Twojego"],
-    titleWords: ["dnia", "tygodnia", "życia", "tempa", "samopoczucia"],
+    titleWords: ["dnia", "celu", "tygodnia", "życia", "tempa", "samopoczucia"],
     lead: "Każdy kolejny tydzień układa się pod to, jak poszedł Ci poprzedni.",
     pause: "Zatrzymaj film",
     play: "Odtwórz film",
@@ -157,6 +206,48 @@ const pl: Content = {
   audience: {
     title: "Dla tych, którzy biegają między pracą a odbieraniem dzieci.",
     body: "Większość planów zakłada idealny tydzień. Aloha zaczyna od Twojego: ile masz dni, ile minut i w jakiej jesteś formie. Bez tabel z tętnem na start i bez poczucia winy, kiedy coś wypadnie.",
+  },
+  goals: {
+    title: "Jeden cel prowadzi plan. Reszta biegnie obok.",
+    body: "Zawody w marcu, 5 km poniżej 27 minut i trzy treningi w tygodniu naraz? Proszę bardzo. Ankieta sama podpowie cele z Twoich odpowiedzi, a w zakładce Cele widzisz, ile już za Tobą i ile zostało.",
+    points: [
+      "Jeden cel prowadzi plan, do trzech kolejnych śledzisz obok. Prowadzący zmienisz jednym tapnięciem – plan ułoży się od Twojej obecnej formy.",
+      "Zanim dodasz cel, widzisz, co zmieni się w planie.",
+      "Start kontrolny (B) zastępuje mocny trening w swoim tygodniu: dzień przed lżej, dzień po wolne. Start dla zabawy (C) planu nie rusza.",
+      "Po mecie wpisujesz czas albo bierzesz go ze Stravy i wybierasz, co poprowadzi plan dalej.",
+    ],
+    kinds: [
+      { kind: "race", name: "Zawody", body: "Dystans i data. Odliczanie dni i prognoza czasu na start." },
+      { kind: "performance", name: "Wynik", body: "Np. 5 km poniżej 30 min. Liczy się Twój najlepszy bieg." },
+      { kind: "continuous", name: "Bez zatrzymania", body: "Od marszobiegu do ciągłego biegu, co tydzień trochę dłużej." },
+      { kind: "consistency", name: "Regularność", body: "Ile treningów w tygodniu. Liczymy tygodnie, nie dni." },
+      { kind: "volume", name: "Kilometry", body: "Np. 100 km do końca grudnia. Biegi ze Stravy liczą się same." },
+    ],
+    board: {
+      title: "Cele",
+      add: "Dodaj cel",
+      alt: "Przykładowa zakładka Cele: zawody na 10 km prowadzą plan, obok trzy śledzone cele i jeden osiągnięty",
+      lead: {
+        label: "Prowadzi plan · start A",
+        badge: "za 56 dni",
+        title: "10 km",
+        meta: "10 km · 7 marca · cel 54:00",
+        week: "Tydzień 5 z 13",
+        progress: 5 / 13,
+        tiles: [
+          ["Prognoza dziś", "56:10"],
+          ["Prognoza na start", "53:40"],
+        ],
+      },
+      alsoTitle: "Też śledzę",
+      also: [
+        { kind: "consistency", title: "3 treningi w tygodniu", line: "7 z 12 tyg. · w tym tygodniu 2 z 3", weeks: [7, 12] },
+        { kind: "race", title: "5 km", line: "14 lut · za 35 dni · start kontrolny", badge: "B" },
+        { kind: "performance", title: "5 km poniżej 27:00", line: "Najlepszy: 27:42" },
+      ],
+      achievedTitle: "Osiągnięte",
+      achieved: [{ kind: "continuous", title: "30 min bez zatrzymania", line: "Ukończone · 18 października" }],
+    },
   },
   screens: {
     title: "Otwierasz aplikację i od razu wiesz, co dziś biegasz.",
@@ -278,8 +369,9 @@ const pl: Content = {
     title: "Plan zaczyna od Twojego miejsca, nie od idealnego.",
     body: "Krótka ankieta zamiast formularza na pół godziny. Mówisz, po co biegasz, ile masz czasu i jak Ci idzie teraz, a plan na pierwsze dwa tygodnie jest gotowy od razu.",
     points: [
-      "Cel: zacząć biegać, przebiec 5 km bez przerwy, biegać regularnie albo start na 5, 10, 21 lub 42 km.",
+      "Kierunek: zacząć biegać, przebiec 5 km bez przerwy, biegać regularnie albo start na 5, 10, 21 lub 42 km. Z odpowiedzi od razu powstaje lista celów – zmienisz albo odznaczysz, co nie pasuje.",
       "Twoje dni tygodnia i limit minut osobno na dni robocze i weekend.",
+      "Przy zawodach Aloha liczy realny czas na start – z Twojego wyniku i tygodniowego kilometrażu – i pokazuje, skąd się wziął. Nie znasz swojego tempa? Poproś o podpowiedź czasu.",
       "Jeśli cel jest zbyt ambitny na ten termin, Aloha zaproponuje bliższy dystans, późniejszą datę albo realny czas. Decyzja zostaje u Ciebie.",
       "Kolejne tygodnie powstają na bieżąco. Poziom planu rośnie lub spada zależnie od tego, jak Ci szło.",
     ],
@@ -311,6 +403,7 @@ const pl: Content = {
     title: "Coś wypadło? Napisz do trenera.",
     body: "W aplikacji jest czat z trenerem AI – to Keanu Biegała, który zna Twój plan i ostatnie biegi. Piszesz zwykłymi słowami, odpowiedź masz od razu.",
     points: [
+      "W dzień treningowy aplikacja pyta jednym tapnięciem: „Jak się dziś czujesz?”. Przy słabszym dniu, krótkim śnie albo braku czasu od razu proponuje lżejszą lub krótszą wersję treningu.",
       "Przed treningiem zapytasz, jak go pobiec albo co zrobić, gdy masz mniej czasu. Po treningu: jak poszło i co poprawić następnym razem.",
       "Trener może zaproponować zmianę w planie: przenieść, skrócić, zmienić rodzaj albo odpuścić trening. To zawsze propozycja, decyzja jest Twoja.",
       "Przy bólu i chorobie nie udaje lekarza. Wybiera łagodniejszy wariant i odsyła do specjalisty, a o zdrowiu rozmawia dopiero po Twojej zgodzie.",
@@ -405,6 +498,8 @@ const pl: Content = {
       "Na dziś nic nie ma w planie. Luz.",
       "Dziś bez biegania. Spacer albo rozciąganie – jeśli masz ochotę.",
       "Na dziś to już dużo pytań – wróć jutro, pogadamy dalej.",
+      "Tu trafią Twoje osiągnięte cele. Pierwszy jest bliżej, niż myślisz.",
+      "Tym razem wolniej, ale meta jest Twoja.",
     ],
   },
   faq: {
@@ -425,6 +520,10 @@ const pl: Content = {
       {
         q: "Kto jest trenerem w Aloha?",
         a: "Na co dzień Keanu Biegała, czyli trener AI. Plan powstaje według zasad treningowych, a rady, notatki i odpowiedzi na czacie pisze AI. Rozmowa z prawdziwym trenerem, człowiekiem, to osobny pakiet.",
+      },
+      {
+        q: "Mam w sezonie kilka startów. Jak to ustawić?",
+        a: "Najważniejsze zawody ustaw jako cel prowadzący (start A). Pozostałe dodaj jako start kontrolny (B) – plan zamieni na nie mocny trening w tym tygodniu – albo dla zabawy (C), wtedy plan się nie zmienia.",
       },
       {
         q: "Wracam po kontuzji albo po dłuższej przerwie. Co wtedy?",
@@ -459,9 +558,10 @@ const en: Content = {
   meta: {
     title: "Aloha App – a running plan that fits around your day",
     description:
-      "A running plan for busy amateur runners. Aloha builds each new week from how the last one went, suggests the best time to head out, and reviews your run once it syncs from Strava.",
+      "A running plan for busy amateur runners. Set a goal – a race, a time, consistency or kilometres – and Aloha builds each new week from how the last one went, suggests the best time to head out, and reviews your run once it syncs from Strava.",
   },
   nav: {
+    goals: "Goals",
     features: "What it does",
     how: "Getting started",
     faq: "Questions",
@@ -481,7 +581,7 @@ const en: Content = {
   hero: {
     title: "A running plan that fits around your day.",
     titleLines: ["A running plan", "that fits", "around your"],
-    titleWords: ["day", "week", "life", "pace", "energy"],
+    titleWords: ["day", "goal", "week", "life", "pace", "energy"],
     lead: "Each new week is built around how your last one went.",
     pause: "Pause video",
     play: "Play video",
@@ -491,6 +591,48 @@ const en: Content = {
   audience: {
     title: "For people who run between work and the school pick-up.",
     body: "Most plans assume a perfect week. Aloha starts from yours: how many days you have, how many minutes, and where your fitness is today. No heart-rate tables to begin with, and no guilt when life gets in the way.",
+  },
+  goals: {
+    title: "One goal leads the plan. The rest run alongside.",
+    body: "A race in March, 5 km under 27 minutes and three runs a week, all at once? Sure. The questionnaire suggests goals from your answers, and the Goals tab shows how far you've come and what's left.",
+    points: [
+      "One goal leads the plan, and you track up to three more alongside. Switch the lead with one tap – the plan rebuilds from your current fitness.",
+      "Before you add a goal, you see what will change in your plan.",
+      "A tune-up race (B) replaces the hard session of its week: easier the day before, rest the day after. A just-for-fun race (C) leaves the plan alone.",
+      "After the finish, enter your time or take it from Strava, then pick what leads the plan next.",
+    ],
+    kinds: [
+      { kind: "race", name: "Race", body: "Distance and date. A countdown and a race-day time forecast." },
+      { kind: "performance", name: "Result", body: "E.g. 5 km under 30 min. Your best run is what counts." },
+      { kind: "continuous", name: "Without stopping", body: "From run-walk to running non-stop, a little longer each week." },
+      { kind: "consistency", name: "Consistency", body: "How many runs a week. We count weeks, not days." },
+      { kind: "volume", name: "Kilometres", body: "E.g. 100 km by the end of December. Strava runs count on their own." },
+    ],
+    board: {
+      title: "Goals",
+      add: "Add goal",
+      alt: "Example Goals tab: a 10 km race leads the plan, with three goals tracked alongside and one achieved",
+      lead: {
+        label: "Leads the plan · A race",
+        badge: "in 56 days",
+        title: "10 km",
+        meta: "10 km · 7 March · goal 54:00",
+        week: "Week 5 of 13",
+        progress: 5 / 13,
+        tiles: [
+          ["Forecast today", "56:10"],
+          ["Race-day forecast", "53:40"],
+        ],
+      },
+      alsoTitle: "Also tracking",
+      also: [
+        { kind: "consistency", title: "3 runs a week", line: "7 of 12 wks · this week 2 of 3", weeks: [7, 12] },
+        { kind: "race", title: "5 km", line: "14 Feb · in 35 days · tune-up race", badge: "B" },
+        { kind: "performance", title: "5 km under 27:00", line: "Best: 27:42" },
+      ],
+      achievedTitle: "Achieved",
+      achieved: [{ kind: "continuous", title: "30 min without stopping", line: "Finished · 18 October" }],
+    },
   },
   screens: {
     title: "Open the app and you know what you're running today.",
@@ -613,8 +755,9 @@ const en: Content = {
     title: "The plan starts from where you are, not from ideal.",
     body: "A short questionnaire instead of a half-hour form. Say why you run, how much time you have and how it's going now, and your first two weeks are ready straight away.",
     points: [
-      "Goal: start running, run 5 km without stopping, run regularly, or race a 5k, 10k, half or full marathon.",
+      "Direction: start running, run 5 km without stopping, run regularly, or race a 5k, 10k, half or full marathon. Your answers turn straight into a list of goals – change or untick whatever doesn't fit.",
       "Your days of the week, with separate minute limits for weekdays and weekends.",
+      "For a race, Aloha works out a realistic finish time – from your recent result and weekly mileage – and shows how it got there. Not sure of your pace? Ask it to suggest a time.",
       "If the goal is too ambitious for the date, Aloha suggests a shorter distance, a later date or a realistic time. The decision stays with you.",
       "Later weeks are built as you go. The plan's level moves up or down with how you've been doing.",
     ],
@@ -646,6 +789,7 @@ const en: Content = {
     title: "Something came up? Message your coach.",
     body: "The app has a chat with Keanu Biegała, an AI coach who knows your plan and your recent runs. Write in plain words and get an answer straight away.",
     points: [
+      "On a training day the app asks, with one tap, “How are you feeling today?”. On a rough day, after a short night or when you're short on time, it offers a lighter or shorter version of the workout right away.",
       "Before a workout, ask how to run it or what to do with less time. Afterwards, ask how it went and what to improve next time.",
       "The coach can suggest a change to your plan: move, shorten, swap or skip a workout. It is always a suggestion, and the decision is yours.",
       "With pain or illness it doesn't play doctor. It picks the gentler option and points you to a professional, and only discusses health once you consent.",
@@ -740,6 +884,8 @@ const en: Content = {
       "Nothing planned for today. Take it easy.",
       "No running today. A walk or some stretching – if you feel like it.",
       "That’s a lot of questions for today – come back tomorrow and we’ll carry on.",
+      "Your achieved goals will land here. The first one is closer than you think.",
+      "Slower this time, but the finish line is yours.",
     ],
   },
   faq: {
@@ -760,6 +906,10 @@ const en: Content = {
       {
         q: "Who is the coach in Aloha?",
         a: "Day to day it is Keanu Biegała, an AI coach. The plan follows training rules, and the tips, notes and chat replies are written by AI. Chatting with a real, human coach is a separate package.",
+      },
+      {
+        q: "I have several races this season. How do I set that up?",
+        a: "Make the most important race your lead goal (an A race). Add the others as tune-up races (B) – the plan swaps that week's hard session for the race – or just for fun (C), which leaves the plan as it is.",
       },
       {
         q: "I'm coming back from an injury or a long break. What then?",
