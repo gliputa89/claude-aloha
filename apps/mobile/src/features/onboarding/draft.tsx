@@ -13,6 +13,8 @@ export type OnboardingDraft = {
   goal: GoalChoice | null;
   raceDistanceM: RaceDistanceM;
   raceDate: string | null;
+  /** Nazwa zawodów (opcjonalna), np. „Półmaraton Warszawski”. */
+  raceName: string;
   targetTime: string;
   /** „Nie wiem – podpowiedz mi”: biegacz nie podaje czasu, a podsumowanie proponuje wyliczony. */
   targetSuggest: boolean;
@@ -42,6 +44,7 @@ const initialDraft = (): OnboardingDraft => ({
   goal: null,
   raceDistanceM: 10000,
   raceDate: null,
+  raceName: '',
   targetTime: '',
   targetSuggest: false,
   // Domyślnie od jutra – dziś zwykle już za późno na pierwszy trening.
@@ -132,6 +135,15 @@ export function weeklyKmOf(draft: OnboardingDraft) {
   if (draft.level === 'none' || text === '') return null;
   const km = Number(text);
   return Number.isFinite(km) && km >= 0 && km <= 300 ? Math.round(km * 10) / 10 : undefined;
+}
+
+/** Najdłuższa nazwa zawodów (tak samo w bazie: goals.race_name). */
+export const RACE_NAME_MAX = 80;
+
+/** Nazwa zawodów do zapisu: przycięta, pusta → `null`. */
+export function raceNameOf(draft: OnboardingDraft) {
+  const name = draft.raceName.trim().replace(/\s+/g, ' ').slice(0, RACE_NAME_MAX);
+  return draft.goal === 'race' && name ? name : null;
 }
 
 /** Start planu musi być przed datą zawodów. */

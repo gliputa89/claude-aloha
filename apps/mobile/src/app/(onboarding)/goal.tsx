@@ -11,7 +11,7 @@ import { Chip } from '@/components/ui/chip';
 import { OptionCard } from '@/components/ui/option-card';
 import { TextField } from '@/components/ui/text-field';
 import { radius, space } from '@/constants/theme';
-import { targetTimeS, useOnboardingDraft, type GoalChoice } from '@/features/onboarding/draft';
+import { RACE_NAME_MAX, targetTimeS, useOnboardingDraft, type GoalChoice } from '@/features/onboarding/draft';
 import { addDays, fromIsoDate, toIsoDate } from '@/features/onboarding/time';
 import { confirmEliteTime, sanityOf } from '@/features/onboarding/time-check';
 import { useColors } from '@/hooks/use-colors';
@@ -70,6 +70,16 @@ export default function GoalStep() {
 
       {isRace ? (
         <View style={[styles.race, { backgroundColor: c.surface, borderColor: c.border }]}>
+          <TextField
+            label={t('onboarding.goal.nameLabel')}
+            placeholder={t('onboarding.goal.namePlaceholder')}
+            value={draft.raceName}
+            onChangeText={(v) => update({ raceName: v })}
+            autoCapitalize="words"
+            maxLength={RACE_NAME_MAX}
+            returnKeyType="done"
+          />
+
           <StepSection label={t('onboarding.goal.distanceLabel')}>
             <View style={styles.chips} accessibilityRole="radiogroup">
               {RACE_DISTANCES_M.map((d) => (

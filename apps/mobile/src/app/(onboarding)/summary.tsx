@@ -11,7 +11,7 @@ import { ForecastLoading } from '@/components/onboarding/forecast-loading';
 import { Notice } from '@/components/ui/notice';
 import { Text } from '@/components/ui/text';
 import { radius, space } from '@/constants/theme';
-import { LEVEL_TO_DB, recentTimeS, startBeforeRace, targetTimeS, useOnboardingDraft } from '@/features/onboarding/draft';
+import { LEVEL_TO_DB, raceNameOf, recentTimeS, startBeforeRace, targetTimeS, useOnboardingDraft } from '@/features/onboarding/draft';
 import { useRaceForecast } from '@/features/onboarding/forecast';
 import { completeOnboarding } from '@/features/onboarding/save';
 import { formatDuration, fromIsoDate } from '@/features/onboarding/time';
@@ -139,9 +139,11 @@ export default function SummaryStep() {
     if (!draft.goal) return '';
     if (draft.goal !== 'race' || !draft.raceDate) return t(GOAL_TITLE[draft.goal]);
     const base = { distance: distanceLabel(draft.raceDistanceM), date: formatDate(draft.raceDate) };
-    return target
+    const value = target
       ? t('onboarding.summary.raceValueTime', { ...base, time: formatDuration(target) })
       : t('onboarding.summary.raceValue', base);
+    const name = raceNameOf(draft);
+    return name ? t('onboarding.summary.raceValueNamed', { name, value }) : value;
   })();
 
   const days = [...draft.days]

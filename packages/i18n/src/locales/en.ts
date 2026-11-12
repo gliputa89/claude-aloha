@@ -103,6 +103,8 @@ export const en: Dictionary = {
       targetUnknownHint: 'I’ll work out a realistic time from your runs and show it in the summary.',
       targetPlaceholder: 'e.g. 1:55:00',
       targetHint: 'Hours:minutes:seconds or minutes:seconds.',
+      nameLabel: 'Race name (optional)',
+      namePlaceholder: 'e.g. Berlin Half Marathon',
     },
     distance: {
       d5000: '5K',
@@ -217,6 +219,7 @@ export const en: Dictionary = {
       consentOff: 'Basic mode, no check-in',
       raceValue: '{distance} · {date}',
       raceValueTime: '{distance} · {date} · {time}',
+      raceValueNamed: '{name} · {value}',
       tooSoonDistance:
         '{weeks} weeks is really short for a {distance}. How about a {suggested} on that date first – a great stepping stone.',
       tooSoonDate: 'A {distance} needs about {minWeeks} weeks of preparation. I’d suggest racing no earlier than {date}.',
@@ -432,6 +435,18 @@ export const en: Dictionary = {
     last: 'Last run',
     lastVerdict: 'Review: {verdict}',
     seePlan: 'See the whole plan',
+    race: {
+      dayOne: 'day',
+      dayMany: 'days',
+      raceDay: 'today',
+      untilStart: 'Until the start · {date}',
+      untilStartDistance: '{distance} · {date}',
+      todayLine: "It's race day. Good luck!",
+      tomorrowLine: 'Race is tomorrow. Get a good night’s sleep.',
+      a11yDays: '{race}: {n} days to the start, {date}',
+      a11yTomorrow: '{race}: starts tomorrow, {date}',
+      a11yToday: '{race}: starts today',
+    },
   },
   weather: {
     best: 'Best {from}–{to}',
