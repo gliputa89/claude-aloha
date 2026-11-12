@@ -153,7 +153,6 @@ export type Content = {
     body: string[];
     available: string;
     years: string;
-    demo: string;
   };
   weather: {
     title: string;
@@ -439,7 +438,6 @@ const pl: Content = {
     ],
     available: "Trenerzy są też do Twojej dyspozycji: w pakiecie z prawdziwym trenerem piszesz do jednego z nich na czacie.",
     years: "{n} lat pracy z biegaczami",
-    demo: "Profil przykładowy",
   },
   weather: {
     title: "O której dziś biegać? Sprawdzone, zanim zapytasz.",
@@ -825,7 +823,6 @@ const en: Content = {
     ],
     available: "The coaches are there for you too: with the real-coach package, you message one of them in the chat.",
     years: "{n} years coaching runners",
-    demo: "Sample profile",
   },
   weather: {
     title: "When to run today? Checked before you ask.",
