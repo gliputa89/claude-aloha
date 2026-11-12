@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, View, type PressableProps } from 'react-native';
 import Animated, {
   FadeIn,
@@ -29,12 +30,15 @@ type ButtonProps = Omit<PressableProps, 'children'> & {
   label: string;
   variant?: Variant;
   loading?: boolean;
+  /** Ikona przed etykietą (np. logo dostawcy logowania). */
+  icon?: ReactNode;
 };
 
 export function Button({
   label,
   variant = 'primary',
   loading = false,
+  icon,
   disabled,
   style,
   onPressIn,
@@ -96,7 +100,9 @@ export function Button({
           <Animated.View
             key="label"
             entering={reduced ? undefined : FadeIn.duration(motion.duration.normal)}
-            exiting={reduced ? undefined : FadeOut.duration(motion.duration.fast)}>
+            exiting={reduced ? undefined : FadeOut.duration(motion.duration.fast)}
+            style={styles.content}>
+            {icon}
             <Text variant="bodyStrong" weight="bold" color={l.text} align="center">
               {label}
             </Text>

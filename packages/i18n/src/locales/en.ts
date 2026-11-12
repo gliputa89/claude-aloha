@@ -33,9 +33,12 @@ export const en: Dictionary = {
     checkEmailBody: 'I sent a link to {email}. Tap it to confirm your account and we’ll get going.',
     checkEmailAction: 'Go to sign in',
   },
-  appleSignIn: {
+  socialSignIn: {
     or: 'or',
-    legalPrefix: 'By continuing with Apple, you accept the ',
+    googleContinue: 'Continue with Google',
+    googleSignIn: 'Sign in with Google',
+    appleOrGoogle: 'Apple or Google',
+    legalPrefix: 'By continuing with {providers}, you accept the ',
     termsLink: 'Terms',
     legalJoin: ' and ',
     privacyLink: 'Privacy Policy',
@@ -676,6 +679,8 @@ export const en: Dictionary = {
     network: 'No connection. Check your internet and try again.',
     notConfigured: 'The app isn’t connected to the server yet (EXPO_PUBLIC_SUPABASE_URL missing).',
     appleFailed: 'Signing in with Apple didn’t work. Give it another go.',
+    googleFailed: 'Signing in with Google didn’t work. Give it another go.',
+    googlePlayServices: 'Signing in with Google needs up-to-date Google Play services on this phone.',
     generic: 'Something went wrong. Try again in a moment.',
   },
 };

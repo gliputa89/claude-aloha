@@ -93,7 +93,7 @@ Ankieta startowa ──► Generowanie planu (1–2 tyg. do przodu, cel w tle)
 ## 4. Funkcje MVP
 
 ### 4.1 Rejestracja i logowanie
-- E-mail + hasło (z resetem hasła) oraz logowanie przez Apple na iOS. Logowanie przez Google – później.
+- E-mail + hasło (z resetem hasła), logowanie przez Apple na iOS i przez Google na iOS i Androidzie.
 
 ### 4.2 Ankieta startowa (onboarding)
 Krótka, ok. 1–2 minuty, maksymalnie kilka ekranów:
@@ -340,7 +340,7 @@ Pomysł na później: **14-dniowy darmowy okres Premium** po rejestracji – uż
 
 - Integracje: Garmin, Strava, Apple Health, Health Connect
 - Integracja z kalendarzem telefonu
-- Logowanie przez Google (oraz Apple na Androidzie i w przeglądarce)
+- Logowanie przez Apple na Androidzie i w przeglądarce
 - Moduł regeneracji (rozciąganie, oddech, sen)
 - Inne dyscypliny (rower, pływanie, siłownia)
 - Śledzenie GPS w aplikacji

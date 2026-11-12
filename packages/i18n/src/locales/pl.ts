@@ -34,9 +34,12 @@ export const pl = {
     checkEmailBody: 'Wysłałem link na {email}. Kliknij go, żeby potwierdzić konto, i od razu zaczynamy.',
     checkEmailAction: 'Przejdź do logowania',
   },
-  appleSignIn: {
+  socialSignIn: {
     or: 'albo',
-    legalPrefix: 'Kontynuując z Apple, akceptujesz ',
+    googleContinue: 'Kontynuuj z Google',
+    googleSignIn: 'Zaloguj się przez Google',
+    appleOrGoogle: 'Apple lub Google',
+    legalPrefix: 'Kontynuując z {providers}, akceptujesz ',
     termsLink: 'Regulamin',
     legalJoin: ' i ',
     privacyLink: 'Politykę prywatności',
@@ -677,6 +680,8 @@ export const pl = {
     network: 'Brak połączenia. Sprawdź internet i spróbuj ponownie.',
     notConfigured: 'Aplikacja nie ma jeszcze połączenia z serwerem (brak EXPO_PUBLIC_SUPABASE_URL).',
     appleFailed: 'Logowanie przez Apple nie wyszło. Spróbuj jeszcze raz.',
+    googleFailed: 'Logowanie przez Google nie wyszło. Spróbuj jeszcze raz.',
+    googlePlayServices: 'Logowanie przez Google wymaga aktualnych Usług Google Play na tym telefonie.',
     generic: 'Coś poszło nie tak. Spróbuj za chwilę.',
   },
 };

@@ -5,7 +5,7 @@ import { EnvelopeSimple } from 'phosphor-react-native';
 import { useRef, useState } from 'react';
 import { StyleSheet, View, type TextInputInstance } from 'react-native';
 
-import { AppleSignIn } from '@/components/auth/apple-sign-in';
+import { SocialSignIn } from '@/components/auth/social-sign-in';
 import { AuthFormScreen } from '@/components/auth/auth-form-screen';
 import { SwitchPrompt } from '@/components/auth/switch-prompt';
 import { Button } from '@/components/ui/button';
@@ -16,7 +16,7 @@ import { TextField } from '@/components/ui/text-field';
 import { radius, space } from '@/constants/theme';
 import { useColors } from '@/hooks/use-colors';
 import { useLocale, useT } from '@/hooks/use-t';
-import { appleSignInAvailable, isValidEmail, MIN_PASSWORD_LENGTH, signUp } from '@/lib/auth';
+import { isValidEmail, MIN_PASSWORD_LENGTH, signUp } from '@/lib/auth';
 import { legalUrl } from '@/lib/links';
 
 type Field = 'name' | 'email' | 'password' | 'terms';
@@ -181,7 +181,7 @@ export default function SignUpScreen() {
 
       <Button label={t('signUp.submit')} loading={submitting} onPress={onSubmit} />
 
-      {appleSignInAvailable ? <AppleSignIn divider /> : null}
+      <SocialSignIn divider />
     </AuthFormScreen>
   );
 }
