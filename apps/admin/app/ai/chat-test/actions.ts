@@ -99,7 +99,7 @@ export async function runChatTest(userId: string, ids: string[], model: string |
   const db = createServiceClient();
   const [profile, goal, availability, plan, config, promptRes] = await Promise.all([
     db.from('profiles').select('level, locale, timezone, has_contraindications, recent_result_distance_m, recent_result_time_s, training_level').eq('id', userId).maybeSingle(),
-    db.from('goals').select('id, type, general_focus, distance_m, race_date, target_time_s, plan_starts_on').eq('user_id', userId).eq('status', 'active').maybeSingle(),
+    db.from('goals').select('id, type, general_focus, distance_m, race_date, target_time_s, plan_starts_on').eq('user_id', userId).eq('status', 'active').eq('role', 'primary').maybeSingle(),
     db.from('availability').select('preferred_days, sessions_per_week, max_minutes_weekday, max_minutes_weekend').eq('user_id', userId).maybeSingle(),
     db
       .from('plans')

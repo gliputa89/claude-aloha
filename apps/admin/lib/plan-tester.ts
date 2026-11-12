@@ -143,6 +143,7 @@ export async function loadTesterUser(userId: string): Promise<TesterUser | null>
       .select('id, type, general_focus, distance_m, race_date, target_time_s, plan_starts_on, created_at')
       .eq('user_id', userId)
       .eq('status', 'active')
+      .eq('role', 'primary')
       .maybeSingle(),
     db
       .from('availability')

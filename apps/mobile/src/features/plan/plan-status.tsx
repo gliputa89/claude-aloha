@@ -26,7 +26,7 @@ export function PlanStatus() {
     return (
       <View style={styles.block}>
         <Notice message={t('plan.failed')} />
-        <Button label={t('plan.retry')} onPress={generate} />
+        <Button label={t('plan.retry')} onPress={() => generate()} />
       </View>
     );
   }

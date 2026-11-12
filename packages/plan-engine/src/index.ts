@@ -11,6 +11,7 @@ export * from './ai/race-forecast-prompt.ts';
 export * from './plan/level-review.ts';
 export * from './plan/rows.ts';
 export * from './plan/next-week.ts';
+export * from './goals/goals.ts';
 export * from './ai/ai-ops.ts';
 export * from './ai/ai-pricing.ts';
 export * from './ai/ai-prompt.ts';

@@ -1,4 +1,3 @@
-import type { TranslationKey } from '@aloha/i18n';
 import { estimateDistanceM, formatApproxKm, stepsOf } from '@aloha/plan-engine';
 import { openURL } from 'expo-linking';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -38,6 +37,7 @@ import { allSessions, usePlan } from '@/features/plan/plan-provider';
 import { paceMinPerKm, stravaActivityUrl } from '@/features/strava/api';
 import { useColors } from '@/hooks/use-colors';
 import { useLocale, useT } from '@/hooks/use-t';
+import { sessionTitleKey } from '@/features/plan/session-title';
 
 const TYPE_ICON: Record<PlanSession['type'], ComponentType<IconProps>> = {
   walk_run: PersonSimpleWalk,
@@ -220,7 +220,7 @@ function Detail({ session }: { session: PlanSession }) {
           </FadeUp>
           <FadeUp delay={T.head + 60}>
             <Text variant="title" accessibilityRole="header">
-              {t(`workout.${session.type}` as TranslationKey)}
+              {t(sessionTitleKey(session))}
             </Text>
           </FadeUp>
           {detail && !custom ? (

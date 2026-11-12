@@ -3,6 +3,7 @@ import { getCalendars } from 'expo-localization';
 import { supabase } from '@/lib/supabase';
 
 import { LEVEL_TO_DB, raceNameOf, recentTimeS, targetTimeS, weeklyKmOf, type OnboardingDraft } from './draft';
+import { goalsToSave } from './goals';
 
 /** Wersja treści zgody na dane zdrowotne (zapisywana w public.consents). */
 export const HEALTH_CONSENT_VERSION = '2026-11';
@@ -15,9 +16,12 @@ export async function completeOnboarding(draft: OnboardingDraft) {
   const isRace = draft.goal === 'race';
   const weeklyKm = weeklyKmOf(draft) ?? null;
   const raceName = raceNameOf(draft);
+  // Cel prowadzący i zaznaczone cele obok z kroku „Twoje cele” (zakładka „Cele”).
+  const goals = goalsToSave(draft);
+  if (!goals) throw new Error('Niepełna ankieta');
   const params = {
     p_goal_type: isRace ? 'race' : 'general',
-    p_general_focus: isRace ? null : draft.goal,
+    p_general_focus: isRace ? null : (goals.primary.focus ?? 'run_regularly'),
     p_distance_m: isRace ? draft.raceDistanceM : null,
     p_race_date: isRace ? draft.raceDate : null,
     p_target_time_s: isRace ? (targetTimeS(draft) ?? null) : null,
@@ -39,7 +43,10 @@ export async function completeOnboarding(draft: OnboardingDraft) {
   };
   // Nazwę zawodów wysyłamy tylko, gdy jest. Baza bez migracji 20261112200000_race_name nie zna parametru
   // (PGRST202 – brak funkcji o takiej sygnaturze) – wtedy zapisujemy ankietę bez nazwy, żeby nie blokować planu.
-  let { error } = await supabase.rpc('complete_onboarding', raceName !== null ? { ...params, p_race_name: raceName } : params);
+  const named = raceName !== null ? { ...params, p_race_name: raceName } : params;
+  // Cele (p_goal, p_secondary_goals) zna baza od migracji 20261113100000_goals_tab; starsza – zapis bez nich.
+  let { error } = await supabase.rpc('complete_onboarding', { ...named, p_goal: goals.primary, p_secondary_goals: goals.secondary });
+  if (error?.code === 'PGRST202') ({ error } = await supabase.rpc('complete_onboarding', named));
   if (error?.code === 'PGRST202' && raceName !== null) ({ error } = await supabase.rpc('complete_onboarding', params));
   if (error) throw error;
 }

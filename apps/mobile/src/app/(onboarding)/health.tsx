@@ -26,7 +26,7 @@ export default function HealthStep() {
         <Button
           label={t('onboarding.next')}
           disabled={draft.contraindications === null}
-          onPress={() => router.push('/summary')}
+          onPress={() => router.push('/goals')}
         />
       }>
       <StepSection label={t('onboarding.health.question')}>

@@ -9,7 +9,7 @@ import { EASE_OUT } from '@/constants/easing';
 import { useColors } from '@/hooks/use-colors';
 import { useT } from '@/hooks/use-t';
 
-export const ONBOARDING_STEPS = 5;
+export const ONBOARDING_STEPS = 6;
 
 type OnboardingStepProps = PropsWithChildren<{
   step: number;

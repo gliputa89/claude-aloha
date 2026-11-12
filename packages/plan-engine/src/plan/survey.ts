@@ -3,7 +3,7 @@
 
 import type { Level, RaceDistanceM } from './goal.ts';
 import { isTrainingLevel } from './levels.ts';
-import type { PlanGoal, PlanInput } from './plan.ts';
+import type { Checkpoint, PlanGoal, PlanInput } from './plan.ts';
 
 export type SurveyProfile = {
   level: Level | null;
@@ -41,11 +41,18 @@ export function planStartDate(goal: Pick<SurveyGoal, 'plan_starts_on'>, today: s
 }
 
 export function planInputFromSurvey(
-  survey: { profile: SurveyProfile & { level: Level }; goal: SurveyGoal; availability: SurveyAvailability },
+  survey: {
+    profile: SurveyProfile & { level: Level };
+    goal: SurveyGoal;
+    availability: SurveyAvailability;
+    /** Starty kontrolne i sprawdziany z celów (patrz `checkpointsFromGoals`). */
+    checkpoints?: Checkpoint[];
+  },
   startDate: string,
 ): PlanInput {
   const { profile, goal, availability } = survey;
   return {
+    ...(survey.checkpoints?.length ? { checkpoints: survey.checkpoints } : {}),
     startDate,
     level: profile.level,
     goal: planGoalFromSurvey(goal),

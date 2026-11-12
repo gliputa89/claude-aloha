@@ -1,7 +1,7 @@
 import { RACE_DISTANCES_M } from '@aloha/plan-engine';
 import { DateTimePicker } from '@expo/ui/community/datetime-picker';
 import { router } from 'expo-router';
-import { CalendarCheck, SneakerMove, Trophy, TrendUp } from 'phosphor-react-native';
+import { CalendarCheck, PersonSimpleRun, SneakerMove, Timer, Trophy } from 'phosphor-react-native';
 import { StyleSheet, View } from 'react-native';
 
 import { OnboardingStep, StepSection } from '@/components/onboarding/onboarding-step';
@@ -17,11 +17,13 @@ import { confirmEliteTime, sanityOf } from '@/features/onboarding/time-check';
 import { useColors } from '@/hooks/use-colors';
 import { useT } from '@/hooks/use-t';
 
+/** Kierunki celu (makieta „Co chcesz osiągnąć?”); konkretne cele proponuje krok „Twoje cele”. */
 const GOALS = [
   { id: 'start_running', icon: SneakerMove, title: 'onboarding.goal.startTitle', desc: 'onboarding.goal.startDesc' },
-  { id: 'improve_fitness', icon: TrendUp, title: 'onboarding.goal.fitnessTitle', desc: 'onboarding.goal.fitnessDesc' },
   { id: 'run_regularly', icon: CalendarCheck, title: 'onboarding.goal.regularTitle', desc: 'onboarding.goal.regularDesc' },
+  { id: 'faster', icon: Timer, title: 'onboarding.goal.fasterTitle', desc: 'onboarding.goal.fasterDesc' },
   { id: 'race', icon: Trophy, title: 'onboarding.goal.raceTitle', desc: 'onboarding.goal.raceDesc' },
+  { id: 'further', icon: PersonSimpleRun, title: 'onboarding.goal.furtherTitle', desc: 'onboarding.goal.furtherDesc' },
 ] as const;
 
 export default function GoalStep() {
@@ -36,6 +38,8 @@ export default function GoalStep() {
   const choose = (goal: GoalChoice) =>
     update({
       goal,
+      // Nowy kierunek = nowe propozycje celów: zaznaczenia i wpisany czas od nowa.
+      ...(goal !== draft.goal ? { goalChecks: {}, performanceTime: null } : {}),
       // Domyślna data zawodów za 12 tygodni – użytkownik i tak ją zmieni.
       raceDate: goal === 'race' && !draft.raceDate ? toIsoDate(raceDate) : draft.raceDate,
     });
@@ -67,6 +71,23 @@ export default function GoalStep() {
           />
         ))}
       </View>
+
+      {draft.goal === 'further' ? (
+        <View style={[styles.race, { backgroundColor: c.surface, borderColor: c.border }]}>
+          <StepSection label={t('onboarding.goal.furtherLabel')}>
+            <View style={styles.chips} accessibilityRole="radiogroup">
+              {RACE_DISTANCES_M.map((d) => (
+                <Chip
+                  key={d}
+                  label={t(`onboarding.distance.d${d}`)}
+                  selected={draft.furtherDistanceM === d}
+                  onPress={() => update({ furtherDistanceM: d, goalChecks: {} })}
+                />
+              ))}
+            </View>
+          </StepSection>
+        </View>
+      ) : null}
 
       {isRace ? (
         <View style={[styles.race, { backgroundColor: c.surface, borderColor: c.border }]}>

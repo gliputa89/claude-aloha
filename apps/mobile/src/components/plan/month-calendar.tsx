@@ -10,6 +10,7 @@ import { addDays, toIsoDate } from '@/features/onboarding/time';
 import type { PlanSession } from '@/features/plan/api';
 import { useColors } from '@/hooks/use-colors';
 import { useLocale, useT } from '@/hooks/use-t';
+import { sessionTitleKey } from '@/features/plan/session-title';
 
 type MonthCalendarProps = {
   /** Dowolny dzień wyświetlanego miesiąca. */
@@ -97,7 +98,7 @@ export function MonthCalendar({ month, onMonthChange, selected, onSelect, today,
               const label = [
                 isToday ? t('plan.today') : null,
                 `${t(`onboarding.day.long${weekday}` as TranslationKey)} ${day.toLocaleDateString(intl, { day: 'numeric', month: 'long' })}`,
-                ...runs.map((s) => t(`workout.${s.type}` as TranslationKey)),
+                ...runs.map((s) => t(sessionTitleKey(s))),
               ]
                 .filter(Boolean)
                 .join(', ');

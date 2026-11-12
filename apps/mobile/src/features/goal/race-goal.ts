@@ -14,8 +14,9 @@ export type RaceGoal = {
 /** Cel z bazy (RLS: tylko własny). `null` – brak aktywnego celu z datą zawodów. Błąd sieci = brak karty. */
 export async function fetchRaceGoal(): Promise<RaceGoal | null> {
   const goals = () => supabase.from('goals');
-  let { data, error } = await goals().select('type, distance_m, race_date, race_name').eq('status', 'active').maybeSingle();
-  // Baza bez migracji z nazwą zawodów (42703 = nieznana kolumna) – odliczanie bez nazwy.
+  // Celów aktywnych może być kilka (zakładka „Cele”) – odliczamy do zawodów celu prowadzącego.
+  let { data, error } = await goals().select('type, distance_m, race_date, race_name').eq('status', 'active').eq('role', 'primary').maybeSingle();
+  // Baza bez migracji z celami / nazwą zawodów (42703 = nieznana kolumna) – stare zapytanie.
   if (error?.code === '42703') {
     ({ data, error } = await goals().select('type, distance_m, race_date').eq('status', 'active').maybeSingle());
   }

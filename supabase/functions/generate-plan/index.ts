@@ -14,6 +14,9 @@ import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { claudeCaller, claudeKey } from '../_shared/claude.ts';
 import {
   aiAthleteFromSurvey,
+  checkpointsFromGoals,
+  GOAL_COLUMNS,
+  isTrainingLevel,
   engineFromRow,
   generateInitialPlan,
   planInputFromSurvey,
@@ -63,16 +66,12 @@ Deno.serve(async (req) => {
     admin
       .from('profiles')
       .select(
-        'level, locale, has_contraindications, timezone, onboarding_completed_at, recent_result_distance_m, recent_result_time_s, current_runs_per_week, weekly_km, subscription_status',
+        'level, locale, has_contraindications, timezone, onboarding_completed_at, recent_result_distance_m, recent_result_time_s, current_runs_per_week, weekly_km, subscription_status, training_level',
       )
       .eq('id', user.id)
       .maybeSingle(),
-    admin
-      .from('goals')
-      .select('id, type, general_focus, distance_m, race_date, target_time_s, plan_starts_on')
-      .eq('user_id', user.id)
-      .eq('status', 'active')
-      .maybeSingle(),
+    // Wszystkie aktywne cele: prowadzący układa plan, starty kontrolne i sprawdziany z pozostałych trafiają do tygodni.
+    admin.from('goals').select(`type, general_focus, ${GOAL_COLUMNS}`).eq('user_id', user.id).eq('status', 'active'),
     admin
       .from('availability')
       .select('preferred_days, sessions_per_week, max_minutes_weekday, max_minutes_weekend')
@@ -82,8 +81,12 @@ Deno.serve(async (req) => {
     admin.rpc('get_engine_config'),
   ]);
 
+  // Ponowne ułożenie planu po zmianie celu (zakładka „Cele”) zostawia poziom z przeglądów – nowy plan od obecnej formy.
+  const body = (await req.json().catch(() => null)) as { keepLevel?: boolean } | null;
   const profile = profileRes.data;
-  const goal = goalRes.data;
+  const goals = goalRes.data ?? [];
+  const goal = goals.find((g) => g.role === 'primary') ?? null;
+  const checkpoints = checkpointsFromGoals(goals);
   const availability = availabilityRes.data;
   if (!profile?.onboarding_completed_at || !profile.level || !goal || !availability) {
     return json({ error: 'onboarding_incomplete' }, 409);
@@ -96,12 +99,14 @@ Deno.serve(async (req) => {
 
   // Plan nie zaczyna się w przeszłości (np. gdy generujemy go ponownie kilka dni później).
   const today = todayIn(profile.timezone ?? 'Europe/Warsaw');
-  const survey = { profile: { ...profile, level: profile.level }, goal, availability };
+  const survey = { profile: { ...profile, level: profile.level }, goal, availability, checkpoints };
   const baseInput = planInputFromSurvey(survey, planStartDate(goal, today));
 
   // Nowy plan po ankiecie: poziom startowy z ankiety (zapisany w profilu – dalej zmienia go cotygodniowy przegląd).
-  const surveyLevel = surveyTrainingLevel(baseInput);
-  const { error: levelError } = await admin.rpc('set_training_level', {
+  // Po zmianie celu zostaje poziom zapisany w profilu.
+  const keptLevel = body?.keepLevel === true && isTrainingLevel(profile.training_level) ? profile.training_level : null;
+  const surveyLevel = keptLevel ?? surveyTrainingLevel(baseInput);
+  const { error: levelError } = keptLevel !== null ? { error: null } : await admin.rpc('set_training_level', {
     p_user_id: user.id,
     p_level: surveyLevel,
     p_source: 'survey',

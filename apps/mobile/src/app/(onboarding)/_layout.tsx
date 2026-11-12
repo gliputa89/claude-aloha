@@ -10,7 +10,7 @@ export const unstable_settings = {
   anchor: 'goal',
 };
 
-/** Ankieta startowa (docs/PROJECT.md 4.2): 5 kroków, odpowiedzi w pamięci, zapis na końcu. */
+/** Ankieta startowa (docs/PROJECT.md 4.2): 6 kroków, odpowiedzi w pamięci, zapis na końcu. */
 export default function OnboardingLayout() {
   const c = useColors();
   const t = useT();
@@ -33,6 +33,7 @@ export default function OnboardingLayout() {
         <Stack.Screen name="level" />
         <Stack.Screen name="availability" />
         <Stack.Screen name="health" />
+        <Stack.Screen name="goals" />
         <Stack.Screen name="summary" />
         <Stack.Screen
           name="generating"

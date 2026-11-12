@@ -6,7 +6,7 @@ import type { Level } from './goal.ts';
 import { reviewTrainingLevel, levelReviewInputFromRows, type LevelReview } from './level-review.ts';
 import { isTrainingLevel, surveyTrainingLevel, type TrainingLevel } from './levels.ts';
 import type { EngineParams } from './params.ts';
-import { generateNextWeek, type PlanInput, type PlannedWeek } from './plan.ts';
+import { generateNextWeek, type Checkpoint, type PlanInput, type PlannedWeek } from './plan.ts';
 import { plannedWeekFromRow, type WeekRow } from './rows.ts';
 import { planInputFromSurvey, type SurveyAvailability, type SurveyGoal, type SurveyProfile } from './survey.ts';
 
@@ -22,6 +22,8 @@ export type NextWeekRows = {
   };
   goal: SurveyGoal;
   availability: SurveyAvailability;
+  /** Starty kontrolne i sprawdziany z celów obok (patrz `checkpointsFromGoals`). */
+  checkpoints?: Checkpoint[];
   plan: { starts_on: string; weeks: (WeekRow & { sessions: (WeekRow['sessions'][number] & { status: string })[] })[] };
   checkIns: { day: string; ai_pain: boolean | null; ai_red_flag: boolean | null }[];
   params: EngineParams;
@@ -58,7 +60,10 @@ export function planNextWeek(rows: NextWeekRows): NextWeekPlan {
     return { ok: false, reason: 'after_race', nextStartsOn };
   }
 
-  const surveyInput = planInputFromSurvey({ profile: rows.profile, goal: rows.goal, availability: rows.availability }, rows.plan.starts_on);
+  const surveyInput = planInputFromSurvey(
+    { profile: rows.profile, goal: rows.goal, availability: rows.availability, checkpoints: rows.checkpoints },
+    rows.plan.starts_on,
+  );
   const surveyLevel = surveyTrainingLevel(surveyInput);
   const levelStored = isTrainingLevel(rows.profile.training_level);
   const previousLevel = levelStored ? (rows.profile.training_level as TrainingLevel) : surveyLevel;

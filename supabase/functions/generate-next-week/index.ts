@@ -20,6 +20,8 @@ import { claudeCaller, claudeKey } from '../_shared/claude.ts';
 import {
   addDaysIso,
   aiAthleteFromSurvey,
+  checkpointsFromGoals,
+  GOAL_COLUMNS,
   engineFromRow,
   NEXT_WEEK_LEAD_DAYS,
   planNextWeek,
@@ -66,12 +68,7 @@ async function processUser(
       )
       .eq('id', userId)
       .maybeSingle(),
-    db
-      .from('goals')
-      .select('id, type, general_focus, distance_m, race_date, target_time_s, plan_starts_on')
-      .eq('user_id', userId)
-      .eq('status', 'active')
-      .maybeSingle(),
+    db.from('goals').select(`type, general_focus, ${GOAL_COLUMNS}`).eq('user_id', userId).eq('status', 'active'),
     db.from('availability').select('preferred_days, sessions_per_week, max_minutes_weekday, max_minutes_weekend').eq('user_id', userId).maybeSingle(),
     db
       .from('plans')
@@ -82,7 +79,10 @@ async function processUser(
   ]);
   for (const r of [profileRes, goalRes, availabilityRes, planRes]) if (r.error) return { userId, status: 'error', detail: r.error.message };
   const profile = profileRes.data;
-  const goal = goalRes.data;
+  const goals = goalRes.data ?? [];
+  // Prowadzący układa plan; starty kontrolne (B) i sprawdziany z pozostałych celów trafiają do swoich tygodni.
+  const goal = goals.find((g) => g.role === 'primary') ?? null;
+  const checkpoints = checkpointsFromGoals(goals);
   const availability = availabilityRes.data;
   const plan = planRes.data;
   if (!profile?.onboarding_completed_at || !profile.level || !goal || !availability) return { userId, status: 'skipped', detail: 'onboarding_incomplete' };
@@ -101,6 +101,7 @@ async function processUser(
     profile: { ...profile, level: profile.level },
     goal,
     availability,
+    checkpoints,
     plan,
     checkIns: checkInsRes.data ?? [],
     params: ctx.engine.params,

@@ -1,9 +1,10 @@
-import type { Level, RaceDistanceM, StravaSurveyProposal } from '@aloha/plan-engine';
+import type { GoalDirection, Level, RaceDistanceM, StravaSurveyProposal } from '@aloha/plan-engine';
 import { createContext, use, useState, type PropsWithChildren } from 'react';
 
 import { addDays, formatDuration, parseDuration, toIsoDate } from './time';
 
-export type GoalChoice = 'start_running' | 'improve_fitness' | 'run_regularly' | 'race';
+/** Kierunek z pierwszego kroku („Co chcesz osiągnąć?”) – z niego krok „Twoje cele” układa propozycje. */
+export type GoalChoice = GoalDirection;
 export type LevelChoice = 'none' | 'occasional' | 'regular';
 /** Dystans ostatniego wyniku – te same co dystanse zawodów. */
 export type RecentDistance = RaceDistanceM;
@@ -18,6 +19,12 @@ export type OnboardingDraft = {
   targetTime: string;
   /** „Nie wiem – podpowiedz mi”: biegacz nie podaje czasu, a podsumowanie proponuje wyliczony. */
   targetSuggest: boolean;
+  /** Kierunek „dalej niż dotąd”: dystans, który chce przebiec. */
+  furtherDistanceM: RaceDistanceM;
+  /** Krok „Twoje cele”: zaznaczenie propozycji obok (indeks → tak/nie); brak – zaznaczenie domyślne. */
+  goalChecks: Record<number, boolean>;
+  /** Czas celu „szybciej” wpisany przez biegacza; `null` – czas z propozycji. */
+  performanceTime: string | null;
   /** Od kiedy plan, `YYYY-MM-DD`. */
   planStartDate: string;
   level: LevelChoice | null;
@@ -47,6 +54,9 @@ const initialDraft = (): OnboardingDraft => ({
   raceName: '',
   targetTime: '',
   targetSuggest: false,
+  furtherDistanceM: 10000,
+  goalChecks: {},
+  performanceTime: null,
   // Domyślnie od jutra – dziś zwykle już za późno na pierwszy trening.
   planStartDate: toIsoDate(addDays(new Date(), 1)),
   level: null,

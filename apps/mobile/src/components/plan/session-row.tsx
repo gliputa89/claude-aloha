@@ -11,6 +11,7 @@ import type { PlanSession } from '@/features/plan/api';
 import { fromIsoDate } from '@/features/onboarding/time';
 import { useColors } from '@/hooks/use-colors';
 import { useLocale, useT } from '@/hooks/use-t';
+import { checkpointOf, sessionTitleKey } from '@/features/plan/session-title';
 
 /** Kolory typów treningu – tylko jako kropka/znacznik (zasada designu). */
 export const TYPE_COLOR: Record<PlanSession['type'], ColorRole> = {
@@ -37,8 +38,10 @@ export function useDetail(session: PlanSession) {
       return s.repeats && s.repeats > 1
         ? t('workout.detailTempoReps', { repeats: s.repeats, work: s.workMin, rest: s.recoveryMin ?? 0 })
         : t('workout.detailTempo', { work: s.workMin });
-    case 'race':
-      return t('workout.detailRace');
+    case 'race': {
+      const cp = checkpointOf(session);
+      return t(cp === 'trial' ? 'workout.detailTrial' : cp === 'B' ? 'workout.detailRaceB' : 'workout.detailRace');
+    }
     default:
       return t('workout.detailSteady');
   }
@@ -56,7 +59,7 @@ export function SessionRow({ session, today }: { session: PlanSession; today: bo
   const steps = session.type === 'rest' ? [] : stepsOf(session);
   const date = fromIsoDate(session.scheduled_on);
   const weekday = ((date.getDay() + 6) % 7) + 1;
-  const title = t(`workout.${session.type}` as TranslationKey);
+  const title = t(sessionTitleKey(session));
   const right = session.duration_min
     ? t('workout.minutes', { n: session.duration_min })
     : session.distance_m

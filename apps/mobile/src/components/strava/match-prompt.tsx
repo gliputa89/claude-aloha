@@ -1,4 +1,3 @@
-import type { TranslationKey } from '@aloha/i18n';
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
@@ -12,6 +11,7 @@ import { allSessions, usePlan } from '@/features/plan/plan-provider';
 import { answerStravaMatch, type StravaSuggestion } from '@/features/strava/api';
 import { useColors } from '@/hooks/use-colors';
 import { useLocale, useT } from '@/hooks/use-t';
+import { sessionTitleKey } from '@/features/plan/session-title';
 
 /**
  * „To był ten trening?” – bieg ze Stravy z innego dnia niż trening w planie (np. środowy zrobiony w czwartek).
@@ -47,7 +47,7 @@ function MatchPrompt({ suggestion, session }: { suggestion: StravaSuggestion; se
   ].filter(Boolean);
   const planned = [
     weekday(session.scheduled_on),
-    t(`workout.${session.type}` as TranslationKey),
+    t(sessionTitleKey(session)),
     session.duration_min ? t('workout.minutes', { n: session.duration_min }) : session.distance_m ? km(session.distance_m) : null,
   ].filter(Boolean);
 

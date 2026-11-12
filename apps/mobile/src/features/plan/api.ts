@@ -153,9 +153,15 @@ export async function generateNextWeeks(weeks: 1 | 2 = 2): Promise<{ created: nu
   }
 }
 
-/** Generuje plan na serwerze (Edge Function generate-plan) z odpowiedzi z ankiety. */
-export async function generatePlan(): Promise<GeneratedPlan | null> {
-  const { data, error } = await supabase.functions.invoke<GeneratedPlan>('generate-plan', { method: 'POST' });
+/**
+ * Generuje plan na serwerze (Edge Function generate-plan) z odpowiedzi z ankiety i aktywnych celów.
+ * `keepLevel` – plan od nowa po zmianie celu: zostaje poziom z cotygodniowych przeglądów (obecna forma, nie ankieta).
+ */
+export async function generatePlan(options: { keepLevel?: boolean } = {}): Promise<GeneratedPlan | null> {
+  const { data, error } = await supabase.functions.invoke<GeneratedPlan>('generate-plan', {
+    method: 'POST',
+    ...(options.keepLevel ? { body: { keepLevel: true } } : {}),
+  });
   if (error) throw error;
   return data ?? null;
 }

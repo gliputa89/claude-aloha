@@ -17,7 +17,7 @@ import { trainingLevelOf, type TrainingLevel } from './levels.ts';
 import { paramsForLevel, resolveEngineParams, type EngineParams, type LevelParams } from './params.ts';
 import { paceZonesFrom, stepsFromStructure, type WorkoutItem } from '../core/workout.ts';
 
-export const ENGINE_VERSION = '0.6.0';
+export const ENGINE_VERSION = '0.7.0';
 
 export type SessionType = 'walk_run' | 'easy' | 'long' | 'intervals' | 'tempo' | 'recovery' | 'race';
 export type Intensity = 'easy' | 'moderate' | 'hard';
@@ -30,7 +30,8 @@ export type SessionStructure = (
   | { kind: 'intervals'; warmupMin: number; repeats: number; workMin: number; recoveryMin: number; cooldownMin: number }
   /** Tempo ciągłe albo – z `repeats` – trening progowy w odcinkach (np. 3×10 min z 2 min truchtu). */
   | { kind: 'tempo'; warmupMin: number; workMin: number; cooldownMin: number; repeats?: number; recoveryMin?: number }
-  | { kind: 'race'; distanceM: number }
+  /** `checkpoint`: start kontrolny (B) albo sprawdzian formy z celu wynikowego; brak – główne zawody. */
+  | { kind: 'race'; distanceM: number; checkpoint?: CheckpointKind }
 ) & {
   /** Odcinki: rozgrzewka → część główna (powtórzenia, przerwy) → schłodzenie; suma = długość treningu. */
   steps?: WorkoutItem[];
@@ -71,6 +72,16 @@ export type PlanGoal =
   | { type: 'general'; focus: 'start_running' | 'improve_fitness' | 'run_regularly' }
   | { type: 'race'; distanceM: RaceDistanceM; raceDate: string };
 
+/** Start kontrolny z celu obok (zawody B) albo sprawdzian z celu wynikowego (bieg na czas w wybranym tygodniu). */
+export type CheckpointKind = 'B' | 'trial';
+
+export type Checkpoint = {
+  kind: CheckpointKind;
+  /** Zawody B: dzień startu. Sprawdzian: dowolny dzień tygodnia, w którym ma się odbyć (plan wybiera dzień treningu). */
+  date: string;
+  distanceM: number;
+};
+
 export type PlanInput = {
   /** Dzień startu planu, `YYYY-MM-DD`. */
   startDate: string;
@@ -95,6 +106,8 @@ export type PlanInput = {
   trainingLevel?: TrainingLevel | null;
   /** Ostatni wynik z ankiety – z niego strefy tempa odcinków. Brak → odcinki tylko ze strefą wysiłku. */
   recentResult?: { distanceM: number; timeS: number | null } | null;
+  /** Starty kontrolne i sprawdziany z celów (zakładka „Cele”) – w ich tygodniu zastępują mocny trening. */
+  checkpoints?: Checkpoint[];
 };
 
 /** Parametry wejścia po sprawdzeniu granic. */
@@ -347,27 +360,52 @@ function buildWeek(input: PlanInput, weekIndex: number, startsOn: string, endsOn
   let focus: WeekFocus = deload ? 'recovery' : weekIndex === 0 ? 'base' : 'build';
 
   // Zawody w tym tygodniu: start w dniu zawodów, dzień przed i po – wolne, ostatnie 3 dni bez mocnych jednostek.
-  if (input.goal.type === 'race' && input.goal.raceDate >= startsOn && input.goal.raceDate <= endsOn) {
-    const raceDate = input.goal.raceDate;
-    sessions = sessions
-      .filter((s) => Math.abs(daysBetween(s.scheduledOn, raceDate)) > 1)
-      .map((s) => {
-        const daysBefore = daysBetween(s.scheduledOn, raceDate);
-        if (daysBefore > 0 && daysBefore <= p.raceEasyDaysBefore && s.intensity !== 'easy') {
-          return { ...s, type: 'easy', intensity: 'easy', durationMin: Math.min(s.durationMin ?? 20, 20), structure: { kind: 'steady' } };
-        }
-        return s;
+  // Tak samo starty kontrolne (B) i sprawdziany z celów: one są mocnym treningiem tygodnia.
+  const inWeek = (d: string) => d >= startsOn && d <= endsOn;
+  const starts: { date: string; distanceM: number; checkpoint?: CheckpointKind }[] = [];
+  const mainRace = input.goal.type === 'race' && inWeek(input.goal.raceDate) ? input.goal : null;
+  if (mainRace) starts.push({ date: mainRace.raceDate, distanceM: mainRace.distanceM });
+  for (const cp of input.checkpoints ?? []) {
+    if (!inWeek(cp.date) || cp.distanceM <= 0) continue;
+    // Sprawdzian – w dzień długiego biegu (zwykle weekend), a bez niego w ostatni trening tygodnia.
+    const date =
+      cp.kind === 'B'
+        ? cp.date
+        : (sessions.find((s) => longDay !== null && s.scheduledOn === dateOf(longDay)) ?? sessions[sessions.length - 1])?.scheduledOn;
+    // Dwa starty dzień po dniu się nie mieszczą – zostaje pierwszy (główne zawody są zawsze pierwsze).
+    if (!date || starts.some((st) => Math.abs(daysBetween(st.date, date)) <= 1)) continue;
+    starts.push({ date, distanceM: cp.distanceM, checkpoint: cp.kind });
+  }
+  if (starts.length > 0) {
+    for (const start of starts) {
+      sessions = sessions
+        .filter((s) => Math.abs(daysBetween(s.scheduledOn, start.date)) > 1)
+        .map((s) => {
+          const daysBefore = daysBetween(s.scheduledOn, start.date);
+          if (daysBefore > 0 && daysBefore <= p.raceEasyDaysBefore && s.intensity !== 'easy') {
+            return { ...s, type: 'easy', intensity: 'easy', durationMin: Math.min(s.durationMin ?? 20, 20), structure: { kind: 'steady' } };
+          }
+          return s;
+        });
+    }
+    // Start kontrolny albo sprawdzian zastępuje mocny trening tygodnia – drugi mocny bodziec byłby za dużo.
+    if (!mainRace) {
+      sessions = sessions.map((s) =>
+        s.intensity === 'easy' ? s : { ...s, type: 'easy', intensity: 'easy', structure: { kind: 'steady' } },
+      );
+    }
+    for (const start of starts) {
+      sessions.push({
+        scheduledOn: start.date,
+        type: 'race',
+        durationMin: null,
+        distanceM: start.distanceM,
+        intensity: 'hard',
+        structure: start.checkpoint ? { kind: 'race', distanceM: start.distanceM, checkpoint: start.checkpoint } : { kind: 'race', distanceM: start.distanceM },
       });
-    sessions.push({
-      scheduledOn: raceDate,
-      type: 'race',
-      durationMin: null,
-      distanceM: input.goal.distanceM,
-      intensity: 'hard',
-      structure: { kind: 'race', distanceM: input.goal.distanceM },
-    });
+    }
     sessions.sort((a, b) => a.scheduledOn.localeCompare(b.scheduledOn));
-    focus = 'race';
+    if (mainRace) focus = 'race';
   }
 
   return { weekIndex, startsOn, endsOn, focus, sessions, baseEasyMin };

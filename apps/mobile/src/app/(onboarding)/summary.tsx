@@ -13,17 +13,14 @@ import { Text } from '@/components/ui/text';
 import { radius, space } from '@/constants/theme';
 import { LEVEL_TO_DB, raceNameOf, recentTimeS, startBeforeRace, targetTimeS, useOnboardingDraft } from '@/features/onboarding/draft';
 import { useRaceForecast } from '@/features/onboarding/forecast';
+import { goalsToSave } from '@/features/onboarding/goals';
 import { completeOnboarding } from '@/features/onboarding/save';
+import { goalLikeOfSpec, goalTitle } from '@/features/goals/labels';
 import { formatDuration, fromIsoDate } from '@/features/onboarding/time';
 import { useColors } from '@/hooks/use-colors';
 import { useLocale, useT } from '@/hooks/use-t';
 
-const GOAL_TITLE = {
-  start_running: 'onboarding.goal.startTitle',
-  improve_fitness: 'onboarding.goal.fitnessTitle',
-  run_regularly: 'onboarding.goal.regularTitle',
-  race: 'onboarding.goal.raceTitle',
-} as const;
+
 
 const LEVEL_TITLE = {
   none: 'onboarding.level.noneTitle',
@@ -137,7 +134,10 @@ export default function SummaryStep() {
 
   const goalValue = (() => {
     if (!draft.goal) return '';
-    if (draft.goal !== 'race' || !draft.raceDate) return t(GOAL_TITLE[draft.goal]);
+    if (draft.goal !== 'race' || !draft.raceDate) {
+      const goals = goalsToSave(draft);
+      return goals ? goalTitle(t, locale, goalLikeOfSpec(goals.primary)) : '';
+    }
     const base = { distance: distanceLabel(draft.raceDistanceM), date: formatDate(draft.raceDate) };
     const value = target
       ? t('onboarding.summary.raceValueTime', { ...base, time: formatDuration(target) })
@@ -145,6 +145,10 @@ export default function SummaryStep() {
     const name = raceNameOf(draft);
     return name ? t('onboarding.summary.raceValueNamed', { name, value }) : value;
   })();
+
+  // Cele obok z kroku „Twoje cele”.
+  const also = goalsToSave(draft)?.secondary ?? [];
+  const alsoValue = also.length ? also.map((g) => goalTitle(t, locale, goalLikeOfSpec(g))).join(', ') : t('onboarding.summary.goalsAlsoNone');
 
   const days = [...draft.days]
     .sort((a, b) => a - b)
@@ -166,7 +170,7 @@ export default function SummaryStep() {
 
   return (
     <OnboardingStep
-      step={5}
+      step={6}
       title={t('onboarding.summary.title')}
       subtitle={t('onboarding.summary.subtitle')}
       footer={
@@ -265,6 +269,8 @@ export default function SummaryStep() {
 
       <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
         <Row label={t('onboarding.summary.goal')} value={goalValue} onEdit={() => router.navigate('/goal')} />
+        <Divider />
+        <Row label={t('onboarding.summary.goalsAlso')} value={alsoValue} onEdit={() => router.navigate('/goals')} />
         <Divider />
         <Row
           label={t('onboarding.summary.level')}

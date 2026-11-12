@@ -11,12 +11,14 @@ type ScreenProps = PropsWithChildren<{
   subtitle?: string;
   /** Element obok tytułu, po lewej (np. awatar) – tytuł i podtytuł stoją wtedy w jednym wierszu z nim. */
   leading?: ReactNode;
+  /** Element po prawej stronie tytułu (np. przycisk „Dodaj”). */
+  trailing?: ReactNode;
   /** Pociągnięcie w dół odświeża dane. */
   onRefresh?: () => Promise<void>;
 }>;
 
 /** Przewijany ekran zakładki: nagłówek w stylu iOS (duży tytuł) i treść z marginesem 20. */
-export function Screen({ title, subtitle, leading, onRefresh, children }: ScreenProps) {
+export function Screen({ title, subtitle, leading, trailing, onRefresh, children }: ScreenProps) {
   const c = useColors();
   const [refreshing, setRefreshing] = useState(false);
 
@@ -37,15 +39,16 @@ export function Screen({ title, subtitle, leading, onRefresh, children }: Screen
             />
           ) : undefined
         }>
-        <View style={[styles.header, leading ? styles.row : null]}>
+        <View style={[styles.header, leading || trailing ? styles.row : null]}>
           {leading}
-          <View style={[styles.titles, leading ? styles.flex : null]}>
+          <View style={[styles.titles, leading || trailing ? styles.flex : null]}>
             {/* Obok awatara tytuł ma mniej miejsca – długie imię zmniejsza krój zamiast łamać wiersz. */}
             <Text variant="title" accessibilityRole="header" numberOfLines={leading ? 1 : undefined} adjustsFontSizeToFit={!!leading} minimumFontScale={0.7}>
               {title}
             </Text>
             {subtitle ? <Text color="textMuted">{subtitle}</Text> : null}
           </View>
+          {trailing}
         </View>
         {children}
       </ScrollView>

@@ -6,6 +6,8 @@ import type { SupabaseClient } from 'jsr:@supabase/supabase-js@2';
 import {
   chatChangeWrite,
   checkChatChange,
+  checkpointsFromGoals,
+  GOAL_COLUMNS,
   engineFromRow,
   planInputFromSurvey,
   plannedWeekFromRow,
@@ -36,13 +38,13 @@ export type WeekRow = { id: string; week_index: number; starts_on: string; focus
 
 /** Plan, ankieta i parametry silnika – wszystko, czego trzeba do kontekstu rozmowy i do sprawdzenia zmiany. */
 export async function loadPlan(db: SupabaseClient, userId: string) {
-  const [profile, goal, availability, plan, config] = await Promise.all([
+  const [profile, goals, availability, plan, config] = await Promise.all([
     db
       .from('profiles')
       .select('level, locale, timezone, has_contraindications, recent_result_distance_m, recent_result_time_s, training_level')
       .eq('id', userId)
       .maybeSingle(),
-    db.from('goals').select('id, type, general_focus, distance_m, race_date, target_time_s, plan_starts_on').eq('user_id', userId).eq('status', 'active').maybeSingle(),
+    db.from('goals').select(`type, general_focus, ${GOAL_COLUMNS}`).eq('user_id', userId).eq('status', 'active'),
     db.from('availability').select('preferred_days, sessions_per_week, max_minutes_weekday, max_minutes_weekend').eq('user_id', userId).maybeSingle(),
     db
       .from('plans')
@@ -54,13 +56,19 @@ export async function loadPlan(db: SupabaseClient, userId: string) {
       .maybeSingle(),
     db.rpc('get_engine_config'),
   ]);
-  for (const r of [profile, goal, availability, plan]) if (r.error) throw new Error(r.error.message);
+  for (const r of [profile, goals, availability, plan]) if (r.error) throw new Error(r.error.message);
+  // Prowadzący układa plan; starty kontrolne i sprawdziany z celów obok są w tygodniach tak jak w generate-plan.
+  const goal = { data: (goals.data ?? []).find((g) => g.role === 'primary') ?? null };
+  const checkpoints = checkpointsFromGoals(goals.data ?? []);
   const weeks = ((plan.data?.weeks ?? []) as WeekRow[]).sort((a, b) => a.week_index - b.week_index);
   const today = todayIn((profile.data?.timezone as string | undefined) ?? 'Europe/Warsaw');
   const input =
     profile.data?.level && goal.data && availability.data && plan.data
       ? {
-          ...planInputFromSurvey({ profile: { ...profile.data, level: profile.data.level }, goal: goal.data, availability: availability.data }, plan.data.starts_on),
+          ...planInputFromSurvey(
+            { profile: { ...profile.data, level: profile.data.level }, goal: goal.data, availability: availability.data, checkpoints },
+            plan.data.starts_on,
+          ),
           params: engineFromRow(config.data).params,
         }
       : null;
