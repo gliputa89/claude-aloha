@@ -1,7 +1,7 @@
 // Edge Function: check-in „Jak się dziś czujesz?” na karcie „Dzisiaj” – jedno tapnięcie, bez AI.
 //
 //   POST { action: 'submit', wellbeing: 1–5, tags?: string[] } → { checkIn, proposal }
-//        zapisuje odpowiedź na dziś (jedna na dzień, kolejna ją zastępuje) i – przy słabszym dniu albo „mało czasu” –
+//        zapisuje odpowiedź na dziś (jedna na dzień, kolejna ją zastępuje – dopóki trening nie został po niej zmieniony) i – przy słabszym dniu albo „mało czasu” –
 //        zwraca łagodną propozycję zmiany dzisiejszego treningu (reguły: packages/plan-engine/src/checkin/checkin.ts).
 //   POST { action: 'answer', adjustmentId, accept }           → { status } – akceptacja wykonuje zmianę w planie.
 //
@@ -52,6 +52,18 @@ Deno.serve(async (req) => {
       const session = loaded.weeks
         .flatMap((w) => w.sessions)
         .find((s) => s.scheduled_on === loaded.today && s.type !== 'rest' && s.status === 'planned');
+
+      // Trening został już dziś zmieniony po check-inie – sprawa zamknięta: nie zapisujemy nowej odpowiedzi
+      // i nie proponujemy kolejnej zmiany (aplikacja nie pokazuje wtedy opcji „Zmień”).
+      const existing = await db.from('check_ins').select('id, wellbeing, tags').eq('user_id', userId).eq('day', loaded.today).maybeSingle();
+      if (existing.error) throw new Error(existing.error.message);
+      if (existing.data) {
+        const accepted = await db.from('adjustments').select('id').eq('check_in_id', existing.data.id).eq('status', 'accepted').limit(1);
+        if (accepted.error) throw new Error(accepted.error.message);
+        if ((accepted.data ?? []).length > 0) {
+          return json({ checkIn: { wellbeing: existing.data.wellbeing, tags: existing.data.tags ?? [] }, proposal: null, decided: 'accepted' });
+        }
+      }
 
       const saved = await db
         .from('check_ins')

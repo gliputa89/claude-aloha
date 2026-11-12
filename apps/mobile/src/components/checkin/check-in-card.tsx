@@ -101,6 +101,8 @@ export function CheckInCard({ session, today, onPlanChanged }: CheckInCardProps)
   const workout = (type: string) => t(`workout.${type}` as TranslationKey);
   const answered = checkIn && !editing;
   const low = !!checkIn && checkIn.wellbeing <= 2;
+  // Trening już zmieniony po tym check-inie – sprawa na dziś zamknięta, nie pytamy drugi raz.
+  const locked = checkIn?.decided === 'accepted';
   const proposal = checkIn?.proposal ?? null;
   const status = outcome
     ? t(`checkin.outcome.${outcome}` as TranslationKey)
@@ -117,7 +119,7 @@ export function CheckInCard({ session, today, onPlanChanged }: CheckInCardProps)
           {answered ? t('checkin.answered', { level: t(`checkin.scale.l${checkIn.wellbeing}` as TranslationKey) }) : t('checkin.question')}
         </Text>
         {busy === 'submit' ? <ActivityIndicator color={c.action} /> : null}
-        {answered && !busy ? (
+        {answered && !busy && !locked ? (
           <Pressable accessibilityRole="button" onPress={() => setEditing(true)} hitSlop={space[3]}>
             <Text variant="label" color="textBrand">
               {t('checkin.change')}

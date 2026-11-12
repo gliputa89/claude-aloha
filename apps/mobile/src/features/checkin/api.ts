@@ -60,9 +60,10 @@ export async function submitCheckIn(wellbeing: number, tags: CheckInTag[]): Prom
     const { data, error } = await supabase.functions.invoke<{
       checkIn?: { wellbeing: number; tags: CheckInTag[] };
       proposal?: CheckInProposal | null;
+      decided?: 'accepted';
     }>('check-in', { method: 'POST', body: { action: 'submit', wellbeing, tags } });
     if (error || !data?.checkIn) return null;
-    return { ...data.checkIn, proposal: data.proposal ?? null, decided: null };
+    return { ...data.checkIn, proposal: data.proposal ?? null, decided: data.decided ?? null };
   } catch {
     return null;
   }
