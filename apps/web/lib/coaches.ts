@@ -10,7 +10,6 @@ export type Coach = {
   years: number | null;
   city: string | null;
   photo: string | null;
-  isDemo: boolean;
 };
 
 type Row = {
@@ -25,13 +24,13 @@ type Row = {
   experience_years: number | null;
   city: string | null;
   avatar_url: string | null;
-  is_demo: boolean;
 };
 
 /**
  * Profile trenerów-ludzi z bazy (publiczny odczyt kluczem anon).
  * Pokazujemy tylko uzupełnione profile (z jednym zdaniem o trenerze) – konta testowe go nie mają.
- * Profile przykładowe (is_demo: zmyślone dane, zdjęcia ze stocku) pokazujemy wszędzie, z etykietą.
+ * Profile przykładowe (is_demo: zmyślone dane, zdjęcia ze stocku) pokazujemy wszędzie, bez etykiety –
+ * decyzja właściciela z 12.11.2026, dopóki nie ma profili prawdziwych trenerów.
  */
 export async function getCoaches(locale: Locale): Promise<Coach[]> {
   "use cache";
@@ -43,7 +42,7 @@ export async function getCoaches(locale: Locale): Promise<Coach[]> {
 
   const query = new URLSearchParams({
     select:
-      "id,display_name,title,title_en,headline,headline_en,specialties,specialties_en,experience_years,city,avatar_url,is_demo",
+      "id,display_name,title,title_en,headline,headline_en,specialties,specialties_en,experience_years,city,avatar_url",
     kind: "eq.human",
     active: "eq.true",
     headline: "not.is.null",
@@ -66,7 +65,6 @@ export async function getCoaches(locale: Locale): Promise<Coach[]> {
       years: row.experience_years,
       city: row.city,
       photo: row.avatar_url,
-      isDemo: row.is_demo,
     }));
   } catch {
     return [];

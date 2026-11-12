@@ -434,11 +434,6 @@ function CoachCard({ coach, labels }: { coach: Coach; labels: Content["coaches"]
           // eslint-disable-next-line @next/next/no-img-element
           <img src={coach.photo} alt="" loading="lazy" className="size-full object-cover" />
         )}
-        {coach.isDemo && (
-          <span className="absolute top-3 left-3 rounded-pill bg-accent px-3 py-1 text-xs font-bold text-text-on-accent">
-            {labels.demo}
-          </span>
-        )}
       </div>
       <h3 className="mt-5 text-2xl font-extrabold tracking-tight">{coach.name}</h3>
       {coach.title && <p className="mt-0.5 font-semibold text-text-brand">{coach.title}</p>}
