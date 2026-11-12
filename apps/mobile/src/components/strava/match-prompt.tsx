@@ -11,6 +11,7 @@ import { allSessions, usePlan } from '@/features/plan/plan-provider';
 import { answerStravaMatch, type StravaSuggestion } from '@/features/strava/api';
 import { useColors } from '@/hooks/use-colors';
 import { useLocale, useT } from '@/hooks/use-t';
+import { useUnitFormat } from '@/lib/units';
 import { sessionTitleKey } from '@/features/plan/session-title';
 
 /**
@@ -33,13 +34,14 @@ function MatchPrompt({ suggestion, session }: { suggestion: StravaSuggestion; se
   const c = useColors();
   const t = useT();
   const locale = useLocale();
+  const u = useUnitFormat();
   const { refresh } = usePlan();
   const [busy, setBusy] = useState<'yes' | 'no' | null>(null);
   const [failed, setFailed] = useState(false);
 
   const tag = locale === 'en' ? 'en-GB' : 'pl-PL';
   const weekday = (iso: string) => fromIsoDate(iso).toLocaleDateString(tag, { weekday: 'long' });
-  const km = (m: number) => `${(m / 1000).toLocaleString(tag, { maximumFractionDigits: 1 })} km`;
+  const km = (m: number) => u.distance(m);
   const run = [
     weekday(suggestion.local_date),
     suggestion.distance_m > 0 ? km(suggestion.distance_m) : null,

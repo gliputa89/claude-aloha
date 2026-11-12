@@ -2,6 +2,7 @@ import { Stack } from 'expo-router';
 
 import { GoalsProvider } from '@/features/goals/goals-provider';
 import { PlanProvider } from '@/features/plan/plan-provider';
+import { TodayBoot } from '@/features/today/today-boot';
 import { WeatherProvider } from '@/features/weather/weather-provider';
 import { useColors } from '@/hooks/use-colors';
 
@@ -15,6 +16,8 @@ export default function AppLayout() {
     <PlanProvider>
       <GoalsProvider>
         <WeatherProvider>
+          {/* Zimny start: ekran ze słońcem schodzi, gdy „Dzisiaj” ma komplet danych. */}
+          <TodayBoot />
           <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: c.background } }}>
             <Stack.Screen name="(tabs)" />
             {/* Natywny arkusz iOS na prawie cały ekran – zamykany też przeciągnięciem w dół. */}

@@ -51,6 +51,7 @@ async function buildContext(db: SupabaseClient, loaded: Loaded, focusId: string 
   const reviews = ids.length > 0 ? await db.from('session_reviews').select('session_id, verdict, facts, note').in('session_id', ids) : { data: [] };
   return chatContextFromRows({
     locale: (loaded.profile?.locale as string | undefined) ?? null,
+    units: (loaded.profile?.units as string | undefined) ?? null,
     level: (loaded.profile?.level as string | undefined) ?? null,
     goal: loaded.goal,
     weeks: loaded.weeks,

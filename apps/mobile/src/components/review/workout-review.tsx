@@ -11,6 +11,7 @@ import { radius, space } from '@/constants/theme';
 import type { SessionReview } from '@/features/plan/api';
 import { useColors } from '@/hooks/use-colors';
 import { useT } from '@/hooks/use-t';
+import { useUnitFormat } from '@/lib/units';
 
 /** Skala paska objętości: 100% planu wypada w 5/7 szerokości, żeby „za dużo” też było widać. */
 const BAR_MAX_PERCENT = 140;
@@ -23,8 +24,12 @@ const BAR_MAX_PERCENT = 140;
 export function WorkoutReview({ review, play, delay }: { review: SessionReview; play: boolean; delay: number }) {
   const c = useColors();
   const t = useT();
+  const u = useUnitFormat();
   const reduced = useReducedMotion();
   const animate = play && !reduced;
+  // Różnice tempa przychodzą w s/km – w milach pokazujemy s/mi.
+  const factValues = (values: Record<string, number>) =>
+    's' in values ? { ...values, s: u.paceDelta(values.s), unit: u.unit } : { ...values, unit: u.unit };
   const axes: { key: 'volume' | 'intensity'; level: ReviewAxis }[] = [
     { key: 'volume', level: review.volume },
     ...(review.intensity ? [{ key: 'intensity' as const, level: review.intensity }] : []),
@@ -75,7 +80,7 @@ export function WorkoutReview({ review, play, delay }: { review: SessionReview; 
         {review.facts.map((fact, i) => (
           <FadeUp key={fact.code} delay={step(3 + i)} distance={8}>
             <Text variant="caption" color="text">
-              {t(`review.fact.${fact.code}` as TranslationKey, fact.values)}
+              {t(`review.fact.${fact.code}` as TranslationKey, factValues(fact.values))}
             </Text>
           </FadeUp>
         ))}

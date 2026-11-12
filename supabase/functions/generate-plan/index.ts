@@ -66,7 +66,7 @@ Deno.serve(async (req) => {
     admin
       .from('profiles')
       .select(
-        'level, locale, has_contraindications, timezone, onboarding_completed_at, recent_result_distance_m, recent_result_time_s, current_runs_per_week, weekly_km, subscription_status, training_level',
+        'level, locale, units, has_contraindications, timezone, onboarding_completed_at, recent_result_distance_m, recent_result_time_s, current_runs_per_week, weekly_km, subscription_status, training_level',
       )
       .eq('id', user.id)
       .maybeSingle(),

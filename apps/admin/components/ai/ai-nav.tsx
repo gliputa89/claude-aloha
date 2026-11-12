@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 
 const TABS = [
   { href: '/ai', label: 'Koszty', exact: true },
+  { href: '/ai/simulator', label: 'Symulator' },
   { href: '/ai/calls', label: 'Wywołania' },
   { href: '/ai/prompts', label: 'Prompty' },
   { href: '/ai/rules', label: 'Ramy planu' },

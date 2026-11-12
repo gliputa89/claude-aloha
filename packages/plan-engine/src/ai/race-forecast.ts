@@ -5,6 +5,7 @@
 // jak daleko od niego jest docelowy dystans, czy biegacz zdąży zbudować objętość w czasie, który ma w tygodniu.
 // Odpowiedź spoza widełek jest do nich dociągana; błąd modelu = prognoza z samych reguł.
 
+import { KM_PER_MILE, unitsForModel, type Units } from '../core/units.ts';
 import { ENGINE_VERSION } from '../plan/plan.ts';
 import { forecastRace, RACE_VOLUME, type ForecastInput, type RaceForecast } from '../plan/forecast.ts';
 import { costUsd, modelPrice } from './ai-pricing.ts';
@@ -28,6 +29,8 @@ export const RACE_FORECAST_NOTE_MAX_LENGTH = 320;
 
 export type RaceForecastContext = ForecastInput & {
   locale: string;
+  /** Jednostki biegacza (domyślnie metryczne) – w nich model pisze notkę. */
+  units?: Units;
   /** Skąd wynik: zawody, najszybszy odcinek w treningu, szacunek z całego biegu albo wpisany ręcznie. */
   resultSource: 'race' | 'effort' | 'run' | 'manual';
   /** Ile dni temu padł wynik; `null`, gdy nie wiemy. */
@@ -54,6 +57,7 @@ export function raceForecastUserMessage(ctx: RaceForecastContext, base: RaceFore
   return JSON.stringify(
     {
       locale: ctx.locale,
+      ...unitsForModel(ctx.units ?? 'metric'),
       race: { distanceM: ctx.distanceM, weeksToRace: ctx.weeks, targetTimeS: ctx.targetTimeS },
       runner: {
         level: ctx.level,
@@ -63,6 +67,17 @@ export function raceForecastUserMessage(ctx: RaceForecastContext, base: RaceFore
       },
       availability: { sessionsPerWeek: ctx.sessionsPerWeek, weeklyMinutesCap: ctx.weeklyMinutesCap ?? null },
       volume: { ...base.volume, table: RACE_VOLUME[ctx.distanceM] },
+      // Kilometraż w milach, żeby model nie przeliczał sam (notka zwykle mówi o tygodniowej objętości).
+      ...(ctx.units === 'imperial'
+        ? {
+            volumeInMiles: Object.fromEntries(
+              (['currentKm', 'projectedKm', 'neededKm', 'minKm', 'longRunKm'] as const).map((k) => [
+                k.replace('Km', 'Mi'),
+                Math.round((base.volume[k] / KM_PER_MILE) * 10) / 10,
+              ]),
+            ),
+          }
+        : {}),
       engine: { vdot: base.vdot, danielsEquivalentS: base.danielsS, rulesTodayS: base.todayS, rulesRaceDayS: base.raceDayS },
       bounds: { fastestS: base.fastestS, slowestS: base.slowestS },
     },

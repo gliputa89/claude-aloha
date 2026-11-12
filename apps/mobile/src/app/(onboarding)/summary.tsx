@@ -19,6 +19,7 @@ import { goalLikeOfSpec, goalTitle } from '@/features/goals/labels';
 import { formatDuration, fromIsoDate } from '@/features/onboarding/time';
 import { useColors } from '@/hooks/use-colors';
 import { useLocale, useT } from '@/hooks/use-t';
+import { useUnitFormat } from '@/lib/units';
 
 
 
@@ -32,6 +33,7 @@ export default function SummaryStep() {
   const t = useT();
   const c = useColors();
   const locale = useLocale();
+  const u = useUnitFormat();
   const { draft, update } = useOnboardingDraft();
   const [dismissed, setDismissed] = useState(false);
   // Cel, przy którym biegacz świadomie został („zostaw mój czas”) – po zmianie celu pytamy od nowa.
@@ -118,8 +120,9 @@ export default function SummaryStep() {
           resultDistance: distanceInline(draft.recentDistanceM),
           daniels: minutes(forecast.danielsS),
           distance: distanceInline(draft.raceDistanceM),
-          current: forecast.volume.currentKm,
-          needed: forecast.volume.neededKm,
+          current: u.number(forecast.volume.currentKm * 1000, 0),
+          needed: u.number(forecast.volume.neededKm * 1000, 0),
+          unit: u.unit,
         })
       : null;
   // Wybór w karcie prognozy: cel wyliczony albo własny. `null` – własnego celu nie ma (pusty albo „podpowiedz mi”).

@@ -1,14 +1,18 @@
-import { createTranslator, resolveLocale, type Locale } from '@aloha/i18n';
-import { useLocales } from 'expo-localization';
+import { createTranslator, type Locale } from '@aloha/i18n';
 import { useMemo } from 'react';
 
-/** Język aplikacji z ustawień systemu (PL domyślnie, EN dla systemu po angielsku). */
+import { useLanguage, useUnits } from '@/lib/locale-preference';
+
+/** Język aplikacji: przy pierwszym uruchomieniu z ustawień telefonu, potem z wyboru w Profilu. */
 export function useLocale(): Locale {
-  const locales = useLocales();
-  return resolveLocale(locales[0]?.languageCode);
+  return useLanguage();
 }
 
 export function useT() {
   const locale = useLocale();
-  return useMemo(() => createTranslator(locale), [locale]);
+  // Teksty z dystansem czy temperaturą zależą też od jednostek – nowy `t` po ich zmianie odświeża
+  // każdy ekran z tekstami, także te w innych zakładkach i funkcje czytające `getUnits()`.
+  const units = useUnits();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  return useMemo(() => createTranslator(locale), [locale, units]);
 }

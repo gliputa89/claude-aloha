@@ -10,6 +10,8 @@ import { distanceLabel, formatDate, formatShortDate, goalLikeOfRow, goalTitle, i
 import { formatDuration } from '@/features/onboarding/time';
 import { useColors } from '@/hooks/use-colors';
 import { useLocale, useT } from '@/hooks/use-t';
+import { getUnits } from '@/lib/locale-preference';
+import { unitFormat } from '@/lib/units';
 
 export const GOAL_ICON: Record<GoalRow['kind'], Icon> = {
   race: Flag,
@@ -19,10 +21,9 @@ export const GOAL_ICON: Record<GoalRow['kind'], Icon> = {
   volume: ChartLineUp,
 };
 
-const km = (m: number) => String(Math.round(m / 100) / 10).replace('.', ',');
-
 /** Teksty i wskaźnik postępu celu – wspólne dla karty prowadzącego i wiersza listy. */
 function describe(t: Translator, locale: Locale, goal: GoalRow, p: GoalProgress | null) {
+  const u = unitFormat(getUnits(), locale);
   const title = goalTitle(t, locale, goalLikeOfRow(goal));
   let badge: string | null = null;
   let meta: string | null = null;
@@ -62,7 +63,7 @@ function describe(t: Translator, locale: Locale, goal: GoalRow, p: GoalProgress 
         const next = p.steps.find((s) => s > p.current);
         line = p.current > 0 && next ? t('goals.continuousNow', { min: p.current, next }) : next ? t('goals.continuousStart', { next }) : null;
       } else {
-        line = t('goals.continuousDistance', { km: km(p.current), target: km(p.target) });
+        line = t('goals.continuousDistance', { km: u.number(p.current), target: u.number(p.target), unit: u.unit });
       }
       if (p.achieved) cta = t('goals.achievedCta');
       break;
@@ -72,7 +73,12 @@ function describe(t: Translator, locale: Locale, goal: GoalRow, p: GoalProgress 
       if (p.achieved) cta = t('goals.achievedCta');
       break;
     case 'volume':
-      line = t('goals.volumeLine', { km: String(p.km).replace('.', ','), target: p.targetKm, days: p.daysLeft });
+      line = t('goals.volumeLine', {
+        km: u.number(p.km * 1000),
+        target: u.number(p.targetKm * 1000, 0),
+        unit: u.unit,
+        days: p.daysLeft,
+      });
       if (p.achieved) cta = t('goals.achievedCta');
       break;
   }

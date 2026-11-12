@@ -1,6 +1,5 @@
 import {
   flattenSteps,
-  formatPace,
   isRepeat,
   stepsTotalS,
   ZONE_INFO,
@@ -16,6 +15,7 @@ import { EASE_BACK } from '@/constants/easing';
 import { radius, space, type ColorRole } from '@/constants/theme';
 import { useColors } from '@/hooks/use-colors';
 import { useT } from '@/hooks/use-t';
+import { useUnitFormat } from '@/lib/units';
 
 // Przebieg treningu jak w zegarkach: słupki o szerokości = czas odcinka i wysokości = strefa wysiłku,
 // a pod spodem (po rozwinięciu) lista odcinków z tempem.
@@ -35,6 +35,7 @@ const MAX_LEVEL = 7;
 
 function useStepText() {
   const t = useT();
+  const u = useUnitFormat();
   const duration = (s: number) => {
     if (s < 60) return t('workout.seconds', { n: s });
     const m = Math.floor(s / 60);
@@ -43,7 +44,7 @@ function useStepText() {
   };
   const target = (s: WorkoutStep) =>
     s.pace
-      ? t('workout.pace', { fast: formatPace(s.pace.fastS), slow: formatPace(s.pace.slowS) })
+      ? t('workout.pace', { fast: u.pace(s.pace.fastS), slow: u.pace(s.pace.slowS), unit: u.paceUnit })
       : t(`workout.effort.${s.zone}`);
   return { t, duration, target };
 }

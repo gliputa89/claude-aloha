@@ -13,6 +13,7 @@ import { formatDuration, fromIsoDate } from '@/features/onboarding/time';
 import { connectStrava, fetchStravaSurvey } from '@/features/strava/api';
 import { useColors } from '@/hooks/use-colors';
 import { useLocale, useT } from '@/hooks/use-t';
+import { useUnitFormat } from '@/lib/units';
 
 type Phase = 'idle' | 'connecting' | 'analyzing';
 
@@ -111,6 +112,7 @@ export function StravaSurveyCard({ proposal, onProposal }: StravaSurveyCardProps
   const c = useColors();
   const t = useT();
   const locale = useLocale();
+  const u = useUnitFormat();
   const [phase, setPhase] = useState<Phase>('idle');
   const [error, setError] = useState<TranslationKey | null>(null);
 
@@ -146,7 +148,7 @@ export function StravaSurveyCard({ proposal, onProposal }: StravaSurveyCardProps
   };
 
   const tag = locale === 'en' ? 'en-GB' : 'pl-PL';
-  const km = (m: number) => (m / 1000).toLocaleString(tag, { maximumFractionDigits: m < 10_000 ? 1 : 0 });
+  const km = (m: number) => u.number(m, u.fromMeters(m) < 10 ? 1 : 0);
 
   if (proposal) {
     const enough = proposal.level !== 'beginner';
@@ -174,6 +176,7 @@ export function StravaSurveyCard({ proposal, onProposal }: StravaSurveyCardProps
                 runs: proposal.runs,
                 weeklyKm: km(proposal.weeklyDistanceM),
                 longestKm: km(proposal.longestRunM),
+                unit: u.unit,
               })}
             </Text>
             <Text variant="caption" color="text">

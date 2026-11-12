@@ -14,6 +14,7 @@ import { AI_OPERATION_KINDS, AI_SESSION_TYPES, AI_TIP_MAX_LENGTH, freePreferredD
 import type { AiEffort } from './ai-pricing.ts';
 import { TRAINING_LEVEL_INFO, type TrainingLevel } from '../plan/levels.ts';
 import { ENGINE_RULES, paramsForLevel, type EngineParams } from '../plan/params.ts';
+import { parseUnits, unitsNote, type Units } from '../core/units.ts';
 import { describeSteps, FUEL_FROM_MIN, paceZonesFrom, stepsOf, ZONE_INFO, formatPace } from '../core/workout.ts';
 import { weekMinutes, type PlanInput, type PlannedWeek } from '../plan/plan.ts';
 
@@ -176,6 +177,8 @@ export function rulesPromptBlock(params: EngineParams, level: TrainingLevel): st
 /** Dane biegacza dla modelu (bez identyfikatorów). */
 export type AiAthlete = {
   locale: string;
+  /** Jednostki biegacza – w nich model pisze summary i rady (dane zostają metryczne). */
+  units: Units;
   level: PlanInput['level'];
   recentResult: { distanceM: number; timeS: number | null } | null;
   currentRunsPerWeek: number | null;
@@ -193,6 +196,7 @@ export type AiAthlete = {
 export type AthleteSource = {
   profile: {
     locale?: string | null;
+    units?: string | null;
     level: PlanInput['level'];
     recent_result_distance_m?: number | null;
     recent_result_time_s?: number | null;
@@ -218,6 +222,7 @@ export type AthleteSource = {
 export function aiAthleteFromSurvey({ profile, goal, availability }: AthleteSource): AiAthlete {
   return {
     locale: profile.locale ?? 'pl',
+    units: parseUnits(profile.units),
     level: profile.level,
     recentResult: profile.recent_result_distance_m
       ? { distanceM: profile.recent_result_distance_m, timeS: profile.recent_result_time_s ?? null }
@@ -282,6 +287,7 @@ export function planWeeksUserMessage(m: PlanWeeksMessageInput): string {
     today: m.today,
     planStartsOn: m.input.startDate,
     athlete: m.athlete,
+    unitsNote: unitsNote(m.athlete.units ?? 'metric'),
     paceZones: (() => {
       const zones = paceZonesFrom(m.input.recentResult);
       if (!zones) return 'brak wyniku – tempo tylko jako strefa wysiłku';

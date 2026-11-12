@@ -64,7 +64,7 @@ async function processUser(
     db
       .from('profiles')
       .select(
-        'level, locale, timezone, has_contraindications, onboarding_completed_at, recent_result_distance_m, recent_result_time_s, current_runs_per_week, weekly_km, training_level, training_level_since, training_level_survey, subscription_status',
+        'level, locale, units, timezone, has_contraindications, onboarding_completed_at, recent_result_distance_m, recent_result_time_s, current_runs_per_week, weekly_km, training_level, training_level_since, training_level_survey, subscription_status',
       )
       .eq('id', userId)
       .maybeSingle(),

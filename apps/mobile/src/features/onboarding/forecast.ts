@@ -1,6 +1,7 @@
 import { raceForecastFromRules, weeksUntil, type ForecastInput, type RaceForecastResult } from '@aloha/plan-engine';
 import { useEffect, useState } from 'react';
 
+import { getUnits } from '@/lib/locale-preference';
 import { supabase } from '@/lib/supabase';
 
 import { LEVEL_TO_DB, recentTimeS, weeklyKmOf, type OnboardingDraft } from './draft';
@@ -48,6 +49,8 @@ function requestFrom(draft: OnboardingDraft): ForecastRequest | null {
     sessionsPerWeek: draft.sessionsPerWeek,
     maxMinutesWeekday: draft.maxWeekday,
     maxMinutesWeekend: draft.maxWeekend,
+    // Notka do prognozy mówi o kilometrażu – w milach, gdy biegacz je wybrał.
+    units: getUnits(),
     // Bez wpisanego celu: prognoza ma być ta sama, czegokolwiek biegacz sobie życzy – i nie liczyć się od nowa po jego zmianie.
   };
   return {

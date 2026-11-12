@@ -298,6 +298,46 @@ Docelowy podział (do weryfikacji po MVP):
 
 Pomysł na później: **14-dniowy darmowy okres Premium** po rejestracji – użytkownik od razu doświadcza głównego wyróżnika (adaptacja AI), zanim trafi na paywall.
 
+### Subskrypcja a sklepy (ustalenia z zakładania Google Play, 12.11.2026)
+
+Docelowo Premium to **płatny abonament (SaaS, subskrypcja miesięczna / roczna)**. Na start wszystko jest darmowe.
+
+- **Aplikacja w sklepach jest „bezpłatna” – i ma tak zostać.** „Bezpłatna / płatna” w Google Play (i cena w App Store)
+  dotyczy jednorazowej opłaty za pobranie. Subskrypcja to zakup w aplikacji w darmowej apce. Google nie pozwala
+  zmienić aplikacji bezpłatnej na płatną, ale do abonamentu nie jest to potrzebne.
+- **Płatność tylko przez sklepy**: Google Play Billing i Apple In-App Purchase (cyfrowa usługa w aplikacji) –
+  przez RevenueCat. Produkty subskrypcji zakłada się w Play Console (sekcja „Zarabiaj w Google Play”) i App Store Connect.
+- **Przy włączaniu paywalla zaktualizować w obu sklepach:**
+  - **Dane logowania dla recenzentów** – konto testowe musi mieć aktywne Premium (status nadany po stronie
+    serwera), bo recenzent nie może nic kupić. Opis w Play Console już to obiecuje („this account has access to all features,
+    including future Premium ones”) – zdanie „There are no in-app purchases yet” trzeba wtedy usunąć.
+  - **Bezpieczeństwo danych / App Privacy** – dopisać historię zakupów (dane z RevenueCat i sklepu).
+  - **Ocena treści (IARC) w Play Console** – „Czy aplikacja pozwala użytkownikom kupować produkty cyfrowe?” zmienić
+    na „Tak” (dziś „Nie”) i wysłać kwestionariusz ponownie.
+  - **Karty sklepowe** ([`marketing/sklepy/`](../marketing/sklepy/)) – informacja o cenie i okresie próbnym;
+    sklep sam pokaże „Zakupy w aplikacji”.
+  - **Regulamin i polityka prywatności** – warunki subskrypcji, odnawianie, anulowanie, RevenueCat jako odbiorca danych.
+- Wymagania po stronie kodu: [`ARCHITECTURE.md`](ARCHITECTURE.md), koniec sekcji 2a (blokada `subscription_status`,
+  zakup przez RevenueCat, ekran „odblokuj”).
+
+### Płatne kampanie a deklaracje w sklepach (12.11.2026)
+
+Planujemy mocno reklamować aplikację (Meta, Google, TikTok – [`docs/MARKETING.md`](MARKETING.md)).
+**Reklamowanie aplikacji na zewnątrz nie zmienia deklaracji** – „Reklamy” w Play Console dotyczą reklam *wyświetlanych
+w aplikacji* (u nas: nie ma i nie będzie). Deklaracje zmieniają się dopiero, gdy do aplikacji trafi **SDK do pomiaru
+kampanii** (Meta SDK, Firebase/Google Analytics dla Google Ads, TikTok SDK, AppsFlyer/Adjust itp.), bo takie SDK zwykle
+odczytuje identyfikator reklamowy i wysyła dane partnerom reklamowym. Wtedy:
+
+- **Play Console → Identyfikator wyświetlania reklam**: zmienić na „Tak” (dziś „Nie”); uprawnienie
+  `com.google.android.gms.permission.AD_ID` w manifeście (zwykle dokłada je SDK).
+- **iOS**: App Tracking Transparency (pytanie o zgodę na śledzenie) i `NSUserTrackingUsageDescription`, jeśli SDK śledzi.
+- **Bezpieczeństwo danych / App Privacy**: identyfikatory urządzenia także w celu „Cele marketingowe” / „Analityka”
+  i jako **udostępniane** (partnerzy reklamowi); dopisać zdarzenia (instalacja, rejestracja, zakup).
+- **Polityka prywatności**: dziś mówi „nie udostępniamy danych reklamodawcom” – trzeba ją zmienić i dodać zgodę
+  marketingową w aplikacji (RODO), zanim SDK zacznie wysyłać dane.
+- Alternatywa bez SDK w aplikacji: Google Play Install Referrer / kampanie Google App Campaigns mierzone w Play Console
+  i SKAdNetwork po stronie Apple – mniej dokładne, ale nie zmieniają deklaracji o śledzeniu.
+
 ---
 
 ## 8. Technologia (propozycja)

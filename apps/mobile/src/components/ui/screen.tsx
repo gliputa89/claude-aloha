@@ -41,9 +41,11 @@ export function Screen({ title, subtitle, leading, trailing, onRefresh, children
         }>
         <View style={[styles.header, leading || trailing ? styles.row : null]}>
           {leading}
-          <View style={[styles.titles, leading || trailing ? styles.flex : null]}>
-            {/* Obok awatara tytuł ma mniej miejsca – długie imię zmniejsza krój zamiast łamać wiersz. */}
-            <Text variant="title" accessibilityRole="header" numberOfLines={leading ? 1 : undefined} adjustsFontSizeToFit={!!leading} minimumFontScale={0.7}>
+          {/* Obok awatara tytuł i data stoją ciasno – jeden blok, dzięki czemu treść zaczyna się wyżej. */}
+          <View style={[styles.titles, leading || trailing ? styles.titlesTight : null]}>
+            {/* Obok awatara tytuł ma mniej miejsca – za długi kończy się wielokropkiem. Nie zmniejszamy kroju:
+                na iOS `minimumFontScale` nie działa i długie imię spadało do nieczytelnych ~9 pt. */}
+            <Text variant="title" accessibilityRole="header" numberOfLines={leading ? 1 : undefined}>
               {title}
             </Text>
             {subtitle ? <Text color="textMuted">{subtitle}</Text> : null}
@@ -62,4 +64,5 @@ const styles = StyleSheet.create({
   header: { gap: space[2] },
   row: { flexDirection: 'row', alignItems: 'center', gap: space[4] },
   titles: { gap: space[1] },
+  titlesTight: { flex: 1, gap: 0 },
 });

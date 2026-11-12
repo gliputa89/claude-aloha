@@ -25,5 +25,26 @@ cp .env.example .env.local   # URL i klucz anon z projektu Supabase (staging do 
 
 W Supabase w polu Client IDs: Web i iOS client ID po przecinku (Web pierwszy) oraz włączone **Skip nonce checks** (biblioteka nie przekazuje nonce).
 
+**Adresy produkcyjne (strona `apps/web`, domena https://www.alohatraining.app)** – do App Store Connect, Google Play Console i do `EXPO_PUBLIC_SITE_URL`:
+
+| Dokument | PL | EN |
+|---|---|---|
+| Polityka prywatności | https://www.alohatraining.app/polityka-prywatnosci | https://www.alohatraining.app/en/privacy |
+| Regulamin | https://www.alohatraining.app/regulamin | https://www.alohatraining.app/en/terms |
+| Usunięcie konta (sekcja polityki) | https://www.alohatraining.app/polityka-prywatnosci#usuniecie | – |
+
+**Konto testowe dla recenzentów sklepów** – `review@alohatraining.app` (imię „App Review”, język EN, zaakceptowany regulamin).
+Podajemy je w Google Play Console (Zawartość aplikacji → Dane logowania) i w App Store Connect (App Review Information);
+nadaje się też do własnych testów. Hasło jest tylko w `.env.review.local` w katalogu głównym (w `.gitignore`, poza repo).
+
+```bash
+pnpm review-user prod            # załóż konto na produkcji (pyta o potwierdzenie)
+pnpm review-user prod --reset    # nowe hasło – potem zaktualizuj je w obu sklepach
+pnpm review-user staging         # to samo na stagingu
+```
+
+Skrypt (`scripts/create-review-user.mjs`) pobiera klucz Supabase z Vercel jak `db:push`, więc wymaga `vercel login`.
+Po wprowadzeniu Premium konto musi mieć aktywny pakiet – recenzent nie może nic kupić (`docs/PROJECT.md`, §7).
+
 **EAS:** `npx eas-cli@latest init` (połączenie z kontem Expo), potem `eas build --profile preview`.
 Przed pierwszym buildem do sklepów: `ios.bundleIdentifier` i `android.package` w `app.json` (zależą od domeny/nazwy).

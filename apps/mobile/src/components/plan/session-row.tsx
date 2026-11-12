@@ -1,5 +1,5 @@
 import type { TranslationKey } from '@aloha/i18n';
-import { estimateDistanceM, formatApproxKm, stepsOf } from '@aloha/plan-engine';
+import { estimateDistanceM, stepsOf } from '@aloha/plan-engine';
 import { router } from 'expo-router';
 import { Check } from 'phosphor-react-native';
 import { Pressable, StyleSheet, View } from 'react-native';
@@ -10,7 +10,8 @@ import { radius, space, type ColorRole } from '@/constants/theme';
 import type { PlanSession } from '@/features/plan/api';
 import { fromIsoDate } from '@/features/onboarding/time';
 import { useColors } from '@/hooks/use-colors';
-import { useLocale, useT } from '@/hooks/use-t';
+import { useT } from '@/hooks/use-t';
+import { useUnitFormat } from '@/lib/units';
 import { checkpointOf, sessionTitleKey } from '@/features/plan/session-title';
 
 /** Kolory typów treningu – tylko jako kropka/znacznik (zasada designu). */
@@ -51,7 +52,7 @@ export function useDetail(session: PlanSession) {
 export function SessionRow({ session, today }: { session: PlanSession; today: boolean }) {
   const c = useColors();
   const t = useT();
-  const locale = useLocale();
+  const u = useUnitFormat();
   // Własna część główna (np. od AI) ma inny przebieg niż domyślny opis typu – wtedy opis zastępuje wykres.
   const custom = 'custom' in session.structure && session.structure.custom === true;
   const defaultDetail = useDetail(session);
@@ -63,7 +64,7 @@ export function SessionRow({ session, today }: { session: PlanSession; today: bo
   const right = session.duration_min
     ? t('workout.minutes', { n: session.duration_min })
     : session.distance_m
-      ? `${(session.distance_m / 1000).toLocaleString(locale === 'en' ? 'en-GB' : 'pl-PL', { maximumFractionDigits: 1 })} km`
+      ? u.distance(session.distance_m)
       : '';
   const hasSteps = steps.length > 0;
   const completed = session.status === 'done' || session.status === 'partial';
@@ -71,11 +72,11 @@ export function SessionRow({ session, today }: { session: PlanSession; today: bo
   const actualMin = completed && session.actual_duration_s ? t('workout.minutes', { n: Math.round(session.actual_duration_s / 60) }) : null;
   const actualKm =
     completed && session.actual_distance_m
-      ? `${(session.actual_distance_m / 1000).toLocaleString(locale === 'en' ? 'en-GB' : 'pl-PL', { maximumFractionDigits: 1 })} km`
+      ? u.distance(session.actual_distance_m)
       : null;
   // Suma w km tylko orientacyjnie (z czasu i stref tempa); odcinki zostają na czas.
   const approxKm =
-    session.duration_min && hasSteps ? formatApproxKm(estimateDistanceM(steps), locale === 'en' ? 'en' : 'pl') : null;
+    session.duration_min && hasSteps ? u.approxDistance(estimateDistanceM(steps)) : null;
 
   return (
     <Pressable

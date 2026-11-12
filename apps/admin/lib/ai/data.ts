@@ -2,6 +2,7 @@ import 'server-only';
 
 import type { AiCallPayload, AiCallRecord, AiFunctionName } from '@aloha/plan-engine';
 
+import { SIM_ITEMS, type SimItem, type UnitStat, type UnitStats } from '@/lib/ai/cost-sim';
 import { createServiceClient } from '@/lib/supabase/server';
 
 // Odczyty panelu AI (schemat ops przez funkcje w public). Wołać tylko po requireAdmin().
@@ -144,4 +145,75 @@ export async function listEngineConfigs(): Promise<EngineConfigVersion[]> {
   const { data, error } = await createServiceClient().rpc('admin_engine_configs');
   if (error) throw error;
   return (data as EngineConfigVersion[]) ?? [];
+}
+
+// ───────────────────────── symulator kosztu ─────────────────────────
+
+const UNIT_STATS_PAGE = 200;
+const UNIT_STATS_MAX_CALLS = 5000;
+
+/**
+ * Średnie tokeny i koszt jednego wywołania na pozycję symulatora i model – z najnowszych wywołań (najwyżej 5000),
+ * konta testowe i prawdziwe razem. Liczone tutaj z listy wywołań; przy większym ruchu warto przenieść do SQL.
+ */
+export async function getAiUnitStats(): Promise<UnitStats> {
+  const db = createServiceClient();
+  const rows: AiCallRow[] = [];
+  let total = 0;
+  do {
+    const { data, error } = await db.rpc('admin_ai_calls', { p_limit: UNIT_STATS_PAGE, p_offset: rows.length });
+    if (error) throw error;
+    const list = data as AiCallList;
+    total = list.total;
+    if (list.rows.length === 0) break;
+    rows.push(...list.rows);
+  } while (rows.length < total && rows.length < UNIT_STATS_MAX_CALLS);
+
+  const itemOf = (r: AiCallRow): SimItem | null => {
+    if (r.function_name === 'plan-weeks') return (r.weeks ?? 1) >= 2 ? 'plan-first' : 'plan-week';
+    return (SIM_ITEMS as readonly string[]).includes(r.function_name) ? (r.function_name as SimItem) : null;
+  };
+
+  const groups = new Map<string, UnitStat>();
+  let planFirst = 0;
+  let planRetries = 0;
+  for (const r of rows) {
+    if (r.function_name === 'plan-weeks') {
+      if (r.attempt > 1) planRetries++;
+      else planFirst++;
+    }
+    const item = itemOf(r);
+    // Wywołanie bez policzonego kosztu (błąd przed odpowiedzią, model spoza cennika) nie mówi nic o cenie.
+    if (!item || r.cost_usd === null || r.input_tokens === null) continue;
+    const key = `${item}|${r.model}`;
+    const g =
+      groups.get(key) ??
+      ({ item, model: r.model, n: 0, avgCostUsd: 0, usage: { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 } } satisfies UnitStat);
+    g.n++;
+    g.avgCostUsd += Number(r.cost_usd);
+    g.usage.inputTokens += r.input_tokens ?? 0;
+    g.usage.outputTokens += r.output_tokens ?? 0;
+    g.usage.cacheReadTokens += r.cache_read_tokens ?? 0;
+    g.usage.cacheWriteTokens += r.cache_write_tokens ?? 0;
+    groups.set(key, g);
+  }
+
+  const stats = [...groups.values()].map((g) => ({
+    ...g,
+    avgCostUsd: g.avgCostUsd / g.n,
+    usage: {
+      inputTokens: Math.round(g.usage.inputTokens / g.n),
+      outputTokens: Math.round(g.usage.outputTokens / g.n),
+      cacheReadTokens: Math.round(g.usage.cacheReadTokens / g.n),
+      cacheWriteTokens: Math.round(g.usage.cacheWriteTokens / g.n),
+    },
+  }));
+
+  return {
+    stats,
+    planRetryRate: planFirst > 0 ? planRetries / planFirst : null,
+    calls: rows.length,
+    from: rows[rows.length - 1]?.created_at ?? null,
+    to: rows[0]?.created_at ?? null,
+  };
 }

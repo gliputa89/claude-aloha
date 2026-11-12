@@ -1,7 +1,7 @@
 import '@/lib/supabase-storage';
 
 import type { Locale } from '@aloha/i18n';
-import type { SessionWeather } from '@aloha/plan-engine';
+import type { SessionWeather, Units } from '@aloha/plan-engine';
 import * as Location from 'expo-location';
 
 import { supabase } from '@/lib/supabase';
@@ -150,13 +150,14 @@ export function pruneSessionPlaces(knownIds: ReadonlySet<string>): SessionPlaces
  */
 export async function fetchSessionWeather(
   locale: Locale,
+  units: Units,
   place: WeatherPlace | null,
   sessionPlaces: SessionPlaces,
 ): Promise<SessionForecast[]> {
   const places = Object.fromEntries(Object.entries(sessionPlaces).map(([id, p]) => [id, { lat: p.lat, lon: p.lon }]));
   const { data, error } = await supabase.functions.invoke<{ sessions: SessionForecast[] }>('session-weather', {
     method: 'POST',
-    body: { ...(place ? { lat: place.lat, lon: place.lon } : {}), places, locale },
+    body: { ...(place ? { lat: place.lat, lon: place.lon } : {}), places, locale, units },
   });
   if (error) throw error;
   return data?.sessions ?? [];

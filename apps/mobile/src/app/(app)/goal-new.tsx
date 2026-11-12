@@ -34,6 +34,7 @@ import { addDays, formatDuration, fromIsoDate, parseDuration, toIsoDate, todayIs
 import { usePlan } from '@/features/plan/plan-provider';
 import { useColors } from '@/hooks/use-colors';
 import { useLocale, useT } from '@/hooks/use-t';
+import { useUnitFormat } from '@/lib/units';
 
 const KIND_TEXT = {
   race: ['goalNew.kindRace', 'goalNew.kindRaceDesc'],
@@ -55,6 +56,8 @@ export default function GoalNewScreen() {
   const t = useT();
   const c = useColors();
   const locale = useLocale();
+  const u = useUnitFormat();
+  const miles = u.units === 'imperial';
   const params = useLocalSearchParams<{ kind?: string; primary?: string }>();
   const { state, primary, secondary, changed } = useGoals();
   const plan = usePlan();
@@ -79,12 +82,16 @@ export default function GoalNewScreen() {
   const [error, setError] = useState<string | null>(null);
 
   const today = todayIso();
+  // Przykład w opisie celu „kilometraż”: 100 km albo 60 mil.
+  const descParams = { n: miles ? 60 : 100, unit: u.unit };
   const role: Role = forcedPrimary ? 'primary' : (roleChoice ?? (kind === 'race' ? 'B' : 'secondary'));
   const timeS = time.trim() ? parseDuration(time) : null;
   const timeInvalid = time.trim() !== '' && timeS === null;
   const sanity = timeS ? timeSanity(distanceM, timeS) : 'ok';
-  const km = Number(kmText.trim().replace(',', '.'));
-  const kmValid = Number.isInteger(km) && km >= 1 && km <= 20000;
+  // Wpis w km albo milach (jak w Profilu); cel w bazie zawsze w pełnych km.
+  const volumeEntry = Number(kmText.trim().replace(',', '.'));
+  const kmValid = Number.isInteger(volumeEntry) && volumeEntry >= 1 && volumeEntry <= 20000;
+  const km = Math.round(u.toMeters(volumeEntry) / 1000);
   const fullSecondary = secondary.length >= 3 && role !== 'primary';
 
   // Realny czas na dystansie w wybranym terminie (reguły – ta sama prognoza co w ankiecie).
@@ -189,7 +196,7 @@ export default function GoalNewScreen() {
                 <Pressable
                   key={k}
                   accessibilityRole="button"
-                  accessibilityLabel={`${t(KIND_TEXT[k][0])}. ${t(KIND_TEXT[k][1])}`}
+                  accessibilityLabel={`${t(KIND_TEXT[k][0])}. ${t(KIND_TEXT[k][1], descParams)}`}
                   onPress={() => {
                     setKind(k);
                     if (k === 'race') setDistanceM(10000);
@@ -204,7 +211,7 @@ export default function GoalNewScreen() {
                   </View>
                   <View style={styles.flex}>
                     <Text weight="bold">{t(KIND_TEXT[k][0])}</Text>
-                    <Text variant="caption">{t(KIND_TEXT[k][1])}</Text>
+                    <Text variant="caption">{t(KIND_TEXT[k][1], descParams)}</Text>
                   </View>
                 </Pressable>
               );
@@ -349,11 +356,11 @@ export default function GoalNewScreen() {
           {kind === 'volume' ? (
             <>
               <TextField
-                label={t('goalNew.kmLabel')}
-                placeholder={t('goalNew.kmPlaceholder')}
+                label={t(miles ? 'goalNew.miLabel' : 'goalNew.kmLabel')}
+                placeholder={t(miles ? 'goalNew.miPlaceholder' : 'goalNew.kmPlaceholder')}
                 value={kmText}
                 onChangeText={setKmText}
-                error={kmText.trim() !== '' && !kmValid ? t('goalNew.kmInvalid') : undefined}
+                error={kmText.trim() !== '' && !kmValid ? t(miles ? 'goalNew.miInvalid' : 'goalNew.kmInvalid') : undefined}
                 keyboardType="number-pad"
                 maxLength={5}
               />

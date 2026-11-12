@@ -2,6 +2,8 @@ import type { Locale, TranslationKey, Translator } from '@aloha/i18n';
 import { consistencyWeeks, type GoalRow, type GoalSpec } from '@aloha/plan-engine';
 
 import { formatDuration, fromIsoDate } from '@/features/onboarding/time';
+import { getUnits } from '@/lib/locale-preference';
+import { unitFormat } from '@/lib/units';
 
 /** Cel do opisu: wiersz z bazy albo specyfikacja (propozycja, formularz) – wspólne pola. */
 export type GoalLike = {
@@ -55,11 +57,11 @@ export function pluralKey(n: number): 'One' | 'Few' | 'Many' {
   return last >= 2 && last <= 4 && !(lastTwo >= 12 && lastTwo <= 14) ? 'Few' : 'Many';
 }
 
-/** Dystans: „5 km”, „Półmaraton”; spoza listy zawodów – kilometry. */
+/** Dystans: „5 km”, „Półmaraton”; spoza listy zawodów – w km albo milach (jak w Profilu). */
 export function distanceLabel(t: Translator, distanceM: number) {
   const key = `onboarding.distance.d${distanceM}` as TranslationKey;
   const text = t(key);
-  return text === key ? `${Math.round(distanceM / 100) / 10} km` : text;
+  return text === key ? unitFormat(getUnits(), 'pl').distance(distanceM) : text;
 }
 
 export function formatDate(locale: Locale, iso: string, withYear = false) {
@@ -97,7 +99,11 @@ export function goalTitle(t: Translator, locale: Locale, g: GoalLike): string {
       return t(`goals.titleConsistency${pluralKey(n)}` as TranslationKey, { n });
     }
     case 'volume':
-      return t('goals.titleVolume', { km: g.volumeKm ?? 0, date: g.periodEnd ? formatDate(locale, g.periodEnd) : '' });
+      return t('goals.titleVolume', {
+        km: unitFormat(getUnits(), locale).number((g.volumeKm ?? 0) * 1000, 0),
+        unit: unitFormat(getUnits(), locale).unit,
+        date: g.periodEnd ? formatDate(locale, g.periodEnd) : '',
+      });
   }
 }
 

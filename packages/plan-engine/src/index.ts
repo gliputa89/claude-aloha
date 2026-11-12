@@ -18,6 +18,7 @@ export * from './ai/ai-prompt.ts';
 export * from './ai/ai-run.ts';
 export * from './ai/ai-config.ts';
 export * from './core/workout.ts';
+export * from './core/units.ts';
 export * from './weather/weather.ts';
 export * from './weather/weather-advice.ts';
 export * from './strava/strava.ts';

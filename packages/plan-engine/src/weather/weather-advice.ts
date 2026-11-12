@@ -9,6 +9,7 @@ import { costUsd, modelPrice } from '../ai/ai-pricing.ts';
 import type { AiPromptConfig } from '../ai/ai-prompt.ts';
 import type { AiCaller, AiLogger, AiModelRequest, AiModelResult, AiStatus } from '../ai/ai-run.ts';
 import { isoWeekday } from '../core/dates.ts';
+import { celsiusToF, kmhToMph, unitsForModel, type Units } from '../core/units.ts';
 import { ENGINE_VERSION } from '../plan/plan.ts';
 import type { SessionWeather } from './weather.ts';
 
@@ -41,11 +42,27 @@ export type WeatherAdviceSession = {
 
 const WEEKDAY = ['', 'poniedziałek', 'wtorek', 'środa', 'czwartek', 'piątek', 'sobota', 'niedziela'];
 
+/** Warunki w najlepszym oknie – w °F i mph, gdy biegacz liczy w milach (model nie musi przeliczać). */
+function atWindow(w: SessionWeather, units: Units) {
+  const common = { condition: w.condition, precipProb: w.precipProb, pm25: w.pm25, daylight: w.isDay };
+  return units === 'imperial'
+    ? { ...common, tempF: celsiusToF(w.tempC), feelsF: celsiusToF(w.feelsC), windMph: kmhToMph(w.windKmh) }
+    : { ...common, tempC: w.tempC, feelsC: w.feelsC, windKmh: w.windKmh };
+}
+
 /** Wiadomość użytkownika (JSON): bieżący czas w miejscu prognozy i treningi z wynikiem reguł. */
-export function weatherAdviceUserMessage(m: { locale: string; today: string; nowHour: number; sessions: WeatherAdviceSession[] }): string {
+export function weatherAdviceUserMessage(m: {
+  locale: string;
+  units?: Units;
+  today: string;
+  nowHour: number;
+  sessions: WeatherAdviceSession[];
+}): string {
+  const units = m.units ?? 'metric';
   return JSON.stringify(
     {
       locale: m.locale,
+      ...unitsForModel(units),
       today: m.today,
       now: `${String(m.nowHour).padStart(2, '0')}:00`,
       sessions: m.sessions.map((s) => ({
@@ -58,15 +75,7 @@ export function weatherAdviceUserMessage(m: { locale: string; today: string; now
         window: s.weather.window,
         allDay: s.weather.allDay,
         quality: s.weather.quality,
-        atWindow: {
-          condition: s.weather.condition,
-          tempC: s.weather.tempC,
-          feelsC: s.weather.feelsC,
-          precipProb: s.weather.precipProb,
-          windKmh: s.weather.windKmh,
-          pm25: s.weather.pm25,
-          daylight: s.weather.isDay,
-        },
+        atWindow: atWindow(s.weather, units),
         flags: s.weather.flags,
         avoid: s.weather.avoid,
       })),
@@ -95,6 +104,8 @@ export function parseWeatherAdvice(json: unknown, dates: string[]): Record<strin
 export type WeatherAdviceOptions = {
   sessions: WeatherAdviceSession[];
   locale: string;
+  /** Jednostki biegacza (domyślnie metryczne). */
+  units?: Units;
   /** Dzisiejsza data i godzina w miejscu prognozy. */
   today: string;
   nowHour: number;

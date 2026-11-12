@@ -21,6 +21,7 @@ import { useState, type ComponentType } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { font, radius, space } from '@/constants/theme';
 import type { PlanSession } from '@/features/plan/api';
@@ -28,6 +29,8 @@ import type { SessionForecast } from '@/features/weather/api';
 import { useSessionForecast, useSessionPlace, useWeather } from '@/features/weather/weather-provider';
 import { useColors } from '@/hooks/use-colors';
 import { useT } from '@/hooks/use-t';
+import { useUnitFormat } from '@/lib/units';
+import { useWeatherVisible } from '@/lib/weather-preference';
 
 const DAY_ICON: Record<WeatherCondition, ComponentType<IconProps>> = {
   clear: Sun,
@@ -55,11 +58,17 @@ function useFallbackAdvice(f: SessionForecast, race: boolean) {
 /**
  * Pogoda do treningu: warunki w najlepszym oknie, pora, parę słów od trenera i pory do unikania.
  * Nic nie renderuje, gdy pogody nie ma (brak zgody na lokalizację, sieci albo prognozy na ten dzień).
+ * Dopóki pierwsze wczytanie trwa – spokojny zarys karty, żeby treść pod spodem nie przeskakiwała.
  */
 export function WeatherCard({ session, credit = false }: { session: PlanSession; credit?: boolean }) {
   const forecast = useSessionForecast(session.id);
   const place = useSessionPlace(session.id);
-  return forecast ? (
+  const { settled } = useWeather();
+  // Pogoda ukryta w Profilu – ani karty, ani jej zarysu.
+  const visible = useWeatherVisible();
+  if (!visible) return null;
+  if (!forecast) return settled ? null : <WeatherCardSkeleton />;
+  return (
     <WeatherCardView
       forecast={forecast}
       race={session.type === 'race'}
@@ -67,7 +76,28 @@ export function WeatherCard({ session, credit = false }: { session: PlanSession;
       place={place?.name ?? null}
       onChangePlace={() => router.push({ pathname: '/weather-location', params: { sessionId: session.id } })}
     />
-  ) : null;
+  );
+}
+
+/** Zarys karty pogody na czas wczytywania – układ jak w gotowej karcie. */
+function WeatherCardSkeleton() {
+  const c = useColors();
+  return (
+    <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]} accessible={false}>
+      <View style={styles.row}>
+        <View style={[styles.icon, { backgroundColor: c.surfaceBrandSoft }]} />
+        <View style={[styles.flex, styles.skeletonLines]}>
+          <Skeleton width="70%" height={space[4]} />
+          <Skeleton width="40%" />
+        </View>
+      </View>
+      <Skeleton width="55%" />
+      <View style={styles.skeletonLines}>
+        <Skeleton />
+        <Skeleton width="80%" />
+      </View>
+    </View>
+  );
 }
 
 type WeatherCardViewProps = {
@@ -86,6 +116,7 @@ type WeatherCardViewProps = {
 export function WeatherCardView({ forecast: f, race = false, credit = false, place = null, onChangePlace }: WeatherCardViewProps) {
   const c = useColors();
   const t = useT();
+  const u = useUnitFormat();
   const fallback = useFallbackAdvice(f, race);
   const advice = f.advice ?? fallback;
 
@@ -98,17 +129,18 @@ export function WeatherCardView({ forecast: f, race = false, credit = false, pla
         ? t('weather.anytime')
         : t('weather.best', f.window);
   const condition = t(`weather.condition.${f.condition}`);
-  const feels = Math.abs(f.feelsC - f.tempC) >= 2 ? t('weather.feels', { n: f.feelsC }) : null;
+  const feels = Math.abs(f.feelsC - f.tempC) >= 2 ? t('weather.feels', { n: u.temp(f.feelsC) }) : null;
+  const wind = { n: u.speed(f.windKmh), unit: u.speedUnit };
   const metrics = [
     {
       Icon: Thermometer,
-      value: [t('weather.temp', { n: f.tempC }), feels].filter(Boolean).join(' · '),
-      label: [t('weather.a11yTemp', { n: f.tempC }), feels].filter(Boolean).join(', '),
+      value: [t('weather.temp', { n: u.temp(f.tempC) }), feels].filter(Boolean).join(' · '),
+      label: [t('weather.a11yTemp', { n: u.temp(f.tempC) }), feels].filter(Boolean).join(', '),
     },
     f.precipProb !== null
       ? { Icon: Drop, value: t('weather.percent', { n: f.precipProb }), label: t('weather.a11yPrecip', { n: f.precipProb }) }
       : null,
-    { Icon: Wind, value: t('weather.kmh', { n: f.windKmh }), label: t('weather.a11yWind', { n: f.windKmh }) },
+    { Icon: Wind, value: t('weather.speed', wind), label: t('weather.a11yWind', wind) },
   ].filter((m) => m !== null);
 
   return (
@@ -186,7 +218,8 @@ export function WeatherPrompt() {
   const t = useT();
   const { access, place, enable } = useWeather();
   const [asking, setAsking] = useState(false);
-  if (place || access === null || access === 'granted') return null;
+  const visible = useWeatherVisible();
+  if (!visible || place || access === null || access === 'granted') return null;
   const canAsk = access === 'undetermined';
 
   return (
@@ -207,8 +240,10 @@ export function WeatherPrompt() {
           loading={asking}
           onPress={async () => {
             setAsking(true);
-            await enable();
+            const answer = await enable();
             setAsking(false);
+            // Bez zgody na lokalizację pogoda i tak może działać – od razu pytamy o miejscowość.
+            if (answer !== 'granted') router.push('/weather-location');
           }}
         />
       ) : null}
@@ -223,6 +258,7 @@ export function WeatherPrompt() {
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
+  skeletonLines: { gap: space[2] },
   headline: { fontSize: font.size.md, lineHeight: 21 },
   small: { fontSize: font.size.xs, lineHeight: 17 },
   card: { gap: space[3], padding: space[4], borderRadius: radius.card, borderWidth: 1.5 },

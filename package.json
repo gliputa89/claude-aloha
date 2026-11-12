@@ -20,6 +20,8 @@
     "db:push:staging": "scripts/db-push.sh staging",
     "db:push:prod": "scripts/db-push.sh prod",
     "db:ci-setup": "scripts/ci-db-secrets.sh",
+    "review-user": "node scripts/create-review-user.mjs",
+    "eas-env:prod": "scripts/eas-env-prod.sh",
     "db:types": "supabase gen types typescript --local > packages/db/src/database.types.ts"
   },
   "devDependencies": {

@@ -202,10 +202,3 @@ export async function disconnectStrava(): Promise<boolean> {
 }
 
 export const stravaActivityUrl = (id: number) => `https://www.strava.com/activities/${id}`;
-
-/** Tempo `m:ss` na kilometr; null, gdy nie ma z czego policzyć. */
-export function paceMinPerKm(distanceM: number | null, durationS: number | null) {
-  if (!distanceM || !durationS) return null;
-  const s = Math.round(durationS / (distanceM / 1000));
-  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
-}

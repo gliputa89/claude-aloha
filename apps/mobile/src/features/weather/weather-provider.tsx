@@ -19,6 +19,8 @@ import {
   type WeatherPlace,
 } from '@/features/weather/api';
 import { useLocale } from '@/hooks/use-t';
+import { useUnits } from '@/lib/locale-preference';
+import { useWeatherVisible } from '@/lib/weather-preference';
 
 /** Po powrocie do aplikacji odświeżamy pogodę, jeśli ostatnia jest starsza niż tyle. */
 const STALE_MS = 30 * 60 * 1000;
@@ -32,8 +34,10 @@ type WeatherContextValue = {
   sessionPlaces: SessionPlaces;
   /** Pogoda wg id treningu; pusta, gdy brak miejsca, sieci albo prognozy. */
   bySession: ReadonlyMap<string, SessionForecast>;
-  /** Pyta o lokalizację telefonu i od razu wczytuje pogodę. */
-  enable: () => Promise<void>;
+  /** Pierwsze wczytanie po starcie już się skończyło (z pogodą albo bez) – do tego czasu karty mają stan ładowania. */
+  settled: boolean;
+  /** Pyta o lokalizację telefonu i od razu wczytuje pogodę. Zwraca odpowiedź – przy odmowie pytamy o miejscowość. */
+  enable: () => Promise<LocationAccess>;
   /** Ponowne wczytanie (np. pociągnięcie w dół). */
   refresh: () => Promise<void>;
   /**
@@ -55,7 +59,8 @@ const WeatherContext = createContext<WeatherContextValue>({
   place: null,
   sessionPlaces: {},
   bySession: EMPTY,
-  enable: async () => {},
+  settled: false,
+  enable: async (): Promise<LocationAccess> => 'denied',
   refresh: async () => {},
   setCustomPlace: async () => false,
   switchToDeviceLocation: async () => false,
@@ -69,11 +74,14 @@ const WeatherContext = createContext<WeatherContextValue>({
  */
 export function WeatherProvider({ children }: PropsWithChildren) {
   const locale = useLocale();
+  // Porada od trenera pisze o °F i mph albo °C i km/h – po zmianie jednostek wczytujemy od nowa.
+  const units = useUnits();
   const { state } = usePlan();
   const [access, setAccess] = useState<LocationAccess | null>(null);
   const [place, setPlace] = useState<WeatherPlace | null>(getSavedPlace);
   const [sessionPlaces, setSessionPlaces] = useState<SessionPlaces>(getSessionPlaces);
   const [bySession, setBySession] = useState<ReadonlyMap<string, SessionForecast>>(EMPTY);
+  const [settled, setSettled] = useState(false);
   const loadedAt = useRef(0);
   const lastAccess = useRef<LocationAccess | null>(null);
   /** Numer ostatniego wczytania – wynik starszego (np. sprzed zmiany miejsca) jest pomijany. */
@@ -93,21 +101,31 @@ export function WeatherProvider({ children }: PropsWithChildren) {
         setBySession(EMPTY);
         return;
       }
-      const list = await fetchSessionWeather(locale, where, places);
+      const list = await fetchSessionWeather(locale, units, where, places);
       if (id !== run.current) return;
       loadedAt.current = Date.now();
       setBySession(new Map(list.map((f) => [f.sessionId, f])));
     } catch {
       // Pogoda to dodatek – zostaje to, co było.
+    } finally {
+      // Wynik starszego wczytania pomijamy – stan zamknie to nowsze.
+      if (id === run.current) setSettled(true);
     }
-  }, [locale]);
+  }, [locale, units]);
 
   // Plan gotowy (albo zmieniony) → sprzątamy miejsca treningów spoza planu, sprawdzamy zgodę i wczytujemy pogodę.
   // Samo sprawdzenie zgody o nic nie pyta.
   const plan = state.kind === 'ready' ? state.plan : null;
   const planKey = plan ? `${plan.id}:${plan.weeks.length}` : null;
+  // Pogoda ukryta w Profilu: niczego nie pobieramy (ani lokalizacji, ani prognozy) i czyścimy to, co było.
+  const visible = useWeatherVisible();
   useEffect(() => {
     if (!plan) return;
+    if (!visible) {
+      // Unieważnia wczytanie w toku; to, co już jest w stanie, i tak nie trafia do ekranów (patrz wartość kontekstu).
+      run.current++;
+      return;
+    }
     let active = true;
     const places = pruneSessionPlaces(new Set(allSessions(plan).map((s) => s.id)));
     getLocationAccess()
@@ -117,17 +135,18 @@ export function WeatherProvider({ children }: PropsWithChildren) {
         lastAccess.current = a;
         setAccess(a);
         if (a === 'granted' || getSavedPlace() || Object.keys(places).length > 0) load();
+        else setSettled(true);
       });
     return () => {
       active = false;
     };
     // `plan` zmienia tożsamość przy każdym odświeżeniu – reagujemy tylko na inny plan / nowy tydzień.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [planKey, load]);
+  }, [planKey, load, visible]);
 
   // Powrót do aplikacji: zgoda mogła się zmienić w Ustawieniach, a prognoza zestarzeć.
   useEffect(() => {
-    if (!planKey) return;
+    if (!planKey || !visible) return;
     const sub = AppState.addEventListener('change', (next) => {
       if (next !== 'active') return;
       getLocationAccess()
@@ -141,7 +160,7 @@ export function WeatherProvider({ children }: PropsWithChildren) {
         });
     });
     return () => sub.remove();
-  }, [planKey, load]);
+  }, [planKey, load, visible]);
 
   const enable = useCallback(async () => {
     try {
@@ -149,8 +168,10 @@ export function WeatherProvider({ children }: PropsWithChildren) {
       lastAccess.current = a;
       setAccess(a);
       if (a === 'granted') await load();
+      return a;
     } catch {
       setAccess('denied');
+      return 'denied' as const;
     }
   }, [load]);
 
@@ -188,7 +209,19 @@ export function WeatherProvider({ children }: PropsWithChildren) {
   );
 
   return (
-    <WeatherContext value={{ access, place, sessionPlaces, bySession, enable, refresh, setCustomPlace, switchToDeviceLocation }}>
+    <WeatherContext
+      value={{
+        access,
+        place,
+        sessionPlaces,
+        // Ukryta pogoda = brak prognoz dla ekranów i nic do „wczytywania”.
+        bySession: visible ? bySession : EMPTY,
+        settled: visible ? settled : true,
+        enable,
+        refresh,
+        setCustomPlace,
+        switchToDeviceLocation,
+      }}>
       {children}
     </WeatherContext>
   );

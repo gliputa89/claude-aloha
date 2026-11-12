@@ -9,7 +9,8 @@ import { AI_SESSION_TYPES, applyOperations, type AiOperation, type AiSessionType
 import { costUsd, modelPrice } from '../ai/ai-pricing.ts';
 import type { AiPromptConfig } from '../ai/ai-prompt.ts';
 import type { AiCaller, AiLogger, AiMessage, AiModelRequest, AiModelResult, AiStatus } from '../ai/ai-run.ts';
-import { noteActual } from '../coach/review-note.ts';
+import { noteActual, type NoteActual } from '../coach/review-note.ts';
+import { parseUnits, unitsNote, type Units } from '../core/units.ts';
 import { addDaysIso, isoWeekday } from '../core/dates.ts';
 import { describeSteps, stepsOf } from '../core/workout.ts';
 import { ENGINE_VERSION, type PlanInput, type PlannedSession, type PlannedWeek } from '../plan/plan.ts';
@@ -85,6 +86,9 @@ export type ChatSessionContext = {
 
 export type CoachChatContext = {
   locale: string;
+  /** Jednostki biegacza i instrukcja dla modelu, w czym pisać dystans, tempo i temperaturę. */
+  units: Units;
+  unitsNote: string;
   today: string;
   weekday: number;
   athlete: { level: string | null; goal: string | null };
@@ -97,7 +101,7 @@ export type CoachChatContext = {
     durationMin: number | null;
     steps: string;
     phase: 'before' | 'after';
-    actual: { distanceKm: number | null; durationMin: number | null; pace: string | null } | null;
+    actual: NoteActual | null;
     verdict: ReviewVerdict | null;
     facts: ReviewFact[];
     coachNote: string | null;
@@ -107,6 +111,8 @@ export type CoachChatContext = {
 /** Wiersze z bazy potrzebne do kontekstu rozmowy (te same w Edge Function i w testerze w panelu). */
 export type ChatContextRows = {
   locale: string | null;
+  /** `profiles.units` – metric albo imperial; brak = metryczne. */
+  units?: string | null;
   level: string | null;
   goal: { type: string; general_focus: string | null; distance_m: number | null; race_date: string | null } | null;
   weeks: {
@@ -149,8 +155,11 @@ export function chatContextFromRows(rows: ChatContextRows): CoachChatContext {
   for (let d = today; d <= to && d <= lastDay; d = addDaysIso(d, 1)) if (!taken.has(d)) freeDays.push(d);
 
   const focusReview = focus ? reviewOf.get(focus.id) : undefined;
+  const units = parseUnits(rows.units);
   return {
     locale: rows.locale ?? 'pl',
+    units,
+    unitsNote: unitsNote(units),
     today,
     weekday: isoWeekday(today),
     athlete: {
@@ -177,7 +186,7 @@ export function chatContextFromRows(rows: ChatContextRows): CoachChatContext {
           durationMin: focus.duration_min,
           steps: describeSteps(stepsOf(focus)),
           phase: focus.status === 'planned' ? 'before' : 'after',
-          actual: focus.status === 'planned' ? null : noteActual(focus.actual_distance_m, focus.actual_duration_s),
+          actual: focus.status === 'planned' ? null : noteActual(focus.actual_distance_m, focus.actual_duration_s, units),
           verdict: focusReview?.verdict ?? null,
           facts: focusReview?.facts ?? [],
           coachNote: focusReview?.note ?? null,

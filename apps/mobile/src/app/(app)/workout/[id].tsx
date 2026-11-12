@@ -1,4 +1,4 @@
-import { estimateDistanceM, formatApproxKm, stepsOf } from '@aloha/plan-engine';
+import { estimateDistanceM, stepsOf } from '@aloha/plan-engine';
 import { openURL } from 'expo-linking';
 import { router, useLocalSearchParams } from 'expo-router';
 import {
@@ -34,9 +34,10 @@ import { isReviewNew, markReviewSeen, type PlanSession } from '@/features/plan/a
 import { useModule } from '@/features/modules/use-module';
 import { useCoachTip } from '@/features/plan/coach-tips';
 import { allSessions, usePlan } from '@/features/plan/plan-provider';
-import { paceMinPerKm, stravaActivityUrl } from '@/features/strava/api';
+import { stravaActivityUrl } from '@/features/strava/api';
 import { useColors } from '@/hooks/use-colors';
 import { useLocale, useT } from '@/hooks/use-t';
+import { useUnitFormat } from '@/lib/units';
 import { sessionTitleKey } from '@/features/plan/session-title';
 
 const TYPE_ICON: Record<PlanSession['type'], ComponentType<IconProps>> = {
@@ -97,6 +98,7 @@ function Detail({ session }: { session: PlanSession }) {
   const c = useColors();
   const t = useT();
   const locale = useLocale();
+  const u = useUnitFormat();
   const reduced = useReducedMotion();
   const detail = useDetail(session);
   const tip = useCoachTip(session);
@@ -129,12 +131,11 @@ function Detail({ session }: { session: PlanSession }) {
   const custom = 'custom' in session.structure && session.structure.custom === true;
   const steps = session.type === 'rest' ? [] : stepsOf(session);
   const hasSteps = steps.length > 0;
-  const km = (m: number) =>
-    `${(m / 1000).toLocaleString(locale === 'en' ? 'en-GB' : 'pl-PL', { maximumFractionDigits: 1 })} km`;
+  const km = (m: number) => u.distance(m);
   const distance = session.distance_m
     ? km(session.distance_m)
     : session.duration_min && hasSteps
-      ? formatApproxKm(estimateDistanceM(steps), locale === 'en' ? 'en' : 'pl')
+      ? u.approxDistance(estimateDistanceM(steps))
       : null;
 
   const stats = [
@@ -148,13 +149,13 @@ function Detail({ session }: { session: PlanSession }) {
   ].filter((s): s is { label: string; value: string } => s !== null);
 
   const completed = session.status === 'done' || session.status === 'partial';
-  const pace = paceMinPerKm(session.actual_distance_m, session.actual_duration_s);
+  const pace = u.paceOf(session.actual_distance_m, session.actual_duration_s);
   const actual = [
     session.actual_distance_m ? { label: t('workoutDetail.distance'), value: km(session.actual_distance_m * counted) } : null,
     session.actual_duration_s
       ? { label: t('workoutDetail.duration'), value: formatDuration(Math.round(session.actual_duration_s * counted)) }
       : null,
-    pace ? { label: t('workoutDetail.pace'), value: t('workoutDetail.paceValue', { pace }) } : null,
+    pace ? { label: t('workoutDetail.pace'), value: t('workoutDetail.paceValue', { pace, unit: u.paceUnit }) } : null,
   ].filter((s): s is { label: string; value: string } => s !== null);
   const lastActivity = session.activities.at(-1);
 

@@ -22,6 +22,7 @@ import {
   addDaysIso,
   assessSession,
   hoursFromOpenMeteo,
+  parseUnits,
   promptFromRow,
   weatherAdviceWithAi,
   weatherKey,
@@ -131,9 +132,21 @@ async function fetchForecast(lat: number, lon: number): Promise<{ hours: HourFor
   };
 }
 
-const toResponse = (rows: { session_id: string; forecast: SessionWeather; advice: string | null; advice_locale: string | null }[], locale: string) =>
+/**
+ * Klucz porady: wynik reguł + jednostki, w których powstała (w milach pisze o °F i mph).
+ * Porady sprzed jednostek mają sam klucz reguł – to te metryczne.
+ */
+const adviceKeyOf = (forecastKey: string, units: string) => (units === 'imperial' ? `${forecastKey}|imperial` : forecastKey);
+const adviceUnits = (adviceKey: string | null) => (adviceKey?.endsWith('|imperial') ? 'imperial' : 'metric');
+
+type AdviceRow = { session_id: string; forecast: SessionWeather; advice: string | null; advice_locale: string | null; advice_key: string | null };
+
+/** Porada pasuje, gdy powstała w tym języku i w tych jednostkach – inną aplikacja zastępuje tekstem ze słownika. */
+const adviceFits = (r: AdviceRow, locale: string, units: string) => r.advice_locale === locale && adviceUnits(r.advice_key) === units;
+
+const toResponse = (rows: AdviceRow[], locale: string, units: string) =>
   rows
-    .map((r) => ({ sessionId: r.session_id, ...r.forecast, advice: r.advice_locale === locale ? r.advice : null }))
+    .map((r) => ({ sessionId: r.session_id, ...r.forecast, advice: adviceFits(r, locale, units) ? r.advice : null }))
     .sort((a, b) => a.date.localeCompare(b.date));
 
 Deno.serve(async (req) => {
@@ -162,6 +175,7 @@ Deno.serve(async (req) => {
   const places: Record<string, unknown> = typeof body?.places === 'object' && body.places !== null ? body.places : {};
   if (!defaultGrid && Object.keys(places).length === 0) return json({ error: 'invalid_location' }, 400);
   const locale = body?.locale === 'en' ? 'en' : 'pl';
+  const units = parseUnits(body?.units);
 
   // Pakiet bez modułu „Pogoda”: pusta odpowiedź – aplikacja po prostu nie pokaże kart pogody.
   if (!(await userModules(db, userId)).has('weather')) return json({ sessions: [], cached: true });
@@ -208,7 +222,10 @@ Deno.serve(async (req) => {
     // Inne miejsce niż w zapisie = biegacz właśnie je zmienił – pobieramy od razu, bez limitu.
     if (!r || !sameGrid(r, u.grid) || r.forecast.date !== u.session.scheduled_on) return null;
     const today = u.session.scheduled_on === profileNow.today;
-    return age(r) < MIN_INTERVAL_MS || age(r) < (today ? FRESH_TODAY_MS : FRESH_MS) ? r : null;
+    if (age(r) < MIN_INTERVAL_MS) return r;
+    // Porada w innym języku albo innych jednostkach (zmiana w Profilu) – napiszemy nową, ale nie częściej niż co MIN_INTERVAL.
+    if (r.advice && !adviceFits(r, locale, units)) return null;
+    return age(r) < (today ? FRESH_TODAY_MS : FRESH_MS) ? r : null;
   };
   const stale = upcoming.filter((u) => {
     const day = u.session.scheduled_on;
@@ -222,7 +239,7 @@ Deno.serve(async (req) => {
       .filter((u) => !stale.includes(u))
       .map((u) => cached.get(u.session.id))
       .filter((r): r is WeatherRow => r !== undefined && r.forecast.date >= profileNow.today);
-  if (stale.length === 0) return json({ sessions: toResponse(fromCache(), locale), cached: true });
+  if (stale.length === 0) return json({ sessions: toResponse(fromCache(), locale, units), cached: true });
 
   // Jedno zapytanie o prognozę na miejsce (zwykle jedno; najwyżej kilka, gdy treningi są w różnych miejscach).
   const groups = new Map<string, { grid: Grid; items: typeof stale }>();
@@ -266,10 +283,10 @@ Deno.serve(async (req) => {
       else if (cached.has(s.id)) gone.push(s.id);
     }
 
-    // Porada od AI tylko tam, gdzie wynik reguł albo język się zmienił – reszta zostaje z poprzedniego razu.
+    // Porada od AI tylko tam, gdzie wynik reguł, język albo jednostki się zmieniły – reszta zostaje z poprzedniego razu.
     const kept = (a: (typeof assessed)[number]) => {
       const r = cached.get(a.session.id);
-      return r && r.advice && r.advice_key === a.key && r.advice_locale === locale ? r.advice : null;
+      return r && r.advice && r.advice_key === adviceKeyOf(a.key, units) && r.advice_locale === locale ? r.advice : null;
     };
     const needAdvice = assessed.filter((a) => !kept(a));
     let advice: Record<string, string> = {};
@@ -284,6 +301,7 @@ Deno.serve(async (req) => {
           weather: a.weather,
         })),
         locale,
+        units,
         today: now.today,
         nowHour: now.hour,
         prompt: promptFromRow('weather-advice', promptRes.data),
@@ -307,7 +325,7 @@ Deno.serve(async (req) => {
         forecast_key: a.key,
         advice: text,
         advice_locale: text ? locale : null,
-        advice_key: text ? a.key : null,
+        advice_key: text ? adviceKeyOf(a.key, units) : null,
         lat_grid: group.grid.lat,
         lon_grid: group.grid.lon,
         fetched_at: fetchedAt,
@@ -329,5 +347,5 @@ Deno.serve(async (req) => {
     if (error) console.error('session_weather cleanup failed', error.code, error.message);
   }
 
-  return json({ sessions: toResponse([...rest, ...toSave], locale), cached: false });
+  return json({ sessions: toResponse([...rest, ...toSave], locale, units), cached: false });
 });

@@ -41,7 +41,7 @@ export async function loadPlan(db: SupabaseClient, userId: string) {
   const [profile, goals, availability, plan, config] = await Promise.all([
     db
       .from('profiles')
-      .select('level, locale, timezone, has_contraindications, recent_result_distance_m, recent_result_time_s, training_level')
+      .select('level, locale, units, timezone, has_contraindications, recent_result_distance_m, recent_result_time_s, training_level')
       .eq('id', userId)
       .maybeSingle(),
     db.from('goals').select(`type, general_focus, ${GOAL_COLUMNS}`).eq('user_id', userId).eq('status', 'active'),

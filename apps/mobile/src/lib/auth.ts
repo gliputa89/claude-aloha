@@ -277,6 +277,25 @@ export function exchangeCode(code: string) {
   });
 }
 
+const SYNCED_KEY = 'aloha.account-preferences';
+
+/**
+ * Język i jednostki z telefonu → konto (`profiles.locale`, `profiles.units`): w nich serwer pisze plan,
+ * notki, porady i odpowiedzi trenera. Zapisujemy tylko wtedy, gdy różnią się od ostatnio zapisanych
+ * dla tego konta; nieudany zapis ponowi się przy następnej okazji.
+ */
+export async function syncAccountPreferences(userId: string, locale: 'pl' | 'en', units: 'metric' | 'imperial') {
+  if (!isSupabaseConfigured) return;
+  const key = `${userId}|${locale}|${units}`;
+  try {
+    if (typeof localStorage !== 'undefined' && localStorage.getItem(SYNCED_KEY) === key) return;
+    const { error } = await supabase.from('profiles').update({ locale, units }).eq('id', userId);
+    if (!error && typeof localStorage !== 'undefined') localStorage.setItem(SYNCED_KEY, key);
+  } catch {
+    // Bez sieci – spróbujemy przy następnym uruchomieniu albo zmianie.
+  }
+}
+
 export async function signOut() {
   await supabase.auth.signOut();
   // Bez tego Google przy następnym logowaniu od razu wybrałby to samo konto.

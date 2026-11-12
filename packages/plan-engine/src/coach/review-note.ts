@@ -8,6 +8,7 @@
 import { costUsd, modelPrice } from '../ai/ai-pricing.ts';
 import type { AiFunctionName, AiPromptConfig } from '../ai/ai-prompt.ts';
 import type { AiCaller, AiLogger, AiModelRequest, AiModelResult, AiStatus } from '../ai/ai-run.ts';
+import { KM_PER_MILE, perKmToPerMile, unitsForModel, type Units } from '../core/units.ts';
 import { ENGINE_VERSION } from '../plan/plan.ts';
 import type { ReviewFact, ReviewVerdict, WorkoutReview } from '../review/review.ts';
 
@@ -24,6 +25,8 @@ export const WORKOUT_NOTE_SCHEMA = {
 
 export type WorkoutNoteContext = {
   locale: string;
+  /** Jednostki biegacza (domyślnie metryczne) – w nich model pisze notkę. */
+  units?: Units;
   workout: {
     type: string;
     /** Dzień tygodnia z planu, 1 = poniedziałek. */
@@ -38,7 +41,7 @@ export type WorkoutNoteContext = {
     doneDaysAgo: number;
   };
   /** Wykonanie już zaokrąglone tak, jak pokazuje je aplikacja – model nie przelicza i nie przepisuje surowych metrów. */
-  actual: { distanceKm: number | null; durationMin: number | null; pace: string | null };
+  actual: NoteActual;
   review: WorkoutReview;
   /** Poprzedni oceniony trening tego samego typu – do porównania. */
   previousSameType: { date: string; verdict: ReviewVerdict; facts: ReviewFact[] } | null;
@@ -53,17 +56,43 @@ export type WorkoutNoteContext = {
 /** Klucz oceny, do której powstała notka – zmiana werdyktu albo faktów = nowa notka. */
 export const workoutNoteKey = (review: WorkoutReview) => JSON.stringify([review.verdict, review.facts.map((f) => [f.code, f.values])]);
 
-/** Wykonanie do kontekstu notki: kilometry z jednym miejscem po przecinku, pełne minuty, tempo `m:ss`. */
-export function noteActual(distanceM: number | null, durationS: number | null): WorkoutNoteContext['actual'] {
+/** Wykonanie w jednostkach biegacza: km (tempo na km) albo mile (tempo na milę). */
+export type NoteActual =
+  | { distanceKm: number | null; durationMin: number | null; pace: string | null }
+  | { distanceMi: number | null; durationMin: number | null; pacePerMile: string | null };
+
+const mmss = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+
+/** Wykonanie do kontekstu notki: dystans z jednym miejscem po przecinku, pełne minuty, tempo `m:ss`. */
+export function noteActual(distanceM: number | null, durationS: number | null, units: Units = 'metric'): NoteActual {
+  const durationMin = durationS ? Math.round(durationS / 60) : null;
+  if (units === 'imperial') {
+    const miles = distanceM ? distanceM / 1000 / KM_PER_MILE : null;
+    const pace = miles && durationS ? Math.round(durationS / miles) : null;
+    return { distanceMi: miles ? Math.round(miles * 10) / 10 : null, durationMin, pacePerMile: pace ? mmss(pace) : null };
+  }
   const pace = distanceM && durationS ? Math.round(durationS / (distanceM / 1000)) : null;
-  return {
-    distanceKm: distanceM ? Math.round(distanceM / 100) / 10 : null,
-    durationMin: durationS ? Math.round(durationS / 60) : null,
-    pace: pace ? `${Math.floor(pace / 60)}:${String(pace % 60).padStart(2, '0')}` : null,
-  };
+  return { distanceKm: distanceM ? Math.round(distanceM / 100) / 10 : null, durationMin, pace: pace ? mmss(pace) : null };
 }
 
-export const workoutNoteUserMessage = (ctx: WorkoutNoteContext) => JSON.stringify(ctx, null, 2);
+/** Fakty oceny w jednostkach biegacza: różnice tempa `s` w s/mi zamiast s/km. */
+const factsIn = (facts: ReviewFact[], units: Units): ReviewFact[] =>
+  units === 'imperial' ? facts.map((f) => ('s' in f.values ? { ...f, values: { ...f.values, s: perKmToPerMile(f.values.s!) } } : f)) : facts;
+
+export const workoutNoteUserMessage = ({ units = 'metric', ...ctx }: WorkoutNoteContext) =>
+  JSON.stringify(
+    {
+      ...ctx,
+      ...unitsForModel(units),
+      ...(units === 'imperial'
+        ? { factsNote: 'W review.facts i previousSameType.facts wartość s jest już w sekundach na milę (s/mi).' }
+        : {}),
+      review: { ...ctx.review, facts: factsIn(ctx.review.facts, units) },
+      previousSameType: ctx.previousSameType ? { ...ctx.previousSameType, facts: factsIn(ctx.previousSameType.facts, units) } : null,
+    },
+    null,
+    2,
+  );
 
 /** Odpowiedź modelu → notka. Pusta, za krótka, za długa albo powtórzona słowo w słowo = brak notki. */
 export function parseWorkoutNote(json: unknown, previousNotes: string[], maxLength: number = WORKOUT_NOTE_MAX_LENGTH): string | null {
@@ -230,7 +259,7 @@ function allowedNumbers(ctx: WorkoutNoteContext): Set<string> {
     out.add(Math.abs(n).toFixed(1).replace('.', ','));
     out.add(Math.abs(n).toFixed(2).replace('.', ','));
   };
-  for (const f of ctx.review.facts) for (const v of Object.values(f.values)) add(v);
+  for (const f of factsIn(ctx.review.facts, ctx.units ?? 'metric')) for (const v of Object.values(f.values)) add(v);
   add(ctx.workout.plannedMin);
   add(ctx.workout.shiftedDays);
   add(ctx.workout.doneDaysAgo);
@@ -238,9 +267,10 @@ function allowedNumbers(ctx: WorkoutNoteContext): Set<string> {
   add(ctx.recent.done);
   add(ctx.next?.inDays);
   for (const n of ctx.workout.steps.match(/\d+/g) ?? []) out.add(n);
-  add(ctx.actual.distanceKm);
-  add(ctx.actual.durationMin);
-  for (const n of ctx.actual.pace?.split(':') ?? []) {
+  const actual = ctx.actual;
+  add('distanceKm' in actual ? actual.distanceKm : actual.distanceMi);
+  add(actual.durationMin);
+  for (const n of ('pace' in actual ? actual.pace : actual.pacePerMile)?.split(':') ?? []) {
     out.add(n);
     out.add(String(Number(n)));
   }

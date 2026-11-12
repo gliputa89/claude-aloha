@@ -1,6 +1,6 @@
 import Constants from 'expo-constants';
 import { router } from 'expo-router';
-import { CaretRight, Heart, Heartbeat, Lightning, MapPin, Smiley, Watch, type IconProps } from 'phosphor-react-native';
+import { CaretRight, CloudSun, Heart, Heartbeat, Lightning, MapPin, Smiley, Watch, type IconProps } from 'phosphor-react-native';
 import { useEffect, useState, type ComponentType } from 'react';
 import { ActivityIndicator, Alert, Platform, Pressable, StyleSheet, Switch, View } from 'react-native';
 
@@ -15,9 +15,11 @@ import { useModule } from '@/features/modules/use-module';
 import { usePlan } from '@/features/plan/plan-provider';
 import { connectStrava, disconnectStrava, fetchRecentStravaRuns, fetchStravaStatus, type StravaStatus } from '@/features/strava/api';
 import { useWeather } from '@/features/weather/weather-provider';
+import { setWeatherHidden, useWeatherVisible } from '@/lib/weather-preference';
 import { useColors } from '@/hooks/use-colors';
 import { useLocale, useT } from '@/hooks/use-t';
 import { signOut } from '@/lib/auth';
+import { LOCALES, setLanguage, setUnits, UNITS, useUnits } from '@/lib/locale-preference';
 import { getThemePreference, setThemePreference, THEME_PREFERENCES, type ThemePreference } from '@/lib/theme-preference';
 import { useAuth } from '@/providers/auth-provider';
 
@@ -38,6 +40,7 @@ export default function ProfileScreen() {
   const [signingOut, setSigningOut] = useState(false);
   const [theme, setTheme] = useState(getThemePreference);
   const locale = useLocale();
+  const units = useUnits();
   const [strava, setStrava] = useState<StravaStatus | null>(null);
 
   useEffect(() => {
@@ -70,6 +73,7 @@ export default function ProfileScreen() {
   // Domyślne miejsce prognozy: wpisana miejscowość albo okolica z lokalizacji telefonu.
   const weatherModule = useModule('weather');
   const weather = useWeather();
+  const weatherVisible = useWeatherVisible();
   const weatherPlace = weather.place
     ? t(weather.place.custom ? 'profile.weatherPlaceCustom' : 'profile.weatherPlaceDevice', {
         name: weather.place.name ?? t('weather.location.here'),
@@ -304,12 +308,29 @@ export default function ProfileScreen() {
             <Text variant="caption">{t('profile.weatherHint')}</Text>
           </View>
           <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
+            <View style={styles.row}>
+              <View style={[styles.icon, { backgroundColor: c.surfaceBrandSoft }]}>
+                <CloudSun size={20} weight="bold" color={c.textBrand} />
+              </View>
+              <View style={styles.name}>
+                <Text weight="semibold">{t('profile.weatherShow')}</Text>
+                <Text variant="caption">{t(weatherVisible ? 'profile.weatherShowOn' : 'profile.weatherShowOff')}</Text>
+              </View>
+              <Switch
+                accessibilityLabel={t('profile.weatherShow')}
+                value={weatherVisible}
+                onValueChange={(on) => setWeatherHidden(!on)}
+                trackColor={{ true: c.action, false: c.borderStrong }}
+              />
+            </View>
+            {/* Miejsce prognozy ma sens tylko przy włączonej pogodzie. */}
+            {weatherVisible ? (
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={`${t('profile.weatherPlace')}: ${weatherPlace}`}
               accessibilityHint={t('profile.weatherChange')}
               onPress={() => router.push('/weather-location')}
-              style={({ pressed }) => [styles.row, { opacity: pressed ? 0.6 : 1 }]}>
+              style={({ pressed }) => [styles.row, styles.rowDivider, { borderTopColor: c.border, opacity: pressed ? 0.6 : 1 }]}>
               <View style={[styles.icon, { backgroundColor: c.surfaceBrandSoft }]}>
                 <MapPin size={20} weight="bold" color={c.textBrand} />
               </View>
@@ -319,9 +340,52 @@ export default function ProfileScreen() {
               </View>
               <CaretRight size={18} weight="bold" color={c.textMuted} />
             </Pressable>
+            ) : null}
           </View>
         </FadeUp>
       ) : null}
+
+      <FadeUp delay={180} style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <Text variant="heading" accessibilityRole="header">
+            {t('profile.regional')}
+          </Text>
+          <Text variant="caption">{t('profile.regionalHint')}</Text>
+        </View>
+        <View style={styles.choice}>
+          <Text variant="label" weight="semibold">
+            {t('profile.language')}
+          </Text>
+          <View accessibilityRole="radiogroup" accessibilityLabel={t('profile.language')} style={styles.themes}>
+            {LOCALES.map((option) => (
+              <Chip
+                key={option}
+                fill
+                label={t(`profile.lang.${option}`)}
+                selected={locale === option}
+                onPress={() => setLanguage(option)}
+              />
+            ))}
+          </View>
+        </View>
+        <View style={styles.choice}>
+          <Text variant="label" weight="semibold">
+            {t('profile.units')}
+          </Text>
+          <View accessibilityRole="radiogroup" accessibilityLabel={t('profile.units')} style={styles.themes}>
+            {UNITS.map((option) => (
+              <Chip
+                key={option}
+                fill
+                label={t(`profile.unit.${option}`)}
+                accessibilityLabel={t(`profile.unitA11y.${option}`)}
+                selected={units === option}
+                onPress={() => setUnits(option)}
+              />
+            ))}
+          </View>
+        </View>
+      </FadeUp>
 
       <FadeUp delay={200} style={styles.section}>
         <Text variant="heading" accessibilityRole="header">
@@ -363,6 +427,7 @@ const styles = StyleSheet.create({
   section: { gap: space[3] },
   sectionHeader: { gap: space[1] },
   themes: { flexDirection: 'row', gap: space[2] },
+  choice: { gap: space[2] },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -371,6 +436,7 @@ const styles = StyleSheet.create({
     paddingVertical: space[2],
     minHeight: 60,
   },
+  rowDivider: { borderTopWidth: StyleSheet.hairlineWidth },
   name: { flex: 1, gap: 2 },
   icon: { width: 36, height: 36, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center' },
   pill: { paddingHorizontal: space[3], paddingVertical: space[1], borderRadius: radius.pill },

@@ -19,6 +19,7 @@ import { claudeCaller, claudeKey } from '../_shared/claude.ts';
 import { userModules } from '../_shared/modules.ts';
 import {
   daysBetween,
+  parseUnits,
   promptFromRow,
   RACE_DISTANCES_M,
   raceForecastFromRules,
@@ -104,14 +105,16 @@ Deno.serve(async (req) => {
 
   try {
     const [profile, promptRes, modules] = await Promise.all([
-      db.from('profiles').select('locale').eq('id', userId).maybeSingle(),
+      db.from('profiles').select('locale, units').eq('id', userId).maybeSingle(),
       db.rpc('get_ai_prompt', { p_function: 'race-forecast' }),
       userModules(db, userId),
     ]);
     if (promptRes.error) console.error('get_ai_prompt failed', promptRes.error.message);
     const locale = (profile.data?.locale as string | undefined) ?? 'pl';
-    const context = contextFrom(body as Record<string, unknown>, locale, new Date().toISOString().slice(0, 10));
-    if (!context) return json({ error: 'invalid_request' }, 400);
+    const found = contextFrom(body as Record<string, unknown>, locale, new Date().toISOString().slice(0, 10));
+    if (!found) return json({ error: 'invalid_request' }, 400);
+    // Jednostki z żądania (wybór na telefonie, jeszcze przed zapisem na koncie), inaczej z profilu.
+    const context = { ...found, units: parseUnits((body as { units?: unknown }).units ?? profile.data?.units) };
 
     const apiKey = claudeKey();
     if (!apiKey || !modules.has('plan_ai')) return json({ forecast: raceForecastFromRules(context) });

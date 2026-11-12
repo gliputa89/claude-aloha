@@ -1,6 +1,8 @@
 import type { Session } from '@supabase/supabase-js';
 import { createContext, use, useCallback, useEffect, useState, type PropsWithChildren } from 'react';
 
+import { syncAccountPreferences } from '@/lib/auth';
+import { useLanguage, useUnits } from '@/lib/locale-preference';
 import { supabase } from '@/lib/supabase';
 
 export type Profile = {
@@ -74,6 +76,13 @@ export function AuthProvider({ children }: PropsWithChildren) {
       active = false;
     };
   }, [userId]);
+
+  // Język i jednostki wybrane na telefonie trafiają na konto – serwer pisze w nich teksty trenera.
+  const language = useLanguage();
+  const units = useUnits();
+  useEffect(() => {
+    if (userId) void syncAccountPreferences(userId, language, units);
+  }, [userId, language, units]);
 
   const refreshProfile = useCallback(async () => {
     if (!userId) return;

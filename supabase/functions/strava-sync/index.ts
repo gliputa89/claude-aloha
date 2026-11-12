@@ -35,6 +35,7 @@ import {
   isStravaWalk,
   matchStravaActivities,
   noteActual,
+  parseUnits,
   promptFromRow,
   reviewWorkout,
   stepsOf,
@@ -394,13 +395,14 @@ async function writeNotes(db: SupabaseClient, userId: string, sessions: SessionR
   if (pending.length === 0) return;
 
   const [profile, account, promptRes, runs] = await Promise.all([
-    db.from('profiles').select('locale').eq('id', userId).maybeSingle(),
+    db.from('profiles').select('locale, units').eq('id', userId).maybeSingle(),
     db.auth.admin.getUserById(userId),
     db.rpc('get_ai_prompt', { p_function: 'workout-review' }),
     db.from('strava_activities').select('session_id, local_date').eq('user_id', userId).in('session_id', pending.map((s) => s.id)).order('started_at'),
   ]);
   if (promptRes.error) console.error('get_ai_prompt failed', promptRes.error.message);
   const prompt = promptFromRow('workout-review', promptRes.data);
+  const units = parseUnits(profile.data?.units);
   const ranOn = new Map((runs.data ?? []).map((r) => [r.session_id as string, r.local_date as string]));
   const daysBetween = (from: string, to: string) => Math.round((Date.parse(to) - Date.parse(from)) / 86_400_000);
   const twoWeeks = training.filter((s) => s.scheduled_on <= today && s.scheduled_on > addDaysIso(today, -14));
@@ -418,6 +420,7 @@ async function writeNotes(db: SupabaseClient, userId: string, sessions: SessionR
     const outcome = await workoutNoteWithAi({
       context: {
         locale: (profile.data?.locale as string | undefined) ?? 'pl',
+        units,
         workout: {
           type: s.type,
           weekday: isoWeekday(s.scheduled_on),
@@ -427,7 +430,7 @@ async function writeNotes(db: SupabaseClient, userId: string, sessions: SessionR
           shiftedDays: ranOn.has(s.id) ? daysBetween(s.scheduled_on, ranOn.get(s.id)!) : 0,
           doneDaysAgo: Math.max(0, daysBetween(ranOn.get(s.id) ?? s.scheduled_on, today)),
         },
-        actual: noteActual(s.actual_distance_m, s.actual_duration_s),
+        actual: noteActual(s.actual_distance_m, s.actual_duration_s, units),
         review,
         previousSameType: previous
           ? { date: previous.scheduled_on, verdict: rows.get(previous.id)!.verdict, facts: rows.get(previous.id)!.facts }

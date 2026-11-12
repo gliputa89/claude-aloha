@@ -11,6 +11,7 @@ import { OptionCard } from '@/components/ui/option-card';
 import { Stepper } from '@/components/ui/stepper';
 import { TextField } from '@/components/ui/text-field';
 import { space } from '@/constants/theme';
+import { useUnits } from '@/lib/locale-preference';
 import { draftFromStrava, recentTimeS, useOnboardingDraft, weeklyKmOf, type LevelChoice } from '@/features/onboarding/draft';
 import { useModule } from '@/features/modules/use-module';
 import { confirmEliteTime, sanityOf } from '@/features/onboarding/time-check';
@@ -30,6 +31,7 @@ export default function LevelStep() {
   const runs = draft.level && draft.level !== 'none';
   const recent = recentTimeS(draft);
   const weeklyKm = weeklyKmOf(draft);
+  const miles = useUnits() === 'imperial';
   // Wynik szybszy niż rekord świata to pomyłka we wpisie – nie puszczamy dalej; poziom zawodowy – dopytujemy.
   const sanity = sanityOf(draft.recentDistanceM, recent);
   const valid = !!draft.level && recent !== undefined && weeklyKm !== undefined && sanity !== 'impossible';
@@ -78,14 +80,14 @@ export default function LevelStep() {
             />
           </StepSection>
 
-          <StepSection label={t('onboarding.level.weeklyKmLabel')}>
+          <StepSection label={t(miles ? 'onboarding.level.weeklyMiLabel' : 'onboarding.level.weeklyKmLabel')}>
             <TextField
-              label={t('onboarding.level.weeklyKmField')}
-              placeholder={t('onboarding.level.weeklyKmPlaceholder')}
+              label={t(miles ? 'onboarding.level.weeklyMiField' : 'onboarding.level.weeklyKmField')}
+              placeholder={t(miles ? 'onboarding.level.weeklyMiPlaceholder' : 'onboarding.level.weeklyKmPlaceholder')}
               hint={t('onboarding.level.weeklyKmHint')}
               value={draft.weeklyKm}
               onChangeText={(v) => update({ weeklyKm: v })}
-              error={weeklyKm === undefined ? t('onboarding.errors.weeklyKmInvalid') : undefined}
+              error={weeklyKm === undefined ? t(miles ? 'onboarding.errors.weeklyMiInvalid' : 'onboarding.errors.weeklyKmInvalid') : undefined}
               keyboardType="decimal-pad"
               maxLength={5}
             />

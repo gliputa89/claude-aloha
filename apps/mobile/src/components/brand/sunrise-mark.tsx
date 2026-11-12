@@ -2,7 +2,7 @@ import { StyleSheet, View } from 'react-native';
 import Animated, { useReducedMotion } from 'react-native-reanimated';
 import Svg, { Circle, Defs, Path, RadialGradient, Stop } from 'react-native-svg';
 
-import { radius, type ColorRole } from '@/constants/theme';
+import { colors, radius, type ColorRole } from '@/constants/theme';
 import { EASE_OUT, EASE_SINE } from '@/constants/easing';
 import { useColors } from '@/hooks/use-colors';
 
@@ -18,6 +18,8 @@ type SunriseMarkProps = {
   rays?: boolean;
   /** Po wschodzie słońce i poświata delikatnie „oddychają” w pętli. */
   idle?: boolean;
+  /** Wymusza kolory jednego trybu – tam, gdzie tło nie zależy od trybu (ekran startowy jak natywny splash). */
+  scheme?: 'light' | 'dark';
 };
 
 const RAY_RINGS = [0, 1];
@@ -37,8 +39,10 @@ export function SunriseMark({
   glow = true,
   rays = false,
   idle = true,
+  scheme,
 }: SunriseMarkProps) {
-  const c = useColors();
+  const themed = useColors();
+  const c = scheme ? colors[scheme] : themed;
   const reduced = useReducedMotion();
   const k = size / 64;
 

@@ -1,6 +1,9 @@
 import type { GoalDirection, Level, RaceDistanceM, StravaSurveyProposal } from '@aloha/plan-engine';
 import { createContext, use, useState, type PropsWithChildren } from 'react';
 
+import { getUnits } from '@/lib/locale-preference';
+import { unitFormat } from '@/lib/units';
+
 import { addDays, formatDuration, parseDuration, toIsoDate } from './time';
 
 /** Kierunek z pierwszego kroku („Co chcesz osiągnąć?”) – z niego krok „Twoje cele” układa propozycje. */
@@ -31,7 +34,10 @@ export type OnboardingDraft = {
   runsPerWeek: number;
   recentDistanceM: RecentDistance;
   recentTime: string;
-  /** Obecny kilometraż tygodniowy – wpisany albo ze Stravy; pusty, gdy biegacz go nie zna. */
+  /**
+   * Obecny kilometraż tygodniowy – wpisany albo ze Stravy, w jednostkach z Profilu (km albo mile);
+   * pusty, gdy biegacz go nie zna. Do zapisu zawsze w km – przez `weeklyKmOf`.
+   */
   weeklyKm: string;
   days: number[];
   sessionsPerWeek: number;
@@ -96,7 +102,7 @@ export function draftFromStrava(proposal: StravaSurveyProposal, draft: Onboardin
     strava: proposal,
     level: LEVEL_FROM_DB[proposal.level],
     runsPerWeek: proposal.runsPerWeek,
-    weeklyKm: String(Math.round(proposal.weeklyDistanceM / 1000)),
+    weeklyKm: String(Math.round(unitFormat(getUnits(), 'pl').fromMeters(proposal.weeklyDistanceM))),
     ...(recentResult ? { recentDistanceM: recentResult.distanceM, recentTime: formatDuration(recentResult.timeS) } : {}),
     ...(availability && availability.preferredDays.length > 0
       ? {
@@ -139,11 +145,14 @@ export function recentTimeS(draft: OnboardingDraft) {
   return parseDuration(draft.recentTime) ?? undefined;
 }
 
-/** Kilometraż tygodniowy: `null` gdy pusty (albo „nie biegam”), `undefined` gdy wpis jest błędny. */
+/**
+ * Kilometraż tygodniowy w km (wpis w milach przeliczamy): `null` gdy pusty (albo „nie biegam”),
+ * `undefined` gdy wpis jest błędny.
+ */
 export function weeklyKmOf(draft: OnboardingDraft) {
   const text = draft.weeklyKm.trim().replace(',', '.');
   if (draft.level === 'none' || text === '') return null;
-  const km = Number(text);
+  const km = unitFormat(getUnits(), 'pl').toMeters(Number(text)) / 1000;
   return Number.isFinite(km) && km >= 0 && km <= 300 ? Math.round(km * 10) / 10 : undefined;
 }
 

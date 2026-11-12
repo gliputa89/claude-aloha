@@ -9,7 +9,7 @@
     "scheme": "aloha",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon",
+      "icon": "./assets/aloha.icon",
       "bundleIdentifier": "app.alohatraining",
       "usesAppleSignIn": true,
       "appleTeamId": "N99V2PD399",
@@ -20,7 +20,7 @@
     "android": {
       "package": "app.alohatraining",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4F1",
+        "backgroundColor": "#0E6E66",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"

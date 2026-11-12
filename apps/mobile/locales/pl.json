@@ -1,3 +1,5 @@
 {
-  "NSLocationWhenInUseUsageDescription": "Aloha sprawdza pogodę w Twojej okolicy, żeby podpowiedzieć najlepszą porę na trening."
+  "ios": {
+    "NSLocationWhenInUseUsageDescription": "Aloha sprawdza pogodę w Twojej okolicy, żeby podpowiedzieć najlepszą porę na trening."
+  }
 }

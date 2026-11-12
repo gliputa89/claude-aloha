@@ -3,6 +3,7 @@ import { ChatCircleDots } from 'phosphor-react-native';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Mark } from '@/components/brand/mark';
+import { CheckInCard } from '@/components/checkin/check-in-card';
 import { MatchPrompts } from '@/components/strava/match-prompt';
 import { RaceCountdown } from '@/components/plan/race-countdown';
 import { SessionRow } from '@/components/plan/session-row';
@@ -14,11 +15,13 @@ import { Screen } from '@/components/ui/screen';
 import { Text } from '@/components/ui/text';
 import { radius, space } from '@/constants/theme';
 import { todayIso } from '@/features/onboarding/time';
-import { allSessions, usePlan } from '@/features/plan/plan-provider';
+import { usePlan } from '@/features/plan/plan-provider';
 import { PlanStatus } from '@/features/plan/plan-status';
+import { useCheckInEnabled } from '@/features/checkin/api';
 import { useDayNote } from '@/features/coach/day-note';
 import { daysUntil, useRaceGoal } from '@/features/goal/race-goal';
 import { useModule } from '@/features/modules/use-module';
+import { todaySessions } from '@/features/today/today-sessions';
 import { useWeather } from '@/features/weather/weather-provider';
 import { useColors } from '@/hooks/use-colors';
 import { useLocale, useT } from '@/hooks/use-t';
@@ -36,7 +39,8 @@ export default function TodayScreen() {
   const { state, reload } = usePlan();
   const weather = useWeather();
   const today = todayIso();
-  const name = profile?.display_name;
+  // Witamy pierwszym imieniem – pełne imię i nazwisko nie mieści się obok awatara.
+  const name = profile?.display_name?.trim().split(/\s+/)[0];
 
   const dateLabel = new Date().toLocaleDateString(locale === 'en' ? 'en-GB' : 'pl-PL', {
     weekday: 'long',
@@ -44,19 +48,17 @@ export default function TodayScreen() {
     month: 'long',
   });
 
-  const sessions = state.kind === 'ready' ? allSessions(state.plan) : [];
-  const todays = sessions.filter((s) => s.scheduled_on === today);
-  const todayRuns = todays.filter((s) => s.type !== 'rest');
-  const next = sessions.find((s) => s.scheduled_on > today && s.type !== 'rest');
-  const shown = [...todayRuns, ...(next ? [next] : [])];
-  // Ostatni zrobiony trening (dzisiejszy jest już wyżej) – tapnięcie otwiera jego ocenę.
-  const last = sessions.filter((s) => s.scheduled_on < today && (s.status === 'done' || s.status === 'partial')).at(-1);
-  // Dzień bez biegu: notka trenera od AI zamiast stałego tekstu (stały zostaje, dopóki notki nie ma).
+  const { todays, todayRuns, next, last, shown } = todaySessions(state.kind === 'ready' ? state.plan : null, today);
+  // Dzień bez biegu: notka trenera od AI zamiast stałego tekstu (stały zostaje, gdy notki nie będzie).
+  // Ekran startowy czeka na nią i na pogodę (features/today/today-boot) – stan ładowania widać tylko przy wolnej sieci.
   const modules = { weather: useModule('weather'), strava: useModule('strava'), review: useModule('review'), coach: useModule('coach') };
   const chat = { ai: useModule('coach_chat'), human: useModule('coach_human') };
   const dayNote = useDayNote(today, modules.coach && state.kind === 'ready' && todayRuns.length === 0);
   const hasWeather = shown.some((s) => weather.bySession.has(s.id));
+  // Check-in jest włączony zgodą na dane o zdrowiu (Profil); pytamy raz dziennie, przy pierwszym niezrobionym treningu.
+  const checkIn = useCheckInEnabled();
   const raceGoal = useRaceGoal(state.kind === 'ready' ? state.plan.id : null);
+  const checkInFor = checkIn.enabled ? todayRuns.find((s) => s.status === 'planned' && s.type !== 'race') : undefined;
 
   return (
     <Screen
@@ -89,13 +91,14 @@ export default function TodayScreen() {
               todayRuns.map((s) => (
                 <View key={s.id} style={styles.section}>
                   <SessionRow session={s} today />
+                  {checkInFor?.id === s.id ? <CheckInCard session={s} today={today} onPlanChanged={reload} /> : null}
                   {modules.weather ? <WeatherCard session={s} /> : null}
                 </View>
               ))
             ) : todays.length > 0 ? (
-              <InfoCard title={t('today.restTitle')} body={dayNote ?? t('today.restBody')} />
+              <InfoCard title={t('today.restTitle')} body={dayNote.text ?? t('today.restBody')} loading={dayNote.pending} />
             ) : (
-              <InfoCard body={dayNote ?? t('today.noPlanToday')} />
+              <InfoCard body={dayNote.text ?? t('today.noPlanToday')} loading={dayNote.pending} />
             )}
           </FadeUp>
 
