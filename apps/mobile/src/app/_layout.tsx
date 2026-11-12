@@ -82,6 +82,8 @@ function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
             headerBackButtonDisplayMode: "minimal",
             headerTitleStyle: { fontFamily: fontFamily.bold },
             contentStyle: { backgroundColor: c.background },
+            // Ikony paska statusu według trybu aplikacji, a nie telefonu (domyślnie apka jest jasna).
+            statusBarStyle: scheme === "dark" ? "light" : "dark",
           }}
         >
           <Stack.Screen name="index" options={{ headerShown: false }} />

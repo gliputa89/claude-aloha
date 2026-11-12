@@ -9,12 +9,15 @@ export const THEME_PREFERENCES: ThemePreference[] = ['system', 'light', 'dark'];
 
 const KEY = 'aloha.theme';
 
+/** Bez wyboru w Profilu aplikacja startuje jasna – niezależnie od trybu telefonu. */
+const DEFAULT_PREFERENCE: ThemePreference = 'light';
+
 export function getThemePreference(): ThemePreference {
   try {
     const saved = typeof localStorage === 'undefined' ? null : localStorage.getItem(KEY);
-    return saved === 'light' || saved === 'dark' ? saved : 'system';
+    return saved === 'light' || saved === 'dark' || saved === 'system' ? saved : DEFAULT_PREFERENCE;
   } catch {
-    return 'system';
+    return DEFAULT_PREFERENCE;
   }
 }
 
@@ -29,10 +32,8 @@ function apply(preference: ThemePreference) {
 
 export function setThemePreference(preference: ThemePreference) {
   try {
-    if (typeof localStorage !== 'undefined') {
-      if (preference === 'system') localStorage.removeItem(KEY);
-      else localStorage.setItem(KEY, preference);
-    }
+    // Zapisujemy też „system” – brak wpisu oznacza domyślny jasny motyw.
+    if (typeof localStorage !== 'undefined') localStorage.setItem(KEY, preference);
   } catch {
     // Brak zapisu nie blokuje zmiany – wybór obowiązuje do zamknięcia aplikacji.
   }
