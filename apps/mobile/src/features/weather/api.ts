@@ -161,3 +161,9 @@ export async function fetchSessionWeather(
   if (error) throw error;
   return data?.sessions ?? [];
 }
+
+/** Usunięcie konta: zapomina miejsca prognozy zapamiętane na tym telefonie. */
+export function clearSavedPlaces() {
+  savePlace(null);
+  writeSessionPlaces({});
+}

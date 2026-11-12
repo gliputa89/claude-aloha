@@ -461,14 +461,27 @@ export const privacyPl: LegalDocument = {
       body: (
         <>
           <p>
-            Żeby usunąć konto, napisz do nas <Contact lang="pl" /> z adresu e-mail przypisanego do konta.
-            Konto i wszystkie powiązane dane – plan, treningi, check-iny, rozmowy, aktywności ze Stravy i
-            zapisy wywołań AI – usuwamy w ciągu 30 dni. Zostaje wyłącznie zapis o usunięciu konta opisany w
-            punkcie 10.
+            Konto usuniesz na dwa sposoby:
+          </p>
+          <ul>
+            <li>
+              <strong>w aplikacji:</strong> Profil → Usuń konto. Konto i wszystkie powiązane dane znikają od
+              razu;
+            </li>
+            <li>
+              <strong>mailowo:</strong> napisz do nas <Contact lang="pl" /> z adresu e-mail przypisanego do
+              konta – usuniemy je w ciągu 30 dni.
+            </li>
+          </ul>
+          <p>
+            Usuwamy konto i wszystkie powiązane dane – plan, treningi, check-iny, rozmowy, aktywności ze Stravy i
+            zapisy wywołań AI. Zostaje wyłącznie zapis o usunięciu konta (adres e-mail i data) opisany w punkcie
+            10.
           </p>
           <p>
-            Jeśli Twoje konto było połączone ze Stravą, dostęp aplikacji możesz dodatkowo cofnąć w
-            ustawieniach Stravy.
+            Przy usuwaniu konta w aplikacji cofamy też dostęp aplikacji do Twojego konta Strava, a jeśli
+            logujesz się przez Apple – unieważniamy powiązanie z Twoim Apple ID. Dostęp możesz też cofnąć
+            samodzielnie w ustawieniach Stravy, Apple ID albo konta Google.
           </p>
         </>
       ),

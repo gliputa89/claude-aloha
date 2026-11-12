@@ -276,7 +276,8 @@ export const termsEn: LegalDocument = {
           <ul>
             <li>
               <strong>Leave at any time.</strong> You can end the contract without giving a reason and at no
-              cost by asking us to delete your account. The{" "}
+              cost by deleting your account in the app (Profile → Delete account) or by asking us by e-mail.
+              The{" "}
               <a href={`${legalPath.privacy.en}#deletion`}>Privacy Policy</a> explains how.
             </li>
             <li>

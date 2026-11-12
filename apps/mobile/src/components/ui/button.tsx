@@ -13,11 +13,13 @@ import { Text } from '@/components/ui/text';
 import { motion, radius, space, type ColorRole } from '@/constants/theme';
 import { useColors } from '@/hooks/use-colors';
 
-type Variant = 'primary' | 'secondary' | 'plain';
+type Variant = 'primary' | 'secondary' | 'danger' | 'plain';
 
 const look: Record<Variant, { bg?: ColorRole; text: ColorRole; border?: ColorRole }> = {
   primary: { bg: 'action', text: 'textOnBrand' },
   secondary: { bg: 'surface', text: 'text', border: 'border' },
+  // Nieodwracalna akcja (np. usunięcie konta) – kontur zamiast czerwonego tła, czytelny w obu trybach.
+  danger: { bg: 'surface', text: 'danger', border: 'danger' },
   plain: { text: 'textBrand' },
 };
 

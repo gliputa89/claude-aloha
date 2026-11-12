@@ -463,14 +463,27 @@ export const privacyEn: LegalDocument = {
       body: (
         <>
           <p>
-            To delete your account, write to us <Contact lang="en" /> from the e-mail address linked to the
-            account. We delete the account and all related data – plan, workouts, check-ins, conversations,
-            Strava activities and records of AI calls – within 30 days. Only the record of deletion described
+            You can delete your account in two ways:
+          </p>
+          <ul>
+            <li>
+              <strong>in the app:</strong> Profile → Delete account. Your account and all related data are
+              deleted right away;
+            </li>
+            <li>
+              <strong>by e-mail:</strong> write to us <Contact lang="en" /> from the e-mail address linked to
+              the account – we delete it within 30 days.
+            </li>
+          </ul>
+          <p>
+            We delete the account and all related data – plan, workouts, check-ins, conversations, Strava
+            activities and records of AI calls. Only the record of deletion (e-mail address and date) described
             in section 10 remains.
           </p>
           <p>
-            If your account was connected to Strava, you can additionally revoke the app’s access in your
-            Strava settings.
+            When you delete your account in the app, we also revoke the app’s access to your Strava account and,
+            if you sign in with Apple, revoke the link to your Apple ID. You can also revoke access yourself in
+            your Strava, Apple ID or Google account settings.
           </p>
         </>
       ),

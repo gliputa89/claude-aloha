@@ -1,6 +1,6 @@
 import Constants from 'expo-constants';
 import { router } from 'expo-router';
-import { CaretRight, Heart, Heartbeat, Lightning, MapPin, Smiley, Watch, type IconProps } from 'phosphor-react-native';
+import { CaretRight, Heart, Heartbeat, Lightning, MapPin, Smiley, Trash, Watch, type IconProps } from 'phosphor-react-native';
 import { useEffect, useState, type ComponentType } from 'react';
 import { ActivityIndicator, Alert, Platform, Pressable, StyleSheet, Switch, View } from 'react-native';
 
@@ -30,7 +30,7 @@ const INTEGRATIONS: Integration[] = [
   { key: 'garmin', Icon: Watch },
 ];
 
-/** Zakładka „Profil”: dane konta, integracje z dostawcami (wkrótce) i wylogowanie. */
+/** Zakładka „Profil”: dane konta, integracje z dostawcami (wkrótce), wylogowanie i usunięcie konta. */
 export default function ProfileScreen() {
   const c = useColors();
   const t = useT();
@@ -345,6 +345,26 @@ export default function ProfileScreen() {
           {t('profile.account')}
         </Text>
         <Button variant="secondary" label={t('profile.signOut')} loading={signingOut} onPress={confirmSignOut} />
+        <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('profile.deleteAccount')}
+            accessibilityHint={t('profile.deleteAccountHint')}
+            disabled={signingOut}
+            onPress={() => router.push('/delete-account')}
+            style={({ pressed }) => [styles.row, { opacity: pressed ? 0.6 : 1 }]}>
+            <View style={[styles.icon, { backgroundColor: c.background }]}>
+              <Trash size={20} weight="bold" color={c.danger} />
+            </View>
+            <View style={styles.name}>
+              <Text weight="semibold" color="danger">
+                {t('profile.deleteAccount')}
+              </Text>
+              <Text variant="caption">{t('profile.deleteAccountHint')}</Text>
+            </View>
+            <CaretRight size={18} weight="bold" color={c.textMuted} />
+          </Pressable>
+        </View>
         {version ? (
           <Text variant="caption" align="center">
             {t('profile.version', { version })}

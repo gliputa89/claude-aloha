@@ -1,4 +1,3 @@
-import type { AuthError } from '@supabase/supabase-js';
 import type { TranslationKey } from '@aloha/i18n';
 import {
   GoogleSignin,
@@ -9,7 +8,10 @@ import {
 import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Crypto from 'expo-crypto';
 import * as Linking from 'expo-linking';
+import { FunctionsHttpError, type AuthError, type User } from '@supabase/supabase-js';
 import { Platform } from 'react-native';
+
+import { clearSavedPlaces } from '@/features/weather/api';
 
 import { isSupabaseConfigured, supabase } from './supabase';
 
@@ -277,8 +279,63 @@ export function exchangeCode(code: string) {
   });
 }
 
-export async function signOut() {
-  await supabase.auth.signOut();
+export async function signOut({ local = false }: { local?: boolean } = {}) {
+  // `local` – tylko ten telefon (np. po usunięciu konta, gdy sesji na serwerze już nie ma).
+  await supabase.auth.signOut(local ? { scope: 'local' } : undefined);
   // Bez tego Google przy następnym logowaniu od razu wybrałby to samo konto.
   if (googleSignInAvailable) await GoogleSignin.signOut().catch(() => {});
+}
+
+/** Konto ma logowanie przez Apple – przy usuwaniu trzeba też unieważnić token Apple. */
+export function usesAppleSignIn(user: User | null | undefined) {
+  if (!user) return false;
+  const providers = (user.app_metadata?.providers as string[] | undefined) ?? [user.app_metadata?.provider];
+  return providers.includes('apple') || !!user.identities?.some((i) => i.provider === 'apple');
+}
+
+export type DeleteAccountResult =
+  | { status: 'deleted' }
+  | { status: 'cancelled' }
+  | { status: 'error'; error: TranslationKey };
+
+/**
+ * Usunięcie własnego konta (Profil → Usuń konto): funkcja delete-account usuwa konto i wszystkie dane,
+ * po czym wylogowujemy telefon. Konto z Apple na iOS najpierw potwierdza się w arkuszu Apple – świeży kod
+ * autoryzacji pozwala serwerowi unieważnić token Apple (wymóg App Store). Zamknięcie arkusza = rezygnacja.
+ */
+export async function deleteAccount(user: User): Promise<DeleteAccountResult> {
+  if (!isSupabaseConfigured) return { status: 'error', error: 'authErrors.notConfigured' };
+
+  let appleAuthorizationCode: string | null = null;
+  if (appleSignInAvailable && usesAppleSignIn(user)) {
+    try {
+      const credential = await AppleAuthentication.signInAsync({ requestedScopes: [] });
+      appleAuthorizationCode = credential.authorizationCode;
+    } catch (e) {
+      if (e instanceof Error && 'code' in e && e.code === 'ERR_REQUEST_CANCELED') return { status: 'cancelled' };
+      // Inny błąd arkusza nie blokuje usunięcia – konto i dane i tak znikną, token Apple wygaśnie sam.
+    }
+  }
+
+  try {
+    const { error } = await supabase.functions.invoke('delete-account', {
+      method: 'POST',
+      body: { appleAuthorizationCode },
+    });
+    if (error) {
+      const body = error instanceof FunctionsHttpError ? await error.context.json().catch(() => null) : null;
+      if (body?.error === 'admin_account') return { status: 'error', error: 'deleteAccount.errorAdmin' };
+      return { status: 'error', error: error instanceof FunctionsHttpError ? 'deleteAccount.errorFailed' : 'authErrors.network' };
+    }
+  } catch {
+    return { status: 'error', error: 'authErrors.network' };
+  }
+
+  // Konto już nie istnieje – czyścimy tylko ten telefon (sesja, wybór konta Google, zapamiętane miejsca).
+  clearSavedPlaces();
+  if (googleSignInAvailable && user.identities?.some((i) => i.provider === 'google')) {
+    await GoogleSignin.revokeAccess().catch(() => {});
+  }
+  await signOut({ local: true });
+  return { status: 'deleted' };
 }
