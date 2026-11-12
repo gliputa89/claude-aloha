@@ -40,6 +40,12 @@ W MVP każdy pakiet ma wszystkie moduły, więc bramki niczego nie blokują.
 
 ## Notka na dzień bez treningu
 
+`check-in` – „Jak się dziś czujesz?” na karcie „Dzisiaj”: jedno tapnięcie 1–5 (plus podpowiedzi przy słabszym dniu),
+bez AI. Zapisuje odpowiedź w `check_ins` i – przy ocenie 1–2 albo „mało czasu” – proponuje lżejszą wersję dzisiejszego
+treningu (reguły: `packages/plan-engine/src/checkin/checkin.ts`, zapis w `adjustments`). Propozycja ma kształt zmiany
+z czatu i wykonuje ją ten sam kod (`_shared/plan-change.ts`). Wymaga zgody `health_data` – to ona jest włącznikiem
+check-inu w Profilu. „Coś boli” niczego nie proponuje: aplikacja otwiera czat z trenerem.
+
 `race-forecast` – podsumowanie ankiety przy celu „zawody”: realny czas dziś i na start. Reguły
 (`packages/plan-engine/src/plan/forecast.ts`: tabele Danielsa / VDOT, objętość potrzebna na dystans, malejąca poprawa
 formy) dają liczby odniesienia i widełki; w nich prognozę ustala Claude Opus (funkcja AI `race-forecast`). Bez klucza

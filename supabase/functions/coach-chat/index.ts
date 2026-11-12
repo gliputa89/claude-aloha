@@ -16,19 +16,15 @@ import { createClient, type SupabaseClient } from 'jsr:@supabase/supabase-js@2';
 
 import { claudeCaller, claudeKey } from '../_shared/claude.ts';
 import { userModules } from '../_shared/modules.ts';
+import { applyPlanChange, checkChange, loadPlan, type Loaded } from '../_shared/plan-change.ts';
 import {
   CHAT_DAILY_LIMIT,
   CHAT_HISTORY_LIMIT,
   CHAT_MESSAGE_MAX_LENGTH,
-  chatChangeWrite,
   chatContextFromRows,
-  checkChatChange,
   coachChatWithAi,
-  engineFromRow,
   mentionsHealth,
   paramsOf,
-  planInputFromSurvey,
-  plannedWeekFromRow,
   promptFromRow,
   type AiCallPayload,
   type AiCallRecord,
@@ -50,63 +46,6 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MESSAGE_COLUMNS = 'id, thread_id, sender, body, proposal, proposal_status, created_at';
 const COACH_COLUMNS = 'id, kind, display_name, title, bio, avatar_url, headline, headline_en, title_en';
 
-function todayIn(timeZone: string) {
-  try {
-    return new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
-  } catch {
-    return new Date().toISOString().slice(0, 10);
-  }
-}
-
-type SessionRow = {
-  id: string;
-  scheduled_on: string;
-  type: string;
-  duration_min: number | null;
-  distance_m: number | null;
-  intensity: string | null;
-  structure: unknown;
-  status: string;
-  actual_distance_m: number | null;
-  actual_duration_s: number | null;
-};
-type WeekRow = { id: string; week_index: number; starts_on: string; focus: string | null; base_easy_min: number | null; sessions: SessionRow[] };
-
-/** Plan, ankieta i parametry silnika – wszystko, czego trzeba do kontekstu rozmowy i do sprawdzenia zmiany. */
-async function loadPlan(db: SupabaseClient, userId: string) {
-  const [profile, goal, availability, plan, config] = await Promise.all([
-    db
-      .from('profiles')
-      .select('level, locale, timezone, has_contraindications, recent_result_distance_m, recent_result_time_s, training_level')
-      .eq('id', userId)
-      .maybeSingle(),
-    db.from('goals').select('id, type, general_focus, distance_m, race_date, target_time_s, plan_starts_on').eq('user_id', userId).eq('status', 'active').maybeSingle(),
-    db.from('availability').select('preferred_days, sessions_per_week, max_minutes_weekday, max_minutes_weekend').eq('user_id', userId).maybeSingle(),
-    db
-      .from('plans')
-      .select(
-        'id, starts_on, weeks(id, week_index, starts_on, focus, base_easy_min, sessions(id, scheduled_on, type, duration_min, distance_m, intensity, structure, status, actual_distance_m, actual_duration_s))',
-      )
-      .eq('user_id', userId)
-      .eq('status', 'active')
-      .maybeSingle(),
-    db.rpc('get_engine_config'),
-  ]);
-  for (const r of [profile, goal, availability, plan]) if (r.error) throw new Error(r.error.message);
-  const weeks = ((plan.data?.weeks ?? []) as WeekRow[]).sort((a, b) => a.week_index - b.week_index);
-  const today = todayIn((profile.data?.timezone as string | undefined) ?? 'Europe/Warsaw');
-  const input =
-    profile.data?.level && goal.data && availability.data && plan.data
-      ? {
-          ...planInputFromSurvey({ profile: { ...profile.data, level: profile.data.level }, goal: goal.data, availability: availability.data }, plan.data.starts_on),
-          params: engineFromRow(config.data).params,
-        }
-      : null;
-  return { profile: profile.data, goal: goal.data, weeks, today, input };
-}
-
-type Loaded = Awaited<ReturnType<typeof loadPlan>>;
-
 async function buildContext(db: SupabaseClient, loaded: Loaded, focusId: string | null): Promise<CoachChatContext> {
   const ids = loaded.weeks.flatMap((w) => w.sessions).map((s) => s.id);
   const reviews = ids.length > 0 ? await db.from('session_reviews').select('session_id, verdict, facts, note').in('session_id', ids) : { data: [] };
@@ -119,18 +58,6 @@ async function buildContext(db: SupabaseClient, loaded: Loaded, focusId: string 
     today: loaded.today,
     focusId,
     minSessionMin: loaded.input ? paramsOf(loaded.input).minSessionMin : null,
-  });
-}
-
-/** Czy zmianę da się teraz wykonać na planie z bazy; przy `ok` – tydzień po zmianie. */
-function checkChange(change: ChatChange, loaded: Loaded) {
-  if (!loaded.input) return { ok: false as const, reason: 'brak planu' };
-  const sessions = loaded.weeks.flatMap((w) => w.sessions).filter((s) => s.type !== 'rest');
-  return checkChatChange(change, {
-    input: loaded.input,
-    weeks: loaded.weeks.map((w) => plannedWeekFromRow(w)),
-    statuses: new Map(sessions.map((s) => [s.scheduled_on, s.status])),
-    today: loaded.today,
   });
 }
 
@@ -286,31 +213,11 @@ Deno.serve(async (req) => {
       }
 
       const change = message.data.proposal as ChatChange;
-      const loaded = await loadPlan(db, userId);
-      const checked = checkChange(change, loaded);
-      const write = checked.ok ? chatChangeWrite(change, checked.weeks) : null;
-      const row = loaded.weeks.flatMap((w) => w.sessions).find((s) => s.scheduled_on === change.date && s.type !== 'rest');
       // Plan zmienił się od czasu propozycji (albo trening już zrobiony) – propozycja wygasa, nic nie ruszamy.
-      if (!checked.ok || !write || !row) {
+      if ((await applyPlanChange(db, await loadPlan(db, userId), change)) === 'expired') {
         await setStatus('expired');
         return json({ status: 'expired' });
       }
-      const applied =
-        write.kind === 'delete'
-          ? await db.from('sessions').delete().eq('id', row.id).eq('status', 'planned')
-          : await db
-              .from('sessions')
-              .update({
-                scheduled_on: write.session.scheduledOn,
-                type: write.session.type,
-                duration_min: write.session.durationMin,
-                distance_m: write.session.distanceM,
-                intensity: write.session.intensity,
-                structure: write.session.structure,
-              })
-              .eq('id', row.id)
-              .eq('status', 'planned');
-      if (applied.error) throw new Error(applied.error.message);
       await setStatus('accepted');
       return json({ status: 'accepted' });
     }
