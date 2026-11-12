@@ -104,7 +104,7 @@ export default function WelcomeScreen() {
         <FloatingPetals width={width} height={heroHeight} />
 
         <View style={styles.heroContent}>
-          <SunriseMark size={128} rays idle={false} />
+          <SunriseMark size={128} idle={false} />
           <BouncyTitle text={greeting} color="textOnBrand" delay={GREETING_DELAY} style={styles.greeting} />
           <FadeUp delay={afterGreeting}>
             <Text color="textOnBrandMuted" align="center" weight="medium" style={styles.tagline}>
