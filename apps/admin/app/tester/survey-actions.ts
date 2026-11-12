@@ -16,6 +16,7 @@ import { refresh } from 'next/cache';
 import { claudeCaller, hasClaudeKey } from '@/lib/ai/claude';
 import { aiLogger, loadAiRuntime } from '@/lib/ai/runtime';
 import { requireAdmin, type Admin } from '@/lib/auth';
+import { serviceRoleKey, supabaseUrl } from '@/lib/env';
 import { loadTesterUser, MAX_REGENERATE_WEEKS, todayIn } from '@/lib/plan-tester';
 import { createServiceClient } from '@/lib/supabase/server';
 import { presetByKey, validateSurvey, type SurveyErrors, type SurveyValues } from '@/lib/survey';
@@ -219,10 +220,33 @@ export async function createTestUsers(presetKeys: string[], withPlan: boolean): 
     : { ok: true, message: created, userIds };
 }
 
-/** Usuwa konto testowe (wszystkie dane kaskadowo). Prawdziwych kont nie da się tak usunąć. */
+/** Odpowiedź Edge Function delete-account. */
+type DeleteOutcome = {
+  deleted?: boolean;
+  counts?: Record<string, number>;
+  apple?: 'none' | 'revoked' | 'not_configured' | 'no_token' | 'mismatch' | 'failed';
+  strava?: 'none' | 'deauthorized' | 'failed';
+  error?: string;
+  message?: string;
+};
+
+const APPLE_NOTE: Record<string, string> = {
+  revoked: 'dostęp Apple unieważniony',
+  not_configured: 'tokenu Apple NIE unieważniono – funkcja nie ma sekretów APPLE_*',
+  no_token: 'tokenu Apple NIE unieważniono – brak zapisanego tokenu (logowanie sprzed zapisu tokenów)',
+  mismatch: 'tokenu Apple NIE unieważniono – token z innego Apple ID',
+  failed: 'tokenu Apple NIE unieważniono – Apple odrzuciło żądanie (logi funkcji)',
+};
+
+const STRAVA_NOTE: Record<string, string> = {
+  deauthorized: 'dostęp Stravy cofnięty',
+  failed: 'dostępu Stravy NIE cofnięto (token nieaktualny – dane i tak usunięte)',
+};
+
 /**
- * Twarde usunięcie dowolnego użytkownika: konto i logowanie, ankieta, plan, kalendarz, treningi, check-iny,
- * historia poziomu, wywołania AI, lista oczekujących (RPC admin_delete_user – jedna transakcja).
+ * Twarde usunięcie dowolnego użytkownika – tą samą drogą co „Usuń konto” w aplikacji (Edge Function delete-account):
+ * cofnięcie dostępu Stravy, unieważnienie tokenu Apple, potem konto i wszystkie dane w jednej transakcji
+ * (RPC admin_delete_user) z wpisem w logu panelu i zapisem o usunięciu (e-mail i data).
  * Konto prawdziwe wymaga wpisania jego e-maila (`confirm`); testowe – tylko potwierdzenia na stronie.
  */
 export async function deleteUser(userId: string, confirm = ''): Promise<SurveyResult> {
@@ -238,31 +262,46 @@ export async function deleteUser(userId: string, confirm = ''): Promise<SurveyRe
     return { ok: false, message: 'Wpisz dokładnie e-mail użytkownika, żeby potwierdzić.' };
   }
 
-  const { data: counts, error: deleteError } = await db.rpc('admin_delete_user', { p_admin_id: admin.id, p_user_id: userId });
-  if (deleteError) {
-    if (deleteError.code !== 'PGRST202') return { ok: false, message: `Usuwanie nie powiodło się: ${deleteError.message}` };
-    // Brak migracji 20261110110000_admin_delete_user: konto przez API (kaskada usuwa dane aplikacji),
-    // ale wywołania AI i lista oczekujących zostają – tylko odpięte od konta.
-    const { error: apiError } = await db.auth.admin.deleteUser(userId);
-    if (apiError) return { ok: false, message: `Usuwanie nie powiodło się: ${apiError.message}` };
-    await db.rpc('admin_log', {
-      p_admin_id: admin.id,
-      p_action: 'delete_user',
-      p_target_type: 'user',
-      p_target_id: userId,
-      p_details: { email: data.user.email, partial: true },
+  let res: Response;
+  try {
+    res = await fetch(`${supabaseUrl()}/functions/v1/delete-account`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${serviceRoleKey()}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, adminId: admin.id }),
+      cache: 'no-store',
+      signal: AbortSignal.timeout(45_000),
     });
-    refresh();
-    return {
-      ok: true,
-      message: 'Konto i dane aplikacji usunięte. Logi AI i lista oczekujących zostały (odpięte) – brak migracji 20261110110000_admin_delete_user.',
-    };
+  } catch {
+    return { ok: false, message: 'Funkcja delete-account nie odpowiedziała (sieć albo przekroczony czas).' };
+  }
+  if (res.status === 404 && !(await res.clone().json().catch(() => null))?.error) {
+    return { ok: false, message: 'Funkcja delete-account nie jest wdrożona w tym projekcie Supabase.' };
+  }
+  if (res.status === 401) return { ok: false, message: 'Funkcja delete-account odrzuciła klucz service_role panelu.' };
+  const outcome = (await res.json().catch(() => null)) as DeleteOutcome | null;
+  if (!res.ok || !outcome?.deleted) {
+    switch (outcome?.error) {
+      case 'admin_account':
+        return { ok: false, message: 'To konto ma rolę admina – najpierw odbierz rolę.' };
+      case 'not_found':
+        return { ok: false, message: 'Nie ma takiego użytkownika.' };
+      case 'self':
+        return { ok: false, message: 'Nie możesz usunąć własnego konta.' };
+      default:
+        return {
+          ok: false,
+          message: `Usuwanie nie powiodło się${outcome?.message ? `: ${outcome.message}` : ` (błąd ${res.status} – szczegóły w logach funkcji)`}.`,
+        };
+    }
   }
   refresh();
-  const c = (counts ?? {}) as Record<string, number>;
+  const c = outcome.counts ?? {};
+  const notes = [STRAVA_NOTE[outcome.strava ?? ''], APPLE_NOTE[outcome.apple ?? '']].filter(Boolean);
   return {
     ok: true,
-    message: `Usunięto: konto, ${c.plans ?? 0} plan., ${c.sessions ?? 0} tren., ${c.check_ins ?? 0} check-in., ${c.ai_calls ?? 0} wyw. AI.`,
+    message:
+      `Usunięto: konto, ${c.plans ?? 0} plan., ${c.sessions ?? 0} tren., ${c.check_ins ?? 0} check-in., ${c.ai_calls ?? 0} wyw. AI.` +
+      (notes.length ? ` ${notes.join('; ')}.` : ''),
   };
 }
 

@@ -169,6 +169,12 @@ export function signInWithApple(locale: 'pl' | 'en') {
 
     // Uzupełnienie konta nie może zablokować logowania – przy błędzie ponowimy przy następnym.
     await completeSocialAccount(data.user.id, locale, credential.fullName?.givenName ?? null).catch(() => {});
+    // Refresh token Apple na serwer (w tle): przy usunięciu konta – też z panelu – unieważnimy dostęp w Apple.
+    if (credential.authorizationCode) {
+      supabase.functions
+        .invoke('apple-token', { method: 'POST', body: { authorizationCode: credential.authorizationCode } })
+        .catch(() => {});
+    }
     return { ok: true, data: { canceled: false } };
   });
 }
@@ -299,9 +305,10 @@ export type DeleteAccountResult =
   | { status: 'error'; error: TranslationKey };
 
 /**
- * Usunięcie własnego konta (Profil → Usuń konto): funkcja delete-account usuwa konto i wszystkie dane,
- * po czym wylogowujemy telefon. Konto z Apple na iOS najpierw potwierdza się w arkuszu Apple – świeży kod
- * autoryzacji pozwala serwerowi unieważnić token Apple (wymóg App Store). Zamknięcie arkusza = rezygnacja.
+ * Usunięcie własnego konta (Profil → Usuń konto): funkcja delete-account – ta sama, której używa panel admina –
+ * usuwa konto i wszystkie dane, po czym wylogowujemy telefon. Konto z Apple na iOS najpierw potwierdza się
+ * w arkuszu Apple: świeży kod pozwala unieważnić token Apple (wymóg App Store) także wtedy, gdy serwer nie ma
+ * zapisanego tokenu z logowania (np. konto sprzed tej zmiany). Zamknięcie arkusza = rezygnacja.
  */
 export async function deleteAccount(user: User): Promise<DeleteAccountResult> {
   if (!isSupabaseConfigured) return { status: 'error', error: 'authErrors.notConfigured' };

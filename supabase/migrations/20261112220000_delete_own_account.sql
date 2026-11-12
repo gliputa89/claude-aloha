@@ -1,10 +1,12 @@
--- Usunięcie konta przez samego użytkownika (Profil → Usuń konto) – wymóg Google Play i App Store.
+-- Usunięcie konta przez samego użytkownika (Profil → Usuń konto) – wymóg Google Play i App Store – działające
+-- tak samo jak usunięcie z panelu admina. Obie drogi idą przez Edge Function delete-account, która przed
+-- usunięciem cofa dostęp Stravy i unieważnia token Apple, a potem woła jedną z funkcji poniżej:
+--   • public.admin_delete_user(admin, user) – panel admina (te same sprawdzenia i wpis w admin_audit_log),
+--   • public.delete_own_account(user)       – aplikacja; użytkownika funkcja bierze z tokenu (tylko własne konto).
+-- Obie korzystają ze wspólnej ops.delete_user_account (logika z 20261110110000_admin_delete_user).
 --
--- Ta sama logika co przy usuwaniu z panelu admina (20261110110000_admin_delete_user), wyjęta do jednej funkcji
--- ops.delete_user_account, z której korzystają obie ścieżki:
---   • public.admin_delete_user(admin, user) – panel admina, jak dotąd (te same sprawdzenia i wpis w admin_audit_log),
---   • public.delete_own_account(user)       – Edge Function delete-account; użytkownika bierze z tokenu
---                                             (tylko własne konto), przed usunięciem cofa dostęp Stravy i Apple.
+-- public.apple_tokens: refresh token Sign in with Apple zapisany przy logowaniu (Edge Function apple-token),
+-- żeby przy usunięciu konta – także z panelu – dało się unieważnić dostęp w Apple bez ponownego logowania.
 --
 -- Zostaje wyłącznie zapis o usunięciu konta w ops.account_deletions (adres e-mail i data, polityka prywatności
 -- pkt „Jak długo przechowujemy dane”: do 6 lat). Bez klucza obcego – wiersz ma przetrwać usunięcie konta.
@@ -24,6 +26,31 @@ alter table ops.account_deletions enable row level security;
 
 comment on table ops.account_deletions is
   'Zapis o usunięciu konta (e-mail i data) – przechowywany do 6 lat, na wypadek roszczeń i jako dowód spełnienia żądania.';
+
+-- Refresh token Apple – tylko dla funkcji (service_role), aplikacja go nie widzi. Znika z kontem (kaskada).
+create table if not exists public.apple_tokens (
+  user_id        uuid primary key references auth.users (id) on delete cascade,
+  refresh_token  text not null,
+  updated_at     timestamptz not null default now()
+);
+
+alter table public.apple_tokens enable row level security;
+revoke all on public.apple_tokens from anon, authenticated;
+grant all on public.apple_tokens to service_role;
+
+-- Czy konto ma rolę admina (funkcja delete-account sprawdza to przed cofnięciem dostępu w Stravie i Apple).
+create or replace function public.is_admin_user(p_user_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select ops.is_admin(p_user_id);
+$$;
+
+revoke execute on function public.is_admin_user(uuid) from public, anon, authenticated;
+grant execute on function public.is_admin_user(uuid) to service_role;
 
 -- Wspólna część: usuwa konto i wszystkie powiązane dane, zapisuje ślad usunięcia, zwraca liczby wierszy.
 create or replace function ops.delete_user_account(p_user_id uuid, p_source text)
@@ -78,7 +105,7 @@ $$;
 revoke execute on function ops.delete_user_account(uuid, text) from public, anon, authenticated;
 grant execute on function ops.delete_user_account(uuid, text) to service_role;
 
--- Panel admina: bez zmian w zachowaniu, logika usuwania ze wspólnej funkcji.
+-- Panel admina (przez delete-account): te same sprawdzenia i wpis w logu, logika usuwania ze wspólnej funkcji.
 create or replace function public.admin_delete_user(p_admin_id uuid, p_user_id uuid)
 returns jsonb
 language plpgsql

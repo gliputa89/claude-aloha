@@ -1,8 +1,10 @@
 // Sign in with Apple po stronie serwera: unieważnienie tokenu przy usunięciu konta (wymóg App Store, 5.1.1(v)).
 //
-// Aplikacja loguje przez natywny arkusz Apple i nie przechowuje tokenów Apple. Przy usuwaniu konta prosi
-// o ponowną autoryzację Apple i przesyła świeży `authorizationCode` – tu wymieniamy go na refresh token
-// i od razu go unieważniamy (POST /auth/revoke). Apple usuwa wtedy powiązanie aplikacji z Apple ID.
+// Aplikacja loguje przez natywny arkusz Apple. Po zalogowaniu przesyła `authorizationCode` do funkcji apple-token,
+// która wymienia go na refresh token i zapisuje w public.apple_tokens (tylko serwer). Przy usunięciu konta
+// (z aplikacji albo z panelu) funkcja delete-account unieważnia ten token (POST /auth/revoke) – Apple usuwa wtedy
+// powiązanie aplikacji z Apple ID. Konto bez zapisanego tokenu (np. sprzed tej zmiany) aplikacja potwierdza
+// ponownie w arkuszu Apple i przesyła świeży kod.
 //
 // Sekrety funkcji (Apple Developer → Keys, klucz z włączonym „Sign in with Apple”):
 //   APPLE_TEAM_ID      – Team ID,
@@ -64,47 +66,80 @@ async function post(path: string, form: Record<string, string>) {
   });
 }
 
-export type AppleRevokeResult = 'revoked' | 'not_configured' | 'no_code' | 'mismatch' | 'failed';
+/** Identyfikator Apple (sub) z tożsamości konta Supabase – do porównania z tokenem od Apple. */
+export function appleSubject(user: { identities?: { provider: string; id?: string; identity_data?: Record<string, unknown> }[] }) {
+  const identity = user.identities?.find((i) => i.provider === 'apple');
+  if (!identity) return null;
+  return (identity.identity_data?.sub as string | undefined) ?? identity.id ?? null;
+}
+
+export type AppleExchange =
+  | { ok: true; refreshToken: string | null; accessToken: string | null }
+  | { ok: false; reason: 'not_configured' | 'mismatch' | 'failed' };
 
 /**
- * Unieważnia dostęp aplikacji do Apple ID. `expectedSub` – identyfikator Apple z tożsamości konta
- * (żeby kod z innego Apple ID nie unieważnił cudzego powiązania). Nigdy nie rzuca – wynik do logu.
+ * Wymienia `authorizationCode` z natywnego arkusza Apple na tokeny. `expectedSub` pilnuje, żeby kod
+ * z innego Apple ID nie trafił do tego konta. Nigdy nie rzuca.
  */
-export async function revokeAppleAccess(authorizationCode: string | null, expectedSub: string | null): Promise<AppleRevokeResult> {
-  if (!authorizationCode) return 'no_code';
+export async function exchangeAppleCode(authorizationCode: string, expectedSub: string | null): Promise<AppleExchange> {
   const config = appleConfig();
-  if (!config) return 'not_configured';
+  if (!config) return { ok: false, reason: 'not_configured' };
   try {
-    const secret = await clientSecret(config);
     const res = await post('/auth/token', {
       client_id: config.clientId,
-      client_secret: secret,
+      client_secret: await clientSecret(config),
       code: authorizationCode,
       grant_type: 'authorization_code',
     });
     if (!res.ok) {
       console.warn('apple token exchange failed', res.status, (await res.text().catch(() => '')).slice(0, 200));
-      return 'failed';
+      return { ok: false, reason: 'failed' };
     }
     const tokens = (await res.json()) as { refresh_token?: string; access_token?: string; id_token?: string };
-    if (expectedSub && jwtSubject(tokens.id_token) !== expectedSub) return 'mismatch';
+    if (!expectedSub || jwtSubject(tokens.id_token) !== expectedSub) return { ok: false, reason: 'mismatch' };
+    return { ok: true, refreshToken: tokens.refresh_token ?? null, accessToken: tokens.access_token ?? null };
+  } catch (e) {
+    console.warn('apple token exchange error', e instanceof Error ? e.message : e);
+    return { ok: false, reason: 'failed' };
+  }
+}
 
-    const token = tokens.refresh_token ?? tokens.access_token;
-    if (!token) return 'failed';
-    const revoke = await post('/auth/revoke', {
+async function revokeToken(config: AppleConfig, token: string, hint: 'refresh_token' | 'access_token') {
+  try {
+    const res = await post('/auth/revoke', {
       client_id: config.clientId,
-      client_secret: secret,
+      client_secret: await clientSecret(config),
       token,
-      token_type_hint: tokens.refresh_token ? 'refresh_token' : 'access_token',
+      token_type_hint: hint,
     });
-    await revoke.body?.cancel();
-    if (!revoke.ok) {
-      console.warn('apple revoke failed', revoke.status);
-      return 'failed';
-    }
-    return 'revoked';
+    await res.body?.cancel();
+    if (!res.ok) console.warn('apple revoke failed', res.status);
+    return res.ok;
   } catch (e) {
     console.warn('apple revoke error', e instanceof Error ? e.message : e);
-    return 'failed';
+    return false;
   }
+}
+
+export type AppleRevokeResult = 'revoked' | 'not_configured' | 'no_token' | 'mismatch' | 'failed';
+
+/**
+ * Unieważnia dostęp aplikacji do Apple ID: zapisanym refresh tokenem (z logowania) albo – gdy go nie ma
+ * lub nie zadziałał – świeżym kodem z ponownej autoryzacji w aplikacji. Nigdy nie rzuca – wynik do logu.
+ */
+export async function revokeAppleAccess(opts: {
+  storedRefreshToken: string | null;
+  authorizationCode: string | null;
+  expectedSub: string | null;
+}): Promise<AppleRevokeResult> {
+  const config = appleConfig();
+  if (!config) return 'not_configured';
+  if (opts.storedRefreshToken && (await revokeToken(config, opts.storedRefreshToken, 'refresh_token'))) return 'revoked';
+  if (!opts.authorizationCode) return opts.storedRefreshToken ? 'failed' : 'no_token';
+
+  const exchanged = await exchangeAppleCode(opts.authorizationCode, opts.expectedSub);
+  if (!exchanged.ok) return exchanged.reason;
+  const token = exchanged.refreshToken ?? exchanged.accessToken;
+  if (!token) return 'failed';
+  return (await revokeToken(config, token, exchanged.refreshToken ? 'refresh_token' : 'access_token')) ? 'revoked' : 'failed';
 }

@@ -1,17 +1,22 @@
-// Edge Function: „Usuń konto” w Profilu – użytkownik usuwa własne konto i wszystkie powiązane dane.
+// Edge Function: usunięcie konta i wszystkich powiązanych danych – jedna droga dla aplikacji i panelu admina.
 //
-//   POST { appleAuthorizationCode?: string } → { deleted: true, apple, strava }
+//   aplikacja (token użytkownika): POST { appleAuthorizationCode?: string }
+//   panel admina (klucz service_role): POST { userId, adminId }
+//   → { deleted: true, counts, apple, strava }
 //
-// Konto bierzemy wyłącznie z tokenu (tylko własne). Przed usunięciem, bez blokowania usunięcia, gdy się nie uda:
-//   • Strava – cofamy dostęp aplikacji po stronie Stravy (jak przy rozłączeniu w Profilu),
-//   • Apple  – konto z logowaniem Apple: unieważniamy token Apple (wymóg App Store) kodem z ponownej
-//              autoryzacji w aplikacji (_shared/apple.ts; wymaga sekretów APPLE_*).
-// Potem RPC delete_own_account (ta sama logika co usunięcie z panelu admina, jedna transakcja) – zostaje tylko
-// zapis o usunięciu (e-mail i data) w ops.account_deletions.
+// Aplikacja usuwa wyłącznie własne konto (użytkownik z tokenu). Obie drogi robią to samo, w tej kolejności:
+//   1. odmowa dla konta z rolą admina (najpierw odebrać rolę w ops.admins),
+//   2. Strava – cofnięcie dostępu aplikacji po stronie Stravy (jak przy rozłączeniu w Profilu),
+//   3. Apple  – unieważnienie tokenu Apple (wymóg App Store): zapisanym refresh tokenem z logowania, a w aplikacji
+//               w razie potrzeby świeżym kodem z ponownej autoryzacji (_shared/apple.ts; wymaga sekretów APPLE_*),
+//   4. RPC delete_own_account / admin_delete_user – wspólna logika usuwania w jednej transakcji; zostaje tylko
+//      zapis o usunięciu (e-mail i data) w ops.account_deletions, a przy panelu też wpis w admin_audit_log.
+// Kroki 2–3 nie blokują usunięcia, gdy się nie udadzą – ich wynik wraca w odpowiedzi i trafia do logów.
 
-import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { createClient, type User } from 'jsr:@supabase/supabase-js@2';
 
-import { revokeAppleAccess, type AppleRevokeResult } from '../_shared/apple.ts';
+import { appleSubject, revokeAppleAccess, type AppleRevokeResult } from '../_shared/apple.ts';
+import { isServiceKey } from '../_shared/auth.ts';
 import { accessToken, STRAVA, stravaClient } from '../_shared/strava.ts';
 
 const cors = {
@@ -22,6 +27,8 @@ const cors = {
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...cors, 'Content-Type': 'application/json' } });
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   if (req.method !== 'POST') return json({ error: 'method_not_allowed' }, 405);
@@ -30,22 +37,34 @@ Deno.serve(async (req) => {
   const db = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
-  const { data: auth, error: authError } = await db.auth.getUser(token);
-  if (authError || !auth.user) return json({ error: 'unauthorized' }, 401);
-  const user = auth.user;
   const body = await req.json().catch(() => null);
 
-  // Konto admina usuwa się z panelu – sprawdzamy, zanim cokolwiek cofniemy w Stravie czy Apple.
-  // (schemat ops nie jest wystawiony w API – public.is_admin() sprawdza konto z tokenu użytkownika).
-  const asUser = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_ANON_KEY')!, {
-    auth: { persistSession: false, autoRefreshToken: false },
-    global: { headers: { Authorization: `Bearer ${token}` } },
-  });
-  const admin = await asUser.rpc('is_admin');
-  if (admin.error) return json({ error: 'load_failed' }, 500);
+  // ── Kto usuwa i czyje konto ──
+  let user: User;
+  let adminId: string | null = null;
+  if (await isServiceKey(token)) {
+    if (typeof body?.userId !== 'string' || !UUID.test(body.userId)) return json({ error: 'invalid_user' }, 400);
+    if (typeof body?.adminId !== 'string' || !UUID.test(body.adminId)) return json({ error: 'invalid_admin' }, 400);
+    if (body.userId === body.adminId) return json({ error: 'self' }, 403);
+    const found = await db.auth.admin.getUserById(body.userId);
+    if (found.error || !found.data.user) return json({ error: 'not_found' }, 404);
+    user = found.data.user;
+    adminId = body.adminId;
+  } else {
+    const { data, error } = await db.auth.getUser(token);
+    if (error || !data.user) return json({ error: 'unauthorized' }, 401);
+    user = data.user;
+  }
+
+  // ── 1. Konto admina usuwa się dopiero po odebraniu roli ──
+  const admin = await db.rpc('is_admin_user', { p_user_id: user.id });
+  if (admin.error) {
+    console.error('is_admin_user failed', admin.error.code, admin.error.message);
+    return json({ error: 'load_failed' }, 500);
+  }
   if (admin.data === true) return json({ error: 'admin_account' }, 403);
 
-  // ── Strava: cofnięcie dostępu (połączenie i biegi usunie kaskada) ──
+  // ── 2. Strava: cofnięcie dostępu (połączenie i biegi usunie kaskada) ──
   let strava: 'deauthorized' | 'none' | 'failed' = 'none';
   const conn = await db
     .from('strava_connections')
@@ -71,21 +90,28 @@ Deno.serve(async (req) => {
     }
   }
 
-  // ── Apple: unieważnienie tokenu ──
+  // ── 3. Apple: unieważnienie tokenu ──
   let apple: AppleRevokeResult | 'none' = 'none';
-  const appleIdentity = user.identities?.find((i) => i.provider === 'apple');
-  if (appleIdentity) {
-    const code = typeof body?.appleAuthorizationCode === 'string' ? body.appleAuthorizationCode : null;
-    const sub = (appleIdentity.identity_data?.sub as string | undefined) ?? appleIdentity.id ?? null;
-    apple = await revokeAppleAccess(code, sub);
+  const sub = appleSubject(user);
+  if (sub) {
+    const stored = await db.from('apple_tokens').select('refresh_token').eq('user_id', user.id).maybeSingle();
+    if (stored.error) console.warn('apple token load failed', stored.error.code, stored.error.message);
+    apple = await revokeAppleAccess({
+      storedRefreshToken: stored.data?.refresh_token ?? null,
+      // Świeży kod przysyła tylko aplikacja (ponowna autoryzacja w arkuszu Apple).
+      authorizationCode: !adminId && typeof body?.appleAuthorizationCode === 'string' ? body.appleAuthorizationCode : null,
+      expectedSub: sub,
+    });
     if (apple !== 'revoked') console.warn('apple token not revoked on delete', user.id, apple);
   }
 
-  // ── Konto i dane ──
-  const { error } = await db.rpc('delete_own_account', { p_user_id: user.id });
+  // ── 4. Konto i dane ──
+  const { data: counts, error } = adminId
+    ? await db.rpc('admin_delete_user', { p_admin_id: adminId, p_user_id: user.id })
+    : await db.rpc('delete_own_account', { p_user_id: user.id });
   if (error) {
-    console.error('delete_own_account failed', user.id, error.code, error.message);
-    return json({ error: error.message === 'admin_account' ? 'admin_account' : 'delete_failed' }, 500);
+    console.error('delete account failed', user.id, error.code, error.message);
+    return json({ error: 'delete_failed', message: error.message }, 500);
   }
-  return json({ deleted: true, apple, strava });
+  return json({ deleted: true, counts, apple, strava });
 });

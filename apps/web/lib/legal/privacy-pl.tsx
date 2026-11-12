@@ -51,7 +51,8 @@ export const privacyPl: LegalDocument = {
                   <td>
                     Adres e-mail, hasło w postaci skrótu (nie znamy Twojego hasła), imię lub nazwa, którą
                     podajesz, język, strefa czasowa. Przy logowaniu przez Apple lub Google: identyfikator
-                    konta, adres e-mail i imię.
+                    konta, adres e-mail i imię, a przy Apple także token Apple przechowywany tylko na serwerze –
+                    służy wyłącznie do odłączenia aplikacji od Twojego Apple ID przy usunięciu konta.
                   </td>
                   <td>Od Ciebie, od Apple lub Google</td>
                 </tr>
@@ -479,7 +480,7 @@ export const privacyPl: LegalDocument = {
             10.
           </p>
           <p>
-            Przy usuwaniu konta w aplikacji cofamy też dostęp aplikacji do Twojego konta Strava, a jeśli
+            Przy usuwaniu konta – w aplikacji i na Twoją prośbę mailową – cofamy też dostęp aplikacji do Twojego konta Strava, a jeśli
             logujesz się przez Apple – unieważniamy powiązanie z Twoim Apple ID. Dostęp możesz też cofnąć
             samodzielnie w ustawieniach Stravy, Apple ID albo konta Google.
           </p>

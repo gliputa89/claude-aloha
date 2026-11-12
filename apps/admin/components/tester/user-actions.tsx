@@ -148,8 +148,9 @@ export function DeleteUserButton({ userId, email, isTest }: { userId: string; em
         }}
       >
         <p className="text-sm text-text-accent-strong">
-          Usuwa na stałe: konto i logowanie, ankietę, plan, kalendarz, treningi, check-iny, historię poziomu i wywołania AI. Nie da się
-          tego cofnąć.
+          Tak samo jak „Usuń konto” w aplikacji: cofa dostęp Stravy i Apple, potem usuwa na stałe konto i logowanie, ankietę, plan,
+          treningi, check-iny, rozmowy, biegi ze Stravy, historię poziomu i wywołania AI. Zostaje tylko zapis o usunięciu (e-mail i
+          data). Nie da się tego cofnąć.
         </p>
         <label className="flex flex-col gap-1 text-sm">
           <span>
