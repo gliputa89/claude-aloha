@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Mark, Plumeria, Wordmark } from "@/components/brand";
+import { GoalIcon, GoalsBoard } from "@/components/goals-board";
 import { HeroVideo } from "@/components/hero-video";
 import { QuoteRotator } from "@/components/quote-rotator";
 import { SiteFooter } from "@/components/site-footer";
@@ -30,6 +31,9 @@ export default async function Home({ params }: PageProps<"/[lang]">) {
             <Wordmark onDark />
           </Link>
           <nav className="hidden items-center gap-8 text-sm font-semibold md:flex">
+            <a href="#cele" className="hover:text-accent">
+              {t.nav.goals}
+            </a>
             <a href="#funkcje" className="hover:text-accent">
               {t.nav.features}
             </a>
@@ -130,6 +134,29 @@ export default async function Home({ params }: PageProps<"/[lang]">) {
           <p className="max-w-[60ch] text-lg leading-relaxed text-text-muted lg:col-span-5 lg:pt-3">
             {t.audience.body}
           </p>
+        </section>
+
+        {/* Cele – najważniejsza nowość: cel prowadzący plan, cele obok, rodzaje celów */}
+        <section id="cele" className="bg-surface-brand-soft py-20 sm:py-28">
+          <div className={`${shell} grid items-center gap-12 lg:grid-cols-12 lg:gap-16`}>
+            <div className="lg:col-span-7">
+              <h2 className={h2}>{t.goals.title}</h2>
+              <p className="mt-5 max-w-[60ch] text-lg leading-relaxed text-text-muted">{t.goals.body}</p>
+              <Points items={t.goals.points} />
+            </div>
+            <div className="lg:col-span-5">
+              <GoalsBoard board={t.goals.board} />
+            </div>
+          </div>
+          <ul className={`${shell} mt-16 grid gap-x-6 gap-y-8 sm:grid-cols-2 lg:mt-20 lg:grid-cols-5`}>
+            {t.goals.kinds.map((item) => (
+              <li key={item.kind} className="border-t-2 border-text pt-5">
+                <GoalIcon kind={item.kind} className="size-8 text-text-brand" />
+                <h3 className="mt-3 text-xl font-bold tracking-tight">{item.name}</h3>
+                <p className="mt-1.5 leading-relaxed text-text-muted">{item.body}</p>
+              </li>
+            ))}
+          </ul>
         </section>
 
         {/* Nasi trenerzy – profile z bazy; tekst zostaje także wtedy, gdy profili jeszcze nie ma */}
