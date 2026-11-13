@@ -157,9 +157,12 @@ Każda zmiana:
 - **Pan Aloha (trener AI)** – czat dostępny z ekranu „Dzisiaj” i z arkusza treningu. Trzy rodzaje rozmów: ogólna,
   **przed treningiem** („jak go pobiec?”, „mam mniej czasu”) i **po treningu** („jak mi poszło?”, „co poprawić?”).
   Trener zna plan, ostatnie treningi i ich oceny; odpowiada od razu, krótko, w tonie „trener, ale kumpel”.
-- **Zmiana planu z rozmowy** – trener może zaproponować jedną zmianę (przenieść, skrócić, zmienić rodzaj, odpuścić
-  trening). To zawsze propozycja: karta pod wiadomością z „Akceptuj” i „Zostaw plan bez zmian”. Zmianę sprawdzają
-  te same reguły co plan od AI; propozycja łamiąca reguły w ogóle nie trafia do biegacza.
+- **Zmiana planu z rozmowy** – trener może zaproponować jedną zmianę: przenieść, skrócić, zmienić rodzaj, odpuścić
+  trening albo ułożyć od nowa część główną (intensywność i liczba powtórzeń: ile odcinków, jak długich, w jakiej
+  strefie wysiłku i z jaką przerwą). Trener widzi przebieg każdego treningu z zadanym tempem, więc „za szybko” albo
+  „za dużo powtórzeń” umie zamienić na konkretną zmianę. To zawsze propozycja: karta pod wiadomością z „Akceptuj”
+  i „Zostaw plan bez zmian”. Zmianę sprawdzają te same reguły co plan od AI; propozycja łamiąca reguły w ogóle nie
+  trafia do biegacza.
 - **Prawdziwy trener** – osobny pakiet: czat z przydzielonym trenerem-człowiekiem (lista trenerów w panelu).
   Odpowiedzi nie są natychmiastowe; trener pisze z panelu.
 - Bez porad medycznych: przy bólu i chorobie trener zaleca wariant łagodniejszy i kontakt z lekarzem albo fizjoterapeutą.

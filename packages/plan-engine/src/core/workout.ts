@@ -324,10 +324,16 @@ export function formatStepDuration(s: number) {
   return rest ? `${m}:${String(rest).padStart(2, '0')} min` : `${m} min`;
 }
 
-/** Krótki opis po polsku, np. „10′ rozgrzewki · 6× (3′ interwał / 2′ trucht) · 10′ schłodzenia”. */
-export function describeSteps(items: WorkoutItem[]): string {
-  const short = (s: WorkoutStep) =>
-    `${s.durationS % 60 ? formatStepDuration(s.durationS) : `${s.durationS / 60}′`} ${ZONE_INFO[s.zone].label}`;
+/**
+ * Krótki opis po polsku, np. „10′ rozgrzewki · 6× (3′ interwał / 2′ trucht) · 10′ schłodzenia”.
+ * `pace: true` dokłada zadane tempo odcinka (min/km) – używa tego kontekst dla trenera AI, żeby wiedział,
+ * jakie tempo biegacz widzi w aplikacji.
+ */
+export function describeSteps(items: WorkoutItem[], opts: { pace?: boolean } = {}): string {
+  const short = (s: WorkoutStep) => {
+    const base = `${s.durationS % 60 ? formatStepDuration(s.durationS) : `${s.durationS / 60}′`} ${ZONE_INFO[s.zone].label}`;
+    return opts.pace && s.pace ? `${base} ${formatPace(s.pace.fastS)}–${formatPace(s.pace.slowS)}/km` : base;
+  };
   return items
     .map((i) => {
       if (isRepeat(i)) return `${i.times}× (${i.steps.map(short).join(' / ')})`;

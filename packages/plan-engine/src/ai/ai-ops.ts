@@ -81,6 +81,29 @@ export const AI_OPERATION_LABEL: Record<AiOperationKind, string> = {
 };
 
 /** Schemat odpowiedzi dla structured outputs (`output_config.format`). */
+/** Serie części głównej w odpowiedzi modelu – ten sam fragment schematu w planie (set_main) i w czacie. */
+export const MAIN_SETS_SCHEMA = {
+  anyOf: [
+    {
+      type: 'array',
+      description: 'Serie części głównej w kolejności. Rozgrzewkę i schłodzenie dokłada silnik.',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['repeat', 'workS', 'workZone', 'recoveryS', 'recoveryZone'],
+        properties: {
+          repeat: { type: 'integer', description: 'ile razy powtórzyć (1 = pojedynczy odcinek)' },
+          workS: { type: 'integer', description: 'czas odcinka w sekundach' },
+          workZone: { type: 'string', enum: [...PACE_ZONES] },
+          recoveryS: { type: ['integer', 'null'], description: 'przerwa po odcinku w sekundach; null = bez przerwy' },
+          recoveryZone: { anyOf: [{ type: 'string', enum: [...PACE_ZONES] }, { type: 'null' }] },
+        },
+      },
+    },
+    { type: 'null' },
+  ],
+} as const;
+
 export const AI_PLAN_RESPONSE_SCHEMA = {
   type: 'object',
   additionalProperties: false,
@@ -111,27 +134,7 @@ export const AI_PLAN_RESPONSE_SCHEMA = {
           toDate: { type: ['string', 'null'], description: 'YYYY-MM-DD, tylko dla move' },
           type: { anyOf: [{ type: 'string', enum: [...AI_SESSION_TYPES] }, { type: 'null' }] },
           durationMin: { type: ['integer', 'null'] },
-          sets: {
-            anyOf: [
-              {
-                type: 'array',
-                description: 'Tylko set_main: serie części głównej w kolejności. Rozgrzewkę i schłodzenie dokłada silnik.',
-                items: {
-                  type: 'object',
-                  additionalProperties: false,
-                  required: ['repeat', 'workS', 'workZone', 'recoveryS', 'recoveryZone'],
-                  properties: {
-                    repeat: { type: 'integer', description: 'ile razy powtórzyć (1 = pojedynczy odcinek)' },
-                    workS: { type: 'integer', description: 'czas odcinka w sekundach' },
-                    workZone: { type: 'string', enum: [...PACE_ZONES] },
-                    recoveryS: { type: ['integer', 'null'], description: 'przerwa po odcinku w sekundach; null = bez przerwy' },
-                    recoveryZone: { anyOf: [{ type: 'string', enum: [...PACE_ZONES] }, { type: 'null' }] },
-                  },
-                },
-              },
-              { type: 'null' },
-            ],
-          },
+          sets: MAIN_SETS_SCHEMA,
           reason: { type: 'string' },
         },
       },
@@ -157,7 +160,8 @@ const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const isZone = (z: unknown): z is PaceZone => PACE_ZONES.includes(z as PaceZone);
 const int = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? Math.round(v) : null);
 
-function parseSets(raw: unknown): MainSet[] | null {
+/** Serie części głównej z odpowiedzi modelu (ten sam kształt w planie i w czacie); zły kształt = null. */
+export function parseMainSets(raw: unknown): MainSet[] | null {
   if (!Array.isArray(raw)) return null;
   const sets: MainSet[] = [];
   for (const item of raw.slice(0, 20)) {
@@ -195,7 +199,7 @@ export function parseAiPlanResponse(raw: unknown): { ok: true; value: AiPlanResp
       toDate: typeof o.toDate === 'string' && ISO_DATE.test(o.toDate) ? o.toDate : null,
       type: AI_SESSION_TYPES.includes(o.type as AiSessionType) ? (o.type as AiSessionType) : null,
       durationMin: typeof o.durationMin === 'number' && Number.isFinite(o.durationMin) ? Math.round(o.durationMin) : null,
-      sets: parseSets(o.sets),
+      sets: parseMainSets(o.sets),
       reason: typeof o.reason === 'string' ? o.reason.slice(0, 500) : '',
     });
   }

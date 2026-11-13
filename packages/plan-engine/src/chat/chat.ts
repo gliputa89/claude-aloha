@@ -6,14 +6,14 @@
 // Do modelu trafiają plan, oceny, pogoda do nadchodzących treningów, imię biegacza (żeby trener mógł się zwracać
 // po imieniu) i treść rozmowy – bez e-maila, identyfikatorów i lokalizacji.
 
-import { AI_SESSION_TYPES, applyOperations, type AiOperation, type AiSessionType } from '../ai/ai-ops.ts';
+import { AI_SESSION_TYPES, applyOperations, MAIN_SETS_SCHEMA, parseMainSets, type AiOperation, type AiSessionType } from '../ai/ai-ops.ts';
 import { costUsd, modelPrice } from '../ai/ai-pricing.ts';
 import type { AiPromptConfig } from '../ai/ai-prompt.ts';
 import type { AiCaller, AiLogger, AiMessage, AiModelRequest, AiModelResult, AiStatus } from '../ai/ai-run.ts';
 import { noteActual, type NoteActual } from '../coach/review-note.ts';
 import { parseUnits, unitsNote, type Units } from '../core/units.ts';
 import { addDaysIso, isoWeekday } from '../core/dates.ts';
-import { describeSteps, stepsOf } from '../core/workout.ts';
+import { describeSteps, stepsOf, type MainSet } from '../core/workout.ts';
 import { ENGINE_VERSION, type PlanInput, type PlannedSession, type PlannedWeek } from '../plan/plan.ts';
 import type { ReviewFact, ReviewVerdict } from '../review/review.ts';
 import type { SessionWeather, WeatherCondition, WeatherFlag, WeatherQuality } from '../weather/weather.ts';
@@ -38,7 +38,7 @@ const HEALTH_EN =
 /** Czy wiadomość biegacza porusza tematy zdrowotne (do bramki zgody w czacie). */
 export const mentionsHealth = (text: string) => HEALTH_PL.test(text) || HEALTH_EN.test(text);
 
-export const CHAT_CHANGE_KINDS = ['move', 'set_duration', 'set_type', 'remove'] as const;
+export const CHAT_CHANGE_KINDS = ['move', 'set_duration', 'set_type', 'set_main', 'remove'] as const;
 export type ChatChangeKind = (typeof CHAT_CHANGE_KINDS)[number];
 
 /** Propozycja zmiany planu od trenera – zapisywana przy wiadomości, wykonywana po akceptacji. */
@@ -48,6 +48,11 @@ export type ChatChange = {
   toDate: string | null;
   type: AiSessionType | null;
   durationMin: number | null;
+  /**
+   * Tylko `set_main`: nowa część główna jako serie (powtórzenia × odcinek + przerwa, każda ze strefą wysiłku).
+   * Tędy trener zmienia intensywność i liczbę powtórzeń, nie tylko czas treningu.
+   */
+  sets: MainSet[] | null;
   /** Jedno zdanie na kartę propozycji. */
   summary: string;
 };
@@ -64,9 +69,10 @@ export const COACH_CHAT_SCHEMA = {
         toDate: { type: ['string', 'null'] },
         type: { anyOf: [{ type: 'string', enum: [...AI_SESSION_TYPES] }, { type: 'null' }] },
         durationMin: { type: ['integer', 'null'] },
+        sets: MAIN_SETS_SCHEMA,
         summary: { type: 'string' },
       },
-      required: ['op', 'date', 'toDate', 'type', 'durationMin', 'summary'],
+      required: ['op', 'date', 'toDate', 'type', 'durationMin', 'sets', 'summary'],
       additionalProperties: false,
     },
   },
@@ -80,6 +86,8 @@ export type ChatSessionContext = {
   weekday: number;
   type: string;
   durationMin: number | null;
+  /** Przebieg treningu: odcinki, powtórzenia i zadane tempo (min/km) – to, co biegacz widzi w aplikacji. */
+  steps: string;
   status: string;
   /** Przyszły, niezrobiony trening – tylko taki można zmienić. */
   canChange: boolean;
@@ -242,6 +250,7 @@ export function chatContextFromRows(rows: ChatContextRows): CoachChatContext {
         weekday: isoWeekday(s.scheduled_on),
         type: s.type,
         durationMin: s.duration_min,
+        steps: describeSteps(stepsOf(s), { pace: true }),
         status: s.status,
         canChange: s.status === 'planned' && s.scheduled_on >= today && s.type !== 'race',
         verdict: reviewOf.get(s.id)?.verdict ?? null,
@@ -255,7 +264,7 @@ export function chatContextFromRows(rows: ChatContextRows): CoachChatContext {
           date: focus.scheduled_on,
           type: focus.type,
           durationMin: focus.duration_min,
-          steps: describeSteps(stepsOf(focus)),
+          steps: describeSteps(stepsOf(focus), { pace: true }),
           phase: focus.status === 'planned' ? 'before' : 'after',
           actual: focus.status === 'planned' ? null : noteActual(focus.actual_distance_m, focus.actual_duration_s, units),
           verdict: focusReview?.verdict ?? null,
@@ -293,9 +302,12 @@ export function parseCoachChat(json: unknown): { reply: string; change: ChatChan
   const toDate = typeof change.toDate === 'string' && ISO_DATE.test(change.toDate) ? change.toDate : null;
   const type = (AI_SESSION_TYPES as readonly unknown[]).includes(change.type) ? (change.type as AiSessionType) : null;
   const durationMin = typeof change.durationMin === 'number' && Number.isFinite(change.durationMin) ? Math.round(change.durationMin) : null;
-  if ((op === 'move' && !toDate) || (op === 'set_duration' && !durationMin) || (op === 'set_type' && !type)) return { reply: text, change: null };
+  const sets = parseMainSets(change.sets);
+  if ((op === 'move' && !toDate) || (op === 'set_duration' && !durationMin) || (op === 'set_type' && !type) || (op === 'set_main' && !sets?.length)) {
+    return { reply: text, change: null };
+  }
   const summary = typeof change.summary === 'string' ? change.summary.replace(/\s+/g, ' ').trim().slice(0, 160) : '';
-  return { reply: text, change: { op: op as ChatChangeKind, date: change.date, toDate, type, durationMin, summary } };
+  return { reply: text, change: { op: op as ChatChangeKind, date: change.date, toDate, type, durationMin, sets, summary } };
 }
 
 /** `weeks` – tydzień, którego dotyczy zmiana, już po niej. */
@@ -322,7 +334,7 @@ export function checkChatChange(
     toDate: change.toDate,
     type: change.type,
     durationMin: change.durationMin,
-    sets: null,
+    sets: change.sets,
     reason: change.summary,
   };
   const sorted = [...ctx.weeks].sort((x, y) => x.weekIndex - y.weekIndex);

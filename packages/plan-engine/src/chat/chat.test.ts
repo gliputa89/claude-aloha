@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
+import { describeSteps, stepsOf } from '../core/workout.ts';
 import { generateInitialPlan, type PlanInput } from '../plan/plan.ts';
 import { chatChangeWrite, chatContextFromRows, checkChatChange, coachChatMessages, mentionsHealth, parseCoachChat, type ChatChange, type CoachChatContext } from './chat.ts';
 
@@ -20,7 +21,7 @@ const sessions = weeks.flatMap((w) => w.sessions);
 const statuses = new Map(sessions.map((s) => [s.scheduledOn, 'planned']));
 const check = (change: Partial<ChatChange>, over: { today?: string; statuses?: Map<string, string> } = {}) =>
   checkChatChange(
-    { op: 'move', date: sessions[0]!.scheduledOn, toDate: null, type: null, durationMin: null, summary: 'test', ...change },
+    { op: 'move', date: sessions[0]!.scheduledOn, toDate: null, type: null, durationMin: null, sets: null, summary: 'test', ...change },
     { input, weeks, statuses: over.statuses ?? statuses, today: over.today ?? '2026-11-09' },
   );
 
@@ -28,7 +29,7 @@ test('przeniesienie na wolny dzień spoza ankiety przechodzi i daje wiersz do za
   const first = sessions[0]!;
   const result = check({ op: 'move', date: first.scheduledOn, toDate: '2026-11-11' });
   assert.ok(result.ok, JSON.stringify(result));
-  const write = chatChangeWrite({ op: 'move', date: first.scheduledOn, toDate: '2026-11-11', type: null, durationMin: null, summary: '' }, result.weeks);
+  const write = chatChangeWrite({ op: 'move', date: first.scheduledOn, toDate: '2026-11-11', type: null, durationMin: null, sets: null, summary: '' }, result.weeks);
   assert.equal(write?.kind, 'update');
   assert.equal(write?.kind === 'update' && write.session.scheduledOn, '2026-11-11');
   assert.equal(write?.kind === 'update' && write.session.type, first.type);
@@ -40,7 +41,7 @@ test('przeniesienie na dziś, gdy plan rusza dopiero jutro: pierwszy tydzień za
   const lateWeeks = generateInitialPlan(late).weeks;
   const saturday = lateWeeks[0]!.sessions[0]!;
   assert.equal(saturday.scheduledOn, '2026-11-14');
-  const change: ChatChange = { op: 'move', date: '2026-11-14', toDate: '2026-11-13', type: null, durationMin: null, summary: '' };
+  const change: ChatChange = { op: 'move', date: '2026-11-14', toDate: '2026-11-13', type: null, durationMin: null, sets: null, summary: '' };
   const result = checkChatChange(change, {
     input: late,
     weeks: lateWeeks,
@@ -58,7 +59,7 @@ test('przeniesienie do następnego tygodnia przechodzi, za rozpisane tygodnie �
   assert.ok(!sessions.some((s) => s.scheduledOn === freeNextWeek));
   const result = check({ op: 'move', date: first.scheduledOn, toDate: freeNextWeek });
   assert.ok(result.ok, JSON.stringify(result));
-  const write = chatChangeWrite({ op: 'move', date: first.scheduledOn, toDate: freeNextWeek, type: null, durationMin: null, summary: '' }, result.weeks, weeks);
+  const write = chatChangeWrite({ op: 'move', date: first.scheduledOn, toDate: freeNextWeek, type: null, durationMin: null, sets: null, summary: '' }, result.weeks, weeks);
   assert.deepEqual(write?.kind === 'update' && [write.weekIndex, write.weekStartsOn], [1, null]);
   assert.ok(!check({ op: 'move', date: first.scheduledOn, toDate: '2026-12-30' }).ok);
 });
@@ -69,10 +70,33 @@ test('skrócenie i odpuszczenie treningu', () => {
   assert.ok(shorter.ok, JSON.stringify(shorter));
   assert.equal(shorter.weeks.flatMap((w) => w.sessions).find((s) => s.scheduledOn === first.scheduledOn)?.durationMin, 25);
   assert.ok(check({ op: 'remove' }).ok);
-  assert.deepEqual(chatChangeWrite({ op: 'remove', date: first.scheduledOn, toDate: null, type: null, durationMin: null, summary: '' }, []), {
+  assert.deepEqual(chatChangeWrite({ op: 'remove', date: first.scheduledOn, toDate: null, type: null, durationMin: null, sets: null, summary: '' }, []), {
     kind: 'delete',
     date: first.scheduledOn,
   });
+});
+
+test('set_main: trener zmienia intensywność i liczbę powtórzeń części głównej', () => {
+  // Wtorek tygodnia 1 – mocna jednostka; trener składa ją od nowa jako 3× 4 min w strefie tempo z 2 min truchtu.
+  const quality = sessions.find((s) => s.type === 'intervals' || s.type === 'tempo')!;
+  const sets = [{ repeat: 3, workS: 240, workZone: 'tempo' as const, recoveryS: 120, recoveryZone: 'recovery' as const }];
+  const result = check({ op: 'set_main', date: quality.scheduledOn, sets }, { today: quality.scheduledOn });
+  assert.ok(result.ok, JSON.stringify(result));
+  const write = chatChangeWrite(
+    { op: 'set_main', date: quality.scheduledOn, toDate: null, type: null, durationMin: null, sets, summary: '' },
+    result.weeks,
+  );
+  assert.equal(write?.kind, 'update');
+  const steps = write?.kind === 'update' ? describeSteps(stepsOf(write.session)) : '';
+  assert.match(steps, /3× \(4′ tempo \/ 2′ trucht\)/);
+});
+
+test('set_main bez serii nie jest propozycją; przesadzone serie odrzuca walidacja', () => {
+  const none = { op: 'none', date: null, toDate: null, type: null, durationMin: null, sets: null, summary: '' };
+  assert.equal(parseCoachChat({ reply: 'Ok', change: { ...none, op: 'set_main', date: '2026-11-10' } })?.change, null);
+  const quality = sessions.find((s) => s.type === 'intervals' || s.type === 'tempo')!;
+  const tooMuch = [{ repeat: 20, workS: 600, workZone: 'interval' as const, recoveryS: 60, recoveryZone: 'recovery' as const }];
+  assert.ok(!check({ op: 'set_main', date: quality.scheduledOn, sets: tooMuch }, { today: quality.scheduledOn }).ok);
 });
 
 test('odrzucone: zajęty dzień, zrobiony trening, miniony dzień, dzień bez treningu', () => {
@@ -83,7 +107,7 @@ test('odrzucone: zajęty dzień, zrobiony trening, miniony dzień, dzień bez tr
 });
 
 test('odpowiedź modelu: sama rozmowa, poprawna propozycja, wadliwa propozycja znika', () => {
-  const none = { op: 'none', date: null, toDate: null, type: null, durationMin: null, summary: '' };
+  const none = { op: 'none', date: null, toDate: null, type: null, durationMin: null, sets: null, summary: '' };
   assert.deepEqual(parseCoachChat({ reply: ' Jasne. ', change: none }), { reply: 'Jasne.', change: null });
   const move = parseCoachChat({ reply: 'Przenieśmy.', change: { ...none, op: 'move', date: '2026-11-10', toDate: '2026-11-11', summary: 'Przenieść' } });
   assert.equal(move?.change?.op, 'move');

@@ -94,6 +94,7 @@ export function proposeFromCheckIn(input: {
       toDate: null,
       type: type === session.type ? null : 'easy',
       durationMin,
+      sets: null,
       summary: reason,
     },
     reason,

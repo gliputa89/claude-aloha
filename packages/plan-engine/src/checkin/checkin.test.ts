@@ -15,7 +15,7 @@ test('dobry dzień bez podpowiedzi → trening bez zmian', () => {
 
 test('słabszy dzień: spokojny bieg krótszy, tym bardziej im gorzej', () => {
   const two = propose(easy, 2);
-  assert.deepEqual(two?.change, { op: 'set_duration', date: '2026-11-17', toDate: null, type: null, durationMin: 30, summary: 'shorter' });
+  assert.deepEqual(two?.change, { op: 'set_duration', date: '2026-11-17', toDate: null, type: null, durationMin: 30, sets: null, summary: 'shorter' });
   assert.equal(two?.level, 1);
   const one = propose(easy, 1);
   assert.equal(one?.change.durationMin, 20);
@@ -24,7 +24,7 @@ test('słabszy dzień: spokojny bieg krótszy, tym bardziej im gorzej', () => {
 
 test('słabszy dzień: mocna jednostka zamienia się w spokojny bieg', () => {
   const two = propose(intervals, 2);
-  assert.deepEqual(two?.change, { op: 'set_type', date: '2026-11-17', toDate: null, type: 'easy', durationMin: 40, summary: 'easier' });
+  assert.deepEqual(two?.change, { op: 'set_type', date: '2026-11-17', toDate: null, type: 'easy', durationMin: 40, sets: null, summary: 'easier' });
   assert.equal(two?.level, 2);
   // Ocena 1: najwyżej pół godziny spokojnie.
   assert.equal(propose(intervals, 1)?.change.durationMin, 30);
@@ -33,7 +33,7 @@ test('słabszy dzień: mocna jednostka zamienia się w spokojny bieg', () => {
 
 test('mało czasu: skrót do 25 min przy każdej ocenie, typ zostaje', () => {
   const p = propose(intervals, 4, ['little_time']);
-  assert.deepEqual(p?.change, { op: 'set_duration', date: '2026-11-17', toDate: null, type: null, durationMin: 25, summary: 'little_time' });
+  assert.deepEqual(p?.change, { op: 'set_duration', date: '2026-11-17', toDate: null, type: null, durationMin: 25, sets: null, summary: 'little_time' });
   assert.equal(p?.level, 1);
   // Trening już krótszy niż 25 min – nie ma czego skracać.
   assert.equal(propose({ ...easy, durationMin: 20 }, 4, ['little_time']), null);
