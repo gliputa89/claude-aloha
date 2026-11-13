@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import { generateInitialPlan, type PlanInput } from '../plan/plan.ts';
-import { chatChangeWrite, checkChatChange, coachChatMessages, mentionsHealth, parseCoachChat, type ChatChange, type CoachChatContext } from './chat.ts';
+import { chatChangeWrite, chatContextFromRows, checkChatChange, coachChatMessages, mentionsHealth, parseCoachChat, type ChatChange, type CoachChatContext } from './chat.ts';
 
 // 2026-11-09 to poniedziałek; treningi we wtorek, czwartek i sobotę.
 const input: PlanInput = {
@@ -101,4 +101,45 @@ test('tematy zdrowotne: ból, kontuzja, choroba, leki – tak; zwykłe pytania o
   ]) {
     assert.ok(!mentionsHealth(text), text);
   }
+});
+
+test('kontekst: imię i świeża pogoda tylko przy nadchodzących, niezrobionych treningach', () => {
+  const session = (id: string, scheduled_on: string, status = 'planned') => ({
+    id, scheduled_on, type: 'easy', duration_min: 40, structure: null, status, actual_distance_m: null, actual_duration_s: null,
+  });
+  const forecast = (date: string) => ({
+    date, window: { from: '07:00', to: '10:00' }, allDay: false, quality: 'ok' as const, tempC: 3.6, feelsC: -0.4, precipProb: 20,
+    windKmh: 12.2, condition: 'cloudy' as const, isDay: true, pm25: 41.7, flags: ['smog' as const], avoid: [{ from: '17:00', to: '19:00', reason: 'rain' as const }],
+  });
+  const now = Date.parse('2026-11-12T12:00:00Z');
+  const fresh = '2026-11-12T08:00:00Z';
+  const ctx = chatContextFromRows({
+    locale: 'pl',
+    name: '  Ola   Maria ',
+    level: 'beginner',
+    goal: null,
+    weeks: [{ starts_on: '2026-11-09', sessions: [session('a', '2026-11-10', 'done'), session('b', '2026-11-12'), session('c', '2026-11-14'), session('d', '2026-11-15'), session('e', '2026-11-16')] }],
+    reviews: [],
+    weather: [
+      { session_id: 'a', forecast: forecast('2026-11-10'), advice: 'x', fetched_at: fresh },
+      { session_id: 'b', forecast: forecast('2026-11-12'), advice: ' Ubierz się na cebulkę. ', fetched_at: fresh },
+      { session_id: 'c', forecast: forecast('2026-11-14'), advice: null, fetched_at: '2026-11-10T08:00:00Z' },
+      { session_id: 'd', forecast: forecast('2026-11-13'), advice: null, fetched_at: fresh },
+    ],
+    now,
+    today: '2026-11-12',
+    focusId: 'b',
+  });
+  assert.equal(ctx.athlete.name, 'Ola Maria');
+  const byDate = new Map(ctx.plan.sessions.map((s) => [s.date, s.weather]));
+  assert.equal(byDate.get('2026-11-10'), null, 'zrobiony trening');
+  assert.deepEqual(byDate.get('2026-11-12'), {
+    bestTime: '07:00–10:00', quality: 'ok', tempC: 4, feelsC: 0, precipProb: 20, windKmh: 12, condition: 'cloudy', pm25: 42,
+    flags: ['smog'], avoid: [{ time: '17:00–19:00', reason: 'rain' }], advice: 'Ubierz się na cebulkę.',
+  });
+  assert.equal(byDate.get('2026-11-14'), null, 'stara prognoza');
+  assert.equal(byDate.get('2026-11-15'), null, 'prognoza na inny dzień (trening przeniesiony)');
+  assert.equal(byDate.get('2026-11-16'), null, 'brak prognozy');
+  assert.equal(ctx.focus?.weather?.bestTime, '07:00–10:00');
+  assert.equal(chatContextFromRows({ locale: 'pl', name: '   ', level: null, goal: null, weeks: [], reviews: [], today: '2026-11-12', focusId: null }).athlete.name, null);
 });

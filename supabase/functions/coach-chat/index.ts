@@ -10,7 +10,8 @@
 // Moduły pakietu: coach_chat (AI) i coach_human (człowiek) – bez modułu funkcja odpowiada 403 module_disabled.
 // Odpowiedzi trenera-człowieka dopisuje panel (apps/admin → Trenerzy); aplikacja czyta wiadomości prosto z bazy (RLS).
 // Logika: packages/plan-engine/src/chat/chat.ts. Prompt: funkcja AI 'coach-chat' (ops.ai_prompts).
-// Do modelu idą plan, oceny i treść rozmowy – bez imienia, e-maila i identyfikatorów.
+// Do modelu idą plan, oceny, pogoda do nadchodzących treningów (z session_weather – bez lokalizacji), imię z profilu
+// i treść rozmowy – bez e-maila i identyfikatorów.
 
 import { createClient, type SupabaseClient } from 'jsr:@supabase/supabase-js@2';
 
@@ -32,6 +33,7 @@ import {
   type CoachChatContext,
   type ReviewFact,
   type ReviewVerdict,
+  type SessionWeather,
 } from '../_shared/plan-engine/index.ts';
 
 const cors = {
@@ -46,16 +48,25 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MESSAGE_COLUMNS = 'id, thread_id, sender, body, proposal, proposal_status, created_at';
 const COACH_COLUMNS = 'id, kind, display_name, title, bio, avatar_url, headline, headline_en, title_en';
 
-async function buildContext(db: SupabaseClient, loaded: Loaded, focusId: string | null): Promise<CoachChatContext> {
-  const ids = loaded.weeks.flatMap((w) => w.sessions).map((s) => s.id);
-  const reviews = ids.length > 0 ? await db.from('session_reviews').select('session_id, verdict, facts, note').in('session_id', ids) : { data: [] };
+async function buildContext(db: SupabaseClient, userId: string, loaded: Loaded, focusId: string | null): Promise<CoachChatContext> {
+  const sessions = loaded.weeks.flatMap((w) => w.sessions);
+  const ids = sessions.map((s) => s.id);
+  // Pogoda: tylko nadchodzące, niezrobione treningi (chatContextFromRows i tak bierze tylko świeżą prognozę).
+  const upcoming = sessions.filter((s) => s.status === 'planned' && s.scheduled_on >= loaded.today).map((s) => s.id);
+  const [reviews, weather, profile] = await Promise.all([
+    ids.length > 0 ? db.from('session_reviews').select('session_id, verdict, facts, note').in('session_id', ids) : { data: [] },
+    upcoming.length > 0 ? db.from('session_weather').select('session_id, forecast, advice, fetched_at').in('session_id', upcoming) : { data: [] },
+    db.from('profiles').select('display_name').eq('id', userId).maybeSingle(),
+  ]);
   return chatContextFromRows({
     locale: (loaded.profile?.locale as string | undefined) ?? null,
+    name: (profile.data?.display_name as string | null | undefined) ?? null,
     units: (loaded.profile?.units as string | undefined) ?? null,
     level: (loaded.profile?.level as string | undefined) ?? null,
     goal: loaded.goal,
     weeks: loaded.weeks,
     reviews: (reviews.data ?? []) as { session_id: string; verdict: ReviewVerdict; facts: ReviewFact[]; note: string | null }[],
+    weather: (weather.data ?? []) as { session_id: string; forecast: SessionWeather; advice: string | null; fetched_at: string }[],
     today: loaded.today,
     focusId,
     minSessionMin: loaded.input ? paramsOf(loaded.input).minSessionMin : null,
@@ -156,7 +167,7 @@ Deno.serve(async (req) => {
       if (promptRes.error) console.error('get_ai_prompt failed', promptRes.error.message);
       const outcome = await coachChatWithAi({
         history: ((history.data ?? []) as { sender: 'user' | 'coach'; body: string }[]).reverse(),
-        context: await buildContext(db, loaded, thread.data.session_id as string | null),
+        context: await buildContext(db, userId, loaded, thread.data.session_id as string | null),
         prompt: promptFromRow('coach-chat', promptRes.data),
         call: claudeCaller(apiKey),
         log: async (call: AiCallRecord, payload: AiCallPayload) => {

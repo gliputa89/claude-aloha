@@ -243,12 +243,13 @@ Uwzględniamy od pierwszego dnia projektowania (privacy by design). *Poniższe t
 
 ### 6.3 AI a dane osobowe
 - Do Claude API wysyłamy **wyłącznie dane treningowe pod pseudonimowym ID** – bez e-maila, imienia i innych identyfikatorów.
+  Wyjątek: rozmowa z trenerem AI (`coach-chat`) dostaje imię z profilu (`display_name`), żeby trener mógł zwracać się po imieniu – do opisania w polityce prywatności.
 - Anthropic jako podmiot przetwarzający – umowa powierzenia (DPA); weryfikacja zasad retencji danych i braku trenowania modeli na danych z API.
 - Notatki tekstowe użytkownika: przed wysłaniem informacja w polityce prywatności, że są analizowane przez AI.
 
 ### 6.3a Lokalizacja (pogoda do treningu)
 - Lokalizacja tylko za zgodą systemową „podczas używania aplikacji”; bez zgody aplikacja działa normalnie, tylko bez karty pogody.
-- Z telefonu wychodzą współrzędne **zaokrąglone do 0,1° (ok. 10 km)**; tylko takie zapisujemy (`session_weather`) i wysyłamy do dostawcy prognozy (Open-Meteo). Do Claude API lokalizacja nie trafia – model dostaje samą pogodę i rodzaj treningu.
+- Z telefonu wychodzą współrzędne **zaokrąglone do 0,1° (ok. 10 km)**; tylko takie zapisujemy (`session_weather`) i wysyłamy do dostawcy prognozy (Open-Meteo). Do Claude API lokalizacja nie trafia – model dostaje samą pogodę i rodzaj treningu (porada pogodowa i rozmowa z trenerem AI, który widzi prognozę do nadchodzących treningów).
 - Do uzupełnienia przed publikacją: wpis w polityce prywatności (cel, odbiorca Open-Meteo) oraz „Przybliżona lokalizacja” w App Privacy / Data safety.
 
 ### 6.4 Prawa użytkownika

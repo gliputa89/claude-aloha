@@ -98,7 +98,7 @@ export async function runChatTest(userId: string, ids: string[], model: string |
 
   const db = createServiceClient();
   const [profile, goal, availability, plan, config, promptRes] = await Promise.all([
-    db.from('profiles').select('level, locale, timezone, has_contraindications, recent_result_distance_m, recent_result_time_s, training_level').eq('id', userId).maybeSingle(),
+    db.from('profiles').select('display_name, level, locale, timezone, has_contraindications, recent_result_distance_m, recent_result_time_s, training_level').eq('id', userId).maybeSingle(),
     db.from('goals').select('id, type, general_focus, distance_m, race_date, target_time_s, plan_starts_on').eq('user_id', userId).eq('status', 'active').eq('role', 'primary').maybeSingle(),
     db.from('availability').select('preferred_days, sessions_per_week, max_minutes_weekday, max_minutes_weekend').eq('user_id', userId).maybeSingle(),
     db
@@ -118,7 +118,11 @@ export async function runChatTest(userId: string, ids: string[], model: string |
   const weeks = ([...(plan.data.weeks ?? [])] as unknown as Week[]).sort((a, b) => a.week_index - b.week_index);
   const sessions = weeks.flatMap((w) => w.sessions).filter((s) => s.type !== 'rest');
   const today = todayIn((profile.data.timezone as string | null) ?? 'Europe/Warsaw');
-  const reviews = await db.from('session_reviews').select('session_id, verdict, facts, note').in('session_id', sessions.map((s) => s.id));
+  const upcoming = sessions.filter((s) => s.status === 'planned' && s.scheduled_on >= today).map((s) => s.id);
+  const [reviews, weather] = await Promise.all([
+    db.from('session_reviews').select('session_id, verdict, facts, note').in('session_id', sessions.map((s) => s.id)),
+    db.from('session_weather').select('session_id, forecast, advice, fetched_at').in('session_id', upcoming),
+  ]);
   const input = {
     ...planInputFromSurvey({ profile: { ...profile.data, level: profile.data.level }, goal: goal.data, availability: availability.data }, plan.data.starts_on as string),
     params: engineFromRow(config.error ? null : (config.data as EngineConfigRow | null)).params,
@@ -144,10 +148,12 @@ export async function runChatTest(userId: string, ids: string[], model: string |
     if (scenario.focus !== 'none' && !focus) continue;
     const context = chatContextFromRows({
       locale: (profile.data.locale as string | null) ?? null,
+      name: (profile.data.display_name as string | null) ?? null,
       level: profile.data.level as string,
       goal: goal.data,
       weeks,
       reviews: (reviews.data ?? []) as ChatContextRows['reviews'],
+      weather: (weather.data ?? []) as NonNullable<ChatContextRows['weather']>,
       today,
       focusId: focus?.id ?? null,
       minSessionMin: paramsOf(input).minSessionMin,

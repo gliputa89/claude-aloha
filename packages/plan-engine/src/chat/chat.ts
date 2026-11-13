@@ -3,7 +3,8 @@
 //
 // Model nigdy nie zmienia planu sam: zwraca jedną operację, silnik sprawdza, czy jest wykonalna i nie łamie reguł,
 // a zapis następuje dopiero po akceptacji biegacza. Wywołanie modelu i log wstrzykuje środowisko (jak w ai-run.ts).
-// Do modelu nie trafiają imię, e-mail ani identyfikatory – tylko plan, oceny i treść rozmowy.
+// Do modelu trafiają plan, oceny, pogoda do nadchodzących treningów, imię biegacza (żeby trener mógł się zwracać
+// po imieniu) i treść rozmowy – bez e-maila, identyfikatorów i lokalizacji.
 
 import { AI_SESSION_TYPES, applyOperations, type AiOperation, type AiSessionType } from '../ai/ai-ops.ts';
 import { costUsd, modelPrice } from '../ai/ai-pricing.ts';
@@ -15,6 +16,7 @@ import { addDaysIso, isoWeekday } from '../core/dates.ts';
 import { describeSteps, stepsOf } from '../core/workout.ts';
 import { ENGINE_VERSION, type PlanInput, type PlannedSession, type PlannedWeek } from '../plan/plan.ts';
 import type { ReviewFact, ReviewVerdict } from '../review/review.ts';
+import type { SessionWeather, WeatherCondition, WeatherFlag, WeatherQuality } from '../weather/weather.ts';
 
 export const CHAT_MESSAGE_MAX_LENGTH = 2000;
 export const CHAT_REPLY_MAX_LENGTH = 1500;
@@ -82,7 +84,31 @@ export type ChatSessionContext = {
   /** Przyszły, niezrobiony trening – tylko taki można zmienić. */
   canChange: boolean;
   verdict: ReviewVerdict | null;
+  /** Prognoza – tylko przy nadchodzących, niezrobionych treningach, dla których aplikacja ją pobrała. */
+  weather: ChatWeather | null;
 };
+
+/** Pogoda do treningu dla modelu: wynik reguł z `session_weather` (najlepsza pora dnia) i gotowa porada. */
+export type ChatWeather = {
+  /** Najlepsza pora na trening, np. `07:00–10:00`, albo `cały dzień`, gdy pora nie ma znaczenia. */
+  bestTime: string;
+  quality: WeatherQuality;
+  tempC: number;
+  feelsC: number;
+  precipProb: number | null;
+  windKmh: number;
+  condition: WeatherCondition;
+  pm25: number | null;
+  /** Co przeszkadza nawet w najlepszej porze. */
+  flags: WeatherFlag[];
+  /** Pory, których lepiej unikać, z powodem. */
+  avoid: { time: string; reason: WeatherFlag }[];
+  /** Porada pogodowa pokazywana w aplikacji (1–2 zdania), jeśli jest. */
+  advice: string | null;
+};
+
+/** Ile godzin prognoza z `session_weather` jest dla trenera aktualna. */
+export const CHAT_WEATHER_MAX_AGE_H = 24;
 
 export type CoachChatContext = {
   locale: string;
@@ -91,7 +117,8 @@ export type CoachChatContext = {
   unitsNote: string;
   today: string;
   weekday: number;
-  athlete: { level: string | null; goal: string | null };
+  /** `name` – imię z profilu (do zwracania się po imieniu); brak = nie podał. */
+  athlete: { name: string | null; level: string | null; goal: string | null };
   /** `minSessionMin` – krótszego treningu reguły planu nie przyjmą. */
   plan: { sessions: ChatSessionContext[]; freeDays: string[]; minSessionMin: number | null };
   /** Rozmowa przy konkretnym treningu: pytania przed albo po. */
@@ -105,12 +132,15 @@ export type CoachChatContext = {
     verdict: ReviewVerdict | null;
     facts: ReviewFact[];
     coachNote: string | null;
+    weather: ChatWeather | null;
   } | null;
 };
 
 /** Wiersze z bazy potrzebne do kontekstu rozmowy (te same w Edge Function i w testerze w panelu). */
 export type ChatContextRows = {
   locale: string | null;
+  /** `profiles.display_name` – imię do zwracania się po imieniu. */
+  name?: string | null;
   /** `profiles.units` – metric albo imperial; brak = metryczne. */
   units?: string | null;
   level: string | null;
@@ -129,6 +159,10 @@ export type ChatContextRows = {
     }[];
   }[];
   reviews: { session_id: string; verdict: ReviewVerdict; facts: ReviewFact[]; note: string | null }[];
+  /** Wiersze `session_weather` (prognoza z reguł i porada); `fetched_at` – kiedy pobrana. */
+  weather?: { session_id: string; forecast: SessionWeather; advice: string | null; fetched_at: string }[];
+  /** Teraz (ms) – do sprawdzenia, czy prognoza jest świeża. Domyślnie `Date.now()`. */
+  now?: number;
   /** Dziś w strefie biegacza. */
   today: string;
   /** Trening, przy którym toczy się rozmowa (wątek „przed / po”). */
@@ -137,7 +171,33 @@ export type ChatContextRows = {
   minSessionMin?: number | null;
 };
 
-/** Kontekst rozmowy: plan od tygodnia wstecz do dwóch naprzód, wolne dni i – w wątku przy treningu – ten trening. */
+/** Zaokrąglenie bez `-0`. */
+const round = (n: number) => Math.round(n) + 0;
+
+/** Wiersz `session_weather` → pogoda dla modelu. */
+export function chatWeatherFrom(forecast: SessionWeather, advice: string | null): ChatWeather {
+  return {
+    bestTime: forecast.allDay ? 'cały dzień' : `${forecast.window.from}–${forecast.window.to}`,
+    quality: forecast.quality,
+    tempC: round(forecast.tempC),
+    feelsC: round(forecast.feelsC),
+    precipProb: forecast.precipProb,
+    windKmh: round(forecast.windKmh),
+    condition: forecast.condition,
+    pm25: forecast.pm25 == null ? null : round(forecast.pm25),
+    flags: forecast.flags,
+    avoid: forecast.avoid.map((a) => ({ time: `${a.from}–${a.to}`, reason: a.reason })),
+    advice: advice?.trim() || null,
+  };
+}
+
+/** Imię z profilu do kontekstu: bez nadmiarowych spacji, przycięte; puste = brak. */
+const nameOf = (name: string | null | undefined) => name?.replace(/\s+/g, ' ').trim().slice(0, 40) || null;
+
+/**
+ * Kontekst rozmowy: plan od tygodnia wstecz do dwóch naprzód (z pogodą przy nadchodzących treningach), wolne dni
+ * i – w wątku przy treningu – ten trening.
+ */
 export function chatContextFromRows(rows: ChatContextRows): CoachChatContext {
   const { today } = rows;
   const from = addDaysIso(today, -7);
@@ -146,6 +206,15 @@ export function chatContextFromRows(rows: ChatContextRows): CoachChatContext {
   const shown = all.filter((s) => s.scheduled_on >= from && s.scheduled_on <= to).sort((a, b) => a.scheduled_on.localeCompare(b.scheduled_on));
   const focus = rows.focusId ? (all.find((s) => s.id === rows.focusId) ?? null) : null;
   const reviewOf = new Map(rows.reviews.map((r) => [r.session_id, r]));
+  // Pogoda tylko świeża i tylko dla nadchodzącego, niezrobionego treningu w dniu, na który ją policzono
+  // (po przeniesieniu treningu stary wiersz mówi o innym dniu).
+  const freshFrom = (rows.now ?? Date.now()) - CHAT_WEATHER_MAX_AGE_H * 3600 * 1000;
+  const weatherRows = new Map((rows.weather ?? []).filter((w) => Date.parse(w.fetched_at) >= freshFrom).map((w) => [w.session_id, w]));
+  const weatherOf = (s: { id: string; scheduled_on: string; status: string }) => {
+    const row = weatherRows.get(s.id);
+    if (!row || s.status !== 'planned' || s.scheduled_on < today || row.forecast.date !== s.scheduled_on) return null;
+    return chatWeatherFrom(row.forecast, row.advice);
+  };
 
   // Wolne dni: od dziś do końca ostatniego tygodnia planu w oknie, bez treningu.
   const taken = new Set(all.map((s) => s.scheduled_on));
@@ -163,6 +232,7 @@ export function chatContextFromRows(rows: ChatContextRows): CoachChatContext {
     today,
     weekday: isoWeekday(today),
     athlete: {
+      name: nameOf(rows.name),
       level: rows.level,
       goal: rows.goal ? (rows.goal.type === 'race' ? `zawody ${rows.goal.distance_m} m, ${rows.goal.race_date}` : rows.goal.general_focus) : null,
     },
@@ -175,6 +245,7 @@ export function chatContextFromRows(rows: ChatContextRows): CoachChatContext {
         status: s.status,
         canChange: s.status === 'planned' && s.scheduled_on >= today && s.type !== 'race',
         verdict: reviewOf.get(s.id)?.verdict ?? null,
+        weather: weatherOf(s),
       })),
       freeDays,
       minSessionMin: rows.minSessionMin ?? null,
@@ -190,6 +261,7 @@ export function chatContextFromRows(rows: ChatContextRows): CoachChatContext {
           verdict: focusReview?.verdict ?? null,
           facts: focusReview?.facts ?? [],
           coachNote: focusReview?.note ?? null,
+          weather: weatherOf(focus),
         }
       : null,
   };
