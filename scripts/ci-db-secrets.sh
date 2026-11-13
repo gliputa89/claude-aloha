@@ -29,5 +29,5 @@ for pair in staging:staging prod:production; do
 done
 
 echo
-echo "Gotowe. Staging aktualizuje się sam po merge migracji do głównej gałęzi."
+echo "Gotowe. Staging aktualizuje się sam po merge migracji do gałęzi dev."
 echo "Produkcję wgrywasz ręcznie: GitHub → Actions → „Migracje bazy” → Run workflow → production."

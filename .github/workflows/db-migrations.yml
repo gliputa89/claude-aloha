@@ -1,6 +1,6 @@
 # Migracje bazy (supabase/migrations) – docs/ARCHITECTURE.md, rozdział 5.
 #
-# • staging: automatycznie po każdym pushu/merge do głównej gałęzi, który zmienia migracje.
+# • staging: automatycznie po każdym pushu/merge do gałęzi `dev`, który zmienia migracje.
 # • production: ręcznie – Actions → „Migracje bazy” → Run workflow → production.
 #   (W Settings → Environments → production można dodać wymagane zatwierdzenie.)
 #
@@ -34,8 +34,8 @@ permissions:
 
 jobs:
   migrate:
-    # Push na inne gałęzie (feature, PR) niczego nie wgrywa.
-    if: github.event_name == 'workflow_dispatch' || github.ref_name == github.event.repository.default_branch
+    # Push na inne gałęzie (feature, PR, main) niczego nie wgrywa.
+    if: github.event_name == 'workflow_dispatch' || github.ref_name == 'dev'
     runs-on: ubuntu-latest
     environment: ${{ inputs.target || 'staging' }}
     steps:

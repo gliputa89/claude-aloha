@@ -260,12 +260,15 @@ Obecne kolory i fonty z makiet są **tymczasowe** (`design/mockups/README.md`) �
 
 ## 5. Wdrożenia i środowiska
 
+Gałęzie: **`main`** = produkcja (Vercel Production), **`dev`** = gałąź robocza i domyślna w GitHubie – PR-y idą do `dev`,
+wydanie to merge `dev` → `main`.
+
 | Element | Produkcja | Podgląd / testy |
 |---|---|---|
-| `apps/web` | projekt Vercel, Root Directory `apps/web`, gałąź `main` → `<domena>` | Preview Deployment dla każdego PR → baza `staging` |
-| `apps/admin` | projekt Vercel, Root Directory `apps/admin` → `admin.<domena>` | Preview → `staging` |
+| `apps/web` | projekt Vercel, Root Directory `apps/web`, gałąź `main` → `alohatraining.app` | Preview Deployment dla `dev` i każdego PR → baza `staging` |
+| `apps/admin` | projekt Vercel, Root Directory `apps/admin`, gałąź `main` → `admin.<domena>` | Preview → `staging` |
 | `apps/mobile` | EAS Build (profil `production`) → sklepy; EAS Update dla poprawek JS | profil `preview` → TestFlight / testy wewnętrzne Google Play → `staging` |
-| `supabase/` | GitHub Actions („Migracje bazy”): produkcja ręcznie przez Run workflow → `production` | staging automatycznie po merge migracji do głównej gałęzi; lokalnie `supabase start` |
+| `supabase/` | GitHub Actions („Migracje bazy”): produkcja ręcznie przez Run workflow → `production` | staging automatycznie po merge migracji do `dev`; lokalnie `supabase start` |
 
 Region funkcji Vercel: **Frankfurt (`fra1`)** – blisko bazy w UE.
 Sekrety (klucz `service_role`, klucz Claude API) tylko w zmiennych środowiskowych Vercel / sekretach Supabase – nigdy w repo ani w aplikacji mobilnej.

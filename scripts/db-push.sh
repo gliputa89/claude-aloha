@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Ręczne wgranie migracji z supabase/migrations na staging lub prod.
-# Zwykle niepotrzebne: po merge do głównej gałęzi staging aktualizuje GitHub Actions
+# Zwykle niepotrzebne: po merge do gałęzi dev staging aktualizuje GitHub Actions
 # (.github/workflows/db-migrations.yml). Skrypt zostaje na awarie i do sprawdzania (--dry-run).
 #
 #   pnpm db:push:staging
