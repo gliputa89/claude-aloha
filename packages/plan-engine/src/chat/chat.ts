@@ -303,7 +303,9 @@ export type ChatChangeCheck = { ok: true; weeks: PlannedWeek[] } | { ok: false; 
 
 /**
  * Czy propozycję da się wykonać na aktualnym planie bez łamania reguł. `statuses`: data → status treningu w bazie.
- * Biegacz sam prosi o zmianę, więc dzień docelowy nie musi być dniem z ankiety – reszta reguł obowiązuje.
+ * Biegacz sam prosi o zmianę, więc trening może trafić na dowolny wolny dzień od dziś do końca rozpisanych tygodni:
+ * spoza ankiety, do innego tygodnia, a także przed start planu (pierwszy tydzień zaczyna się wtedy wcześniej).
+ * Pozostałe reguły (odstępy mocnych treningów, przyrost obciążenia, limity dnia) obowiązują.
  */
 export function checkChatChange(
   change: ChatChange,
@@ -323,31 +325,73 @@ export function checkChatChange(
     sets: null,
     reason: change.summary,
   };
-  // Sprawdzamy tylko tydzień, którego dotyczy zmiana (z poprzednim jako odniesieniem). Kolejnych tygodni nie
-  // walidujemy: odpuszczenie albo skrócenie treningu zawsze jest bezpieczne, nawet jeśli następny tydzień wyjdzie
-  // przez to „za duży” względem tego – wyrówna go generowanie kolejnego tygodnia.
   const sorted = [...ctx.weeks].sort((x, y) => x.weekIndex - y.weekIndex);
-  const index = sorted.findIndex((w) => change.date >= w.startsOn && change.date <= w.endsOn);
+  let input: PlanInput = { ...ctx.input, preferredDays: [1, 2, 3, 4, 5, 6, 7] };
+  // Przeniesienie na dzień przed startem planu (np. dziś, gdy plan rusza jutro): pierwszy tydzień zaczyna się wcześniej.
+  const first = sorted[0];
+  if (change.op === 'move' && first && change.toDate! < first.startsOn) {
+    sorted[0] = { ...first, startsOn: change.toDate! };
+    input = { ...input, startDate: change.toDate! < input.startDate ? change.toDate! : input.startDate };
+  }
+  const weekAt = (date: string) => sorted.findIndex((w) => date >= w.startsOn && date <= w.endsOn);
+  const index = weekAt(change.date);
   if (index < 0) return { ok: false, reason: `dzień ${change.date} jest poza planem` };
-  const result = applyOperations([operation], {
-    input: { ...ctx.input, preferredDays: [1, 2, 3, 4, 5, 6, 7] },
-    draft: [sorted[index]!],
-    previousWeek: index > 0 ? sorted[index - 1]! : null,
-  });
+  const targetIndex = change.op === 'move' ? weekAt(change.toDate!) : index;
+  if (targetIndex < 0) return { ok: false, reason: `dzień ${change.toDate} jest za rozpisanymi tygodniami planu – kolejne tygodnie jeszcze nie powstały` };
+  // Sprawdzamy tygodnie, których dotyczy zmiana (z poprzednim jako odniesieniem). Kolejnych tygodni nie walidujemy:
+  // odpuszczenie albo skrócenie treningu zawsze jest bezpieczne, nawet jeśli następny tydzień wyjdzie przez to
+  // „za duży” względem tego – wyrówna go generowanie kolejnego tygodnia.
+  const lo = Math.min(index, targetIndex);
+  const hi = Math.max(index, targetIndex);
+  const checked = sorted.slice(lo, hi + 1);
+  const result = applyOperations(
+    [operation],
+    {
+      input,
+      // Przy przeniesieniu do innego tygodnia odniesieniem limitów jest stan po przeniesieniu – inaczej tydzień
+      // docelowy miałby „więcej treningów niż w szkicu”. Przyrostu tydzień do tygodnia wtedy nie sprawdzamy – łączna
+      // objętość się nie zmienia, a tydzień, z którego zabrano trening, nie jest uczciwym odniesieniem. Odstępy mocnych
+      // treningów, dwa długie biegi i limity dnia obowiązują normalnie.
+      draft: targetIndex === index ? checked : checked.map((w) => movedDraft(w, change, sorted[index]!)),
+      previousWeek: lo > 0 ? sorted[lo - 1]! : null,
+      ignore: targetIndex === index ? [] : ['growth'],
+    },
+    checked,
+  );
   const outcome = result.results[0];
   return outcome?.status === 'applied' ? { ok: true, weeks: result.weeks } : { ok: false, reason: outcome?.reason ?? 'zmiana niewykonalna' };
+}
+
+/** Tydzień z treningiem przeniesionym z `change.date` na `change.toDate` (tylko na potrzeby szkicu walidacji). */
+function movedDraft(week: PlannedWeek, change: ChatChange, source: PlannedWeek): PlannedWeek {
+  const session = source.sessions.find((s) => s.scheduledOn === change.date);
+  if (!session) return week;
+  if (week === source) return { ...week, sessions: week.sessions.filter((s) => s !== session) };
+  if (change.toDate! < week.startsOn || change.toDate! > week.endsOn) return week;
+  return { ...week, sessions: [...week.sessions, { ...session, scheduledOn: change.toDate! }] };
 }
 
 /** Co zmienić w wierszu treningu po akceptacji: usunąć albo zapisać nowy stan (z dnia docelowego). */
 export type ChatChangeWrite =
   | { kind: 'delete'; date: string }
-  | { kind: 'update'; date: string; session: PlannedSession };
+  | {
+      kind: 'update';
+      date: string;
+      session: PlannedSession;
+      /** Tydzień, do którego trening trafia (inny niż dotąd przy przeniesieniu między tygodniami). */
+      weekIndex: number;
+      /** Nowy początek tygodnia, gdy trening przeniesiono przed start planu (i planu – dla tygodnia 0). */
+      weekStartsOn: string | null;
+    };
 
-export function chatChangeWrite(change: ChatChange, after: PlannedWeek[]): ChatChangeWrite | null {
+export function chatChangeWrite(change: ChatChange, after: PlannedWeek[], before: PlannedWeek[] = []): ChatChangeWrite | null {
   if (change.op === 'remove') return { kind: 'delete', date: change.date };
   const target = change.op === 'move' ? change.toDate! : change.date;
-  const session = after.flatMap((w) => w.sessions).find((s) => s.scheduledOn === target);
-  return session ? { kind: 'update', date: change.date, session } : null;
+  const week = after.find((w) => w.sessions.some((s) => s.scheduledOn === target));
+  const session = week?.sessions.find((s) => s.scheduledOn === target);
+  if (!week || !session) return null;
+  const was = before.find((w) => w.weekIndex === week.weekIndex);
+  return { kind: 'update', date: change.date, session, weekIndex: week.weekIndex, weekStartsOn: was && week.startsOn < was.startsOn ? week.startsOn : null };
 }
 
 export type CoachChatOptions = {

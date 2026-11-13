@@ -34,6 +34,35 @@ test('przeniesienie na wolny dzień spoza ankiety przechodzi i daje wiersz do za
   assert.equal(write?.kind === 'update' && write.session.type, first.type);
 });
 
+test('przeniesienie na dziś, gdy plan rusza dopiero jutro: pierwszy tydzień zaczyna się dziś', () => {
+  // Plan od soboty 14.11 (tydzień 0 = sob–nd), dziś piątek 13.11 – poza rozpisanymi tygodniami.
+  const late: PlanInput = { ...input, startDate: '2026-11-14', preferredDays: [1, 2, 6], keepStartDate: true };
+  const lateWeeks = generateInitialPlan(late).weeks;
+  const saturday = lateWeeks[0]!.sessions[0]!;
+  assert.equal(saturday.scheduledOn, '2026-11-14');
+  const change: ChatChange = { op: 'move', date: '2026-11-14', toDate: '2026-11-13', type: null, durationMin: null, summary: '' };
+  const result = checkChatChange(change, {
+    input: late,
+    weeks: lateWeeks,
+    statuses: new Map(lateWeeks.flatMap((w) => w.sessions).map((s) => [s.scheduledOn, 'planned'])),
+    today: '2026-11-13',
+  });
+  assert.ok(result.ok, JSON.stringify(result));
+  const write = chatChangeWrite(change, result.weeks, lateWeeks);
+  assert.deepEqual(write?.kind === 'update' && [write.session.scheduledOn, write.weekIndex, write.weekStartsOn], ['2026-11-13', 0, '2026-11-13']);
+});
+
+test('przeniesienie do następnego tygodnia przechodzi, za rozpisane tygodnie – nie', () => {
+  const first = sessions[0]!;
+  const freeNextWeek = '2026-11-18'; // środa drugiego tygodnia
+  assert.ok(!sessions.some((s) => s.scheduledOn === freeNextWeek));
+  const result = check({ op: 'move', date: first.scheduledOn, toDate: freeNextWeek });
+  assert.ok(result.ok, JSON.stringify(result));
+  const write = chatChangeWrite({ op: 'move', date: first.scheduledOn, toDate: freeNextWeek, type: null, durationMin: null, summary: '' }, result.weeks, weeks);
+  assert.deepEqual(write?.kind === 'update' && [write.weekIndex, write.weekStartsOn], [1, null]);
+  assert.ok(!check({ op: 'move', date: first.scheduledOn, toDate: '2026-12-30' }).ok);
+});
+
 test('skrócenie i odpuszczenie treningu', () => {
   const first = sessions[0]!;
   const shorter = check({ op: 'set_duration', durationMin: 25 });

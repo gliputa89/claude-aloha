@@ -72,7 +72,7 @@ export async function loadPlan(db: SupabaseClient, userId: string) {
           params: engineFromRow(config.data).params,
         }
       : null;
-  return { profile: profile.data, goal: goal.data, weeks, today, input };
+  return { profile: profile.data, goal: goal.data, planId: (plan.data?.id as string | undefined) ?? null, weeks, today, input };
 }
 
 export type Loaded = Awaited<ReturnType<typeof loadPlan>>;
@@ -95,15 +95,27 @@ export function checkChange(change: ChatChange, loaded: Loaded) {
  */
 export async function applyPlanChange(db: SupabaseClient, loaded: Loaded, change: ChatChange): Promise<'accepted' | 'expired'> {
   const checked = checkChange(change, loaded);
-  const write = checked.ok ? chatChangeWrite(change, checked.weeks) : null;
+  const write = checked.ok ? chatChangeWrite(change, checked.weeks, loaded.weeks.map((w) => plannedWeekFromRow(w))) : null;
   const row = loaded.weeks.flatMap((w) => w.sessions).find((s) => s.scheduled_on === change.date && s.type !== 'rest');
   if (!checked.ok || !write || !row) return 'expired';
+  const week = write.kind === 'update' ? loaded.weeks.find((w) => w.week_index === write.weekIndex) : undefined;
+  if (write.kind === 'update' && !week) return 'expired';
+  // Przeniesienie przed start planu: tydzień (a dla pierwszego tygodnia – cały plan) zaczyna się w dniu treningu.
+  if (write.kind === 'update' && write.weekStartsOn && week) {
+    const moved = await db.from('weeks').update({ starts_on: write.weekStartsOn }).eq('id', week.id);
+    if (moved.error) throw new Error(moved.error.message);
+    if (write.weekIndex === 0 && loaded.planId) {
+      const plan = await db.from('plans').update({ starts_on: write.weekStartsOn }).eq('id', loaded.planId);
+      if (plan.error) throw new Error(plan.error.message);
+    }
+  }
   const applied =
     write.kind === 'delete'
       ? await db.from('sessions').delete().eq('id', row.id).eq('status', 'planned')
       : await db
           .from('sessions')
           .update({
+            week_id: week!.id,
             scheduled_on: write.session.scheduledOn,
             type: write.session.type,
             duration_min: write.session.durationMin,

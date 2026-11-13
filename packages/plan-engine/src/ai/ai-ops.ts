@@ -282,6 +282,8 @@ export type ValidationContext = {
   draft: PlannedWeek[];
   /** Tydzień przed pierwszym sprawdzanym (do przyrostu i odstępów), jeśli istnieje. */
   previousWeek?: PlannedWeek | null;
+  /** Naruszenia, których applyOperations nie traktuje jako nowych (np. przyrost przy przeniesieniu między tygodniami). */
+  ignore?: readonly ViolationCode[];
 };
 
 /** Naruszenia reguł w tygodniach planu. Pusta lista = plan zgodny z regułami. */
@@ -487,9 +489,10 @@ export type ApplyResult = {
 /**
  * Nakłada operacje po kolei. Operacja jest przyjmowana tylko wtedy, gdy jest wykonalna
  * i nie wprowadza żadnego nowego naruszenia względem stanu sprzed niej.
+ * `start` – stan, na który nakładamy operacje, gdy ma być inny niż szkic (szkic zostaje wtedy tylko odniesieniem limitów).
  */
-export function applyOperations(operations: AiOperation[], ctx: ValidationContext): ApplyResult {
-  let weeks = clone(ctx.draft);
+export function applyOperations(operations: AiOperation[], ctx: ValidationContext, start: PlannedWeek[] = ctx.draft): ApplyResult {
+  let weeks = clone(start);
   let current = validateWeeks(weeks, ctx);
   const results: OperationResult[] = [];
 
@@ -502,7 +505,7 @@ export function applyOperations(operations: AiOperation[], ctx: ValidationContex
     }
     const after = validateWeeks(next, ctx);
     const known = new Set(current.map(violationKey));
-    const added = after.filter((v) => !known.has(violationKey(v)));
+    const added = after.filter((v) => !known.has(violationKey(v)) && !ctx.ignore?.includes(v.code));
     if (added.length) {
       results.push({ operation, status: 'rejected', reason: added.map((v) => v.message).join('; '), violations: added });
       continue;
