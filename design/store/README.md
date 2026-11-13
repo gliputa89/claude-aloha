@@ -29,6 +29,8 @@ Ponowny render po zmianie HTML (z tego folderu):
   konto demo po ankiecie ze startem planu „dziś”, żeby był check-in i propozycja zmiany.
 - `out/<lang>/aloha-<pl|en-us>-01–06.png` – plansze (nazwy z językiem – Play Console odrzuca jako duplikaty pliki o tych samych nazwach w dwóch językach) do Google Play, 1080 × 1920 (9:16): hasło + ekran w ramce. Hasła i kolejność
   w `screens/build.mjs`; render: `node design/store/screens/build.mjs [pl|en]`.
+- `out-ios/<lang>/` – te same plansze do App Store w rozmiarze iPhone 6.3″ (1206 × 2622), wymaganym przez App Store Connect;
+  render: `node design/store/screens/build.mjs --ios [pl|en]`. Wgrywane ręcznie w App Store Connect (`eas metadata` nie wysyła zrzutów).
 - Teksty od AI (notki trenera, czat) są w języku profilu z rejestracji – wersja EN wymaga osobnego konta założonego
   na symulatorze ustawionym na angielski.
 

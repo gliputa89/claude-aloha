@@ -1,0 +1,61 @@
+{
+  "configVersion": 0,
+  "apple": {
+    "version": "1.0.0",
+    "copyright": "2026 Posadzimy.pl sp. z o.o.",
+    "categories": [
+      "HEALTH_AND_FITNESS",
+      "SPORTS"
+    ],
+    "info": {
+      "pl": {
+        "title": "Aloha Training: plan biegowy",
+        "subtitle": "Trening dopasowany do dnia",
+        "description": "Plan biegowy, który pyta, jak się czujesz – i dopasowuje trening do Twojego dnia, a nie odwrotnie.\n\nMasz pracę, dom, czasem nieprzespaną noc. Sztywny plan treningowy tego nie rozumie: opuszczasz jeden bieg, potem drugi i masz wrażenie, że wszystko się posypało. Aloha Training działa inaczej.\n\nJEDNO PYTANIE PRZED TRENINGIEM\n„Jak się dziś czujesz?” Przesuwasz suwak, możesz dopisać dwa słowa: „mam 20 minut”, „kiepska noc”, „dziecko chore”. To wszystko – kilka sekund.\n\nPLAN DOPASOWUJE SIĘ DO CIEBIE\nJeśli trzeba, Aloha proponuje zmianę: krótszy bieg, lżejsze tempo albo inny dzień. Zawsze z krótkim wyjaśnieniem, dlaczego. Akceptujesz jednym tapnięciem albo zostawiasz plan bez zmian – decyzja należy do Ciebie.\n\nBEZ WYRZUTÓW SUMIENIA\nGorszy dzień to nie porażka. To zmiana planu. Aloha mówi jak trener, który jest też dobrym kumplem: konkretnie, po ludzku i bez zawstydzania.\n\nDLA KOGO\n• Zaczynasz od zera – marsz-bieg i spokojna droga do pierwszych 5 km.\n• Wracasz do biegania po przerwie.\n• Przygotowujesz się do 5 km, 10 km, półmaratonu lub maratonu.\n• Chcesz biegać regularnie, choć Twój tydzień rzadko wygląda tak samo.\n\nCO ZNAJDZIESZ W APLIKACJI\n• Plan ułożony pod Twój cel, poziom i dni, w które naprawdę masz czas.\n• Widok „Dzisiaj” i kalendarz treningów.\n• Każdy trening rozpisany krok po kroku.\n• Wskazówki trenera do treningu.\n• Trener AI, z którym porozmawiasz o treningu – zawsze w granicach bezpiecznych zasad treningowych.\n• Kolejny tydzień układany na podstawie tego, jak poszedł poprzedni.\n• Tryb jasny i ciemny.\n\nBEZPIECZNIE\nKażdą zmianę planu sprawdzają zasady treningowe: stopniowe zwiększanie obciążenia, odpoczynek po ciężkich treningach, łagodny powrót po przerwie. W razie wątpliwości plan wybiera wariant łagodniejszy.\n\nTWOJE DANE\nBez reklam. Nie sprzedajemy danych. Konto i dane usuniesz w ustawieniach aplikacji.\n\nAloha Training nie jest wyrobem medycznym i nie zastępuje porady lekarza. Jeśli masz problemy zdrowotne, skonsultuj się z lekarzem przed rozpoczęciem treningów.",
+        "keywords": [
+          "bieganie",
+          "biegacz",
+          "początkujący",
+          "5km",
+          "10km",
+          "półmaraton",
+          "maraton",
+          "trener",
+          "jogging",
+          "marszobieg",
+          "bieg",
+          "forma"
+        ],
+        "promoText": "Gorszy dzień to nie porażka. To zmiana planu. Powiedz, jak się dziś czujesz, a Aloha dopasuje trening do Twojego dnia. Bez wyrzutów sumienia.",
+        "marketingUrl": "https://www.alohatraining.app",
+        "supportUrl": "https://www.alohatraining.app",
+        "privacyPolicyUrl": "https://www.alohatraining.app/polityka-prywatnosci"
+      },
+      "en-US": {
+        "title": "Aloha Training: Running Plan",
+        "subtitle": "Training that fits your day",
+        "description": "A running plan that asks how you feel – and fits your training to your day, not the other way around.\n\nYou have work, family, and the occasional rough night. A rigid training plan doesn't get that: you miss one run, then another, and suddenly it feels like the whole plan fell apart. Aloha Training works differently.\n\nONE QUESTION BEFORE YOU RUN\n\"How are you feeling today?\" Tap an answer and add a quick note if you like: \"short on time\", \"slept badly\", \"something hurts\". That's it – a few seconds.\n\nA TRAINING PLAN THAT ADAPTS TO YOU\nWhen it makes sense, Aloha suggests a change: a shorter run, an easier pace, or a different day. Always with a short explanation of why. Accept it with one tap or keep your plan as is – it's your call.\n\nRUNNING WITHOUT THE GUILT\nA bad day isn't a failure. It's a plan change. Aloha talks like a running coach who's also a good friend: clear, human, and never judgmental.\n\nWHO IT'S FOR\n• Beginners: run-walk intervals and a calm path to your first 5K.\n• Getting back into running after a break.\n• Training plans for a 5K, 10K, half marathon or marathon.\n• Running regularly when no two weeks look the same.\n\nWHAT'S INSIDE\n• A running plan built around your goal, your level and the days you actually have time.\n• A \"Today\" view and a training calendar.\n• Every run broken down step by step.\n• Coach tips for each workout.\n• An AI coach you can talk to about your training – always within safe training rules.\n• Next week's plan built from how this week went.\n• Weather-aware tips on the best time to run.\n• Light and dark mode.\n\nSAFE BY DESIGN\nEvery plan change is checked against training rules: gradual load increases, recovery after hard sessions, an easy return after a break. When in doubt, the plan picks the gentler option.\n\nYOUR DATA\nNo ads. We don't sell your data. Delete your account and data anytime in the app settings.\n\nAloha Training is not a medical device and does not replace medical advice. If you have health concerns, talk to your doctor before you start training.",
+        "keywords": [
+          "run",
+          "runner",
+          "beginner",
+          "5k",
+          "10k",
+          "half marathon",
+          "marathon",
+          "coach",
+          "jogging",
+          "run walk",
+          "workout",
+          "fitness",
+          "pace",
+          "cardio"
+        ],
+        "promoText": "A bad day isn't a failure. It's a plan change. Tell Aloha how you feel and it fits today's run to your day. No guilt.",
+        "marketingUrl": "https://www.alohatraining.app/en",
+        "supportUrl": "https://www.alohatraining.app/en",
+        "privacyPolicyUrl": "https://www.alohatraining.app/en/privacy"
+      }
+    }
+  }
+}

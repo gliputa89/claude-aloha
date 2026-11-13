@@ -5,6 +5,7 @@ node_modules/
 # buildy
 .next/
 out/
+out-ios/
 dist/
 .turbo/
 *.tsbuildinfo

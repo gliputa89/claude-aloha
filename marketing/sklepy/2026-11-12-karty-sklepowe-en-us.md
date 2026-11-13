@@ -67,9 +67,37 @@ Aloha Training is not a medical device and does not replace medical advice. If y
 
 ---
 
+## App Store (iOS)
+
+The description is the Google Play one with the opening line shortened – App Store search ignores the description,
+so it doesn't need repeated keyword phrases. These texts also live in `apps/mobile/store.config.json` (`eas metadata:push`).
+
+**App name (limit 30)**
+```
+Aloha Training: Running Plan
+```
+
+**Subtitle (limit 30)**
+```
+Training that fits your day
+```
+
+**Promotional text (limit 170, can change without review)**
+```
+A bad day isn't a failure. It's a plan change. Tell Aloha how you feel and it fits today's run to your day. No guilt.
+```
+
+**Keywords (limit 100, no spaces after commas; no words repeated from the name and subtitle)**
+```
+run,runner,beginner,5k,10k,half marathon,marathon,coach,jogging,run walk,workout,fitness,pace,cardio
+```
+
+**Category:** primary – Health & Fitness; secondary – Sports.
+
+---
+
 ## To do before publishing
 
 - „Weather-aware tips” – the weather card is in the app (location-based); remove the line if the module is off in the release build.
 - „Delete your account… in the app settings” – true once the account deletion branch (`claude/nice-bardeen-90ade4`) is released.
 - AI coach name „Keanu Biegała” is a Polish pun – consider an English name before the US launch (not mentioned in the copy).
-- App Store (iOS) en-US variant: subtitle, promotional text and keywords – separate section when the iOS listing is ready.
