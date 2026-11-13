@@ -18,6 +18,9 @@ export default function TesterLayout({ children }: LayoutProps<'/tester'>) {
           <Link href="/ai" className="text-text-muted hover:text-text">
             AI
           </Link>
+          <Link href="/jak-dziala" className="text-text-muted hover:text-text">
+            Jak to działa
+          </Link>
           <Link href="/" className="text-text-muted hover:text-text">
             Panel
           </Link>

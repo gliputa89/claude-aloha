@@ -21,6 +21,9 @@ export default function AiLayout({ children }: LayoutProps<'/ai'>) {
           <Link href="/tester" className="text-text-muted hover:text-text">
             Tester planów
           </Link>
+          <Link href="/jak-dziala" className="text-text-muted hover:text-text">
+            Jak to działa
+          </Link>
           <Link href="/" className="text-text-muted hover:text-text">
             Panel
           </Link>
