@@ -4,7 +4,7 @@ import { forecastRace, RACE_DISTANCES_M, type Level, type RaceDistanceM } from '
 import Link from 'next/link';
 import { useMemo, useState, useTransition } from 'react';
 
-import { runForecastSimulation, type ForecastSimInput, type ForecastSimResult } from '@/app/ai/forecast-test/actions';
+import { runForecastSimulation, type ForecastSimInput, type ForecastSimResult } from '@/app/(panel)/ai/forecast-test/actions';
 import { Card, StatusBadge } from '@/components/ai/ui';
 
 const DISTANCE_LABEL: Record<number, string> = { 5000: '5 km', 10000: '10 km', 21097: 'Półmaraton', 42195: 'Maraton' };

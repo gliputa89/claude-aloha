@@ -1,8 +1,7 @@
 import { MODULES, PACKAGES } from '@aloha/plan-engine';
-import Link from 'next/link';
 import { Suspense } from 'react';
 
-import { addCoach, addDemoCoaches, replyAsCoach, setCoachActive, setUserPackage } from '@/app/coaches/actions';
+import { addCoach, addDemoCoaches, replyAsCoach, setCoachActive, setUserPackage } from '@/app/(panel)/coaches/actions';
 import { requireAdmin } from '@/lib/auth';
 import { createServiceClient } from '@/lib/supabase/server';
 
@@ -22,9 +21,6 @@ export default function CoachesPage() {
             widać w AI → Wywołania (funkcja coach-chat).
           </p>
         </div>
-        <Link href="/" className="text-sm text-text-muted hover:text-text">
-          ← Panel
-        </Link>
       </header>
       <Suspense fallback={<p className="text-text-muted">Wczytuję…</p>}>
         <Coaches />

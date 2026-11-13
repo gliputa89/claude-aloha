@@ -3,8 +3,8 @@
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, useTransition } from 'react';
 
-import type { ActionResult } from '@/app/tester/actions';
-import { connectStrava, disconnectStrava, startStravaOAuth, syncStravaNow } from '@/app/tester/strava-actions';
+import type { ActionResult } from '@/app/(panel)/tester/actions';
+import { connectStrava, disconnectStrava, startStravaOAuth, syncStravaNow } from '@/app/(panel)/tester/strava-actions';
 
 const button = 'rounded-button px-3 py-2 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60';
 const secondary = `${button} border border-border-strong bg-surface hover:bg-background`;

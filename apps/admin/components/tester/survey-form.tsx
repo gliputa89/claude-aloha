@@ -2,7 +2,7 @@
 
 import { useState, useTransition, type ReactNode } from 'react';
 
-import { saveSurvey, type SurveyResult } from '@/app/tester/survey-actions';
+import { saveSurvey, type SurveyResult } from '@/app/(panel)/tester/survey-actions';
 import type { SurveyErrors, SurveyValues } from '@/lib/survey';
 
 const DAYS = [

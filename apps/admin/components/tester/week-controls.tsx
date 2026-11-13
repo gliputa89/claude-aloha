@@ -2,7 +2,11 @@
 
 import { useState, useTransition } from 'react';
 
-import { deleteWeek, generateWeek, type ActionResult } from '@/app/tester/actions';
+import { deleteWeek, type ActionResult } from '@/app/(panel)/tester/actions';
+import { generateWeekWithAi } from '@/app/(panel)/tester/ai-actions';
+
+// Tester układa tygodnie dokładnie tak jak aplikacja: szkic silnika → Claude → walidacja silnika → zapis.
+// Innej drogi tu nie ma – inaczej tester pokazywałby plan, którego użytkownik nigdy nie dostanie.
 
 function Feedback({ result }: { result: ActionResult | null }) {
   if (!result) return null;
@@ -17,7 +21,7 @@ const buttonBase =
   'rounded-button px-3 py-2 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60';
 
 /** Generuje dowolny tydzień (numeracja od 1 w UI, od 0 w silniku). Istniejący tydzień o tym numerze jest podmieniany. */
-export function GenerateWeekForm({ userId, defaultWeek }: { userId: string; defaultWeek: number }) {
+export function GenerateWeekForm({ userId, defaultWeek, hasKey }: { userId: string; defaultWeek: number; hasKey: boolean }) {
   const [week, setWeek] = useState(String(defaultWeek));
   const [result, setResult] = useState<ActionResult | null>(null);
   const [pending, start] = useTransition();
@@ -28,7 +32,7 @@ export function GenerateWeekForm({ userId, defaultWeek }: { userId: string; defa
       onSubmit={(e) => {
         e.preventDefault();
         const n = Number(week);
-        start(async () => setResult(await generateWeek(userId, n - 1)));
+        start(async () => setResult(await generateWeekWithAi(userId, n - 1)));
       }}
     >
       <label className="flex items-center gap-2 text-sm">
@@ -43,8 +47,13 @@ export function GenerateWeekForm({ userId, defaultWeek }: { userId: string; defa
           className="w-20 rounded-button border border-border-strong bg-surface px-3 py-2 outline-none focus:border-action"
         />
       </label>
-      <button type="submit" disabled={pending} className={`${buttonBase} bg-action text-text-on-brand hover:bg-action-hover`}>
-        {pending ? 'Generuję…' : 'Generuj tydzień'}
+      <button
+        type="submit"
+        disabled={pending}
+        title={hasKey ? undefined : 'Brak ANTHROPIC_API_KEY – tydzień powstanie z samego silnika'}
+        className={`${buttonBase} bg-action text-text-on-brand hover:bg-action-hover`}
+      >
+        {pending ? (hasKey ? 'Układam z AI…' : 'Generuję…') : 'Generuj tydzień'}
       </button>
       <Feedback result={result} />
     </form>
@@ -60,12 +69,14 @@ export function WeekActions({
   weekIndex,
   touchedSessions,
   canGenerate,
+  hasKey,
 }: {
   userId: string;
   weekId: string;
   weekIndex: number;
   touchedSessions: number;
   canGenerate: boolean;
+  hasKey: boolean;
 }) {
   const [result, setResult] = useState<ActionResult | null>(null);
   const [confirming, setConfirming] = useState<Pending>(null);
@@ -74,7 +85,7 @@ export function WeekActions({
   const run = (kind: Exclude<Pending, null>) => {
     setConfirming(null);
     start(async () =>
-      setResult(kind === 'delete' ? await deleteWeek(userId, weekId) : await generateWeek(userId, weekIndex)),
+      setResult(kind === 'delete' ? await deleteWeek(userId, weekId) : await generateWeekWithAi(userId, weekIndex)),
     );
   };
 
@@ -84,7 +95,7 @@ export function WeekActions({
         <span className="text-sm text-text-accent-strong">
           {confirming === 'delete'
             ? `Usunąć tydzień ${weekIndex + 1}?`
-            : `Zastąpić treningi tygodnia ${weekIndex + 1}?`}
+            : `Wyrzucić tydzień ${weekIndex + 1} i ułożyć go od nowa (płatne wywołanie AI)?`}
           {touchedSessions ? ` ${touchedSessions} z realizacją – zostanie utracona.` : ''}
         </span>
         <button
@@ -93,7 +104,7 @@ export function WeekActions({
           onClick={() => run(confirming)}
           className={`${buttonBase} ${confirming === 'delete' ? 'bg-danger text-white' : 'bg-action text-text-on-brand hover:bg-action-hover'}`}
         >
-          {confirming === 'delete' ? 'Tak, usuń' : 'Tak, generuj'}
+          {confirming === 'delete' ? 'Tak, usuń' : 'Tak, układaj'}
         </button>
         <button
           type="button"
@@ -113,10 +124,11 @@ export function WeekActions({
         <button
           type="button"
           disabled={pending}
+          title={hasKey ? undefined : 'Brak ANTHROPIC_API_KEY – tydzień powstanie z samego silnika'}
           className={`${buttonBase} border border-border-strong hover:bg-background`}
           onClick={() => setConfirming('regenerate')}
         >
-          {pending ? 'Pracuję…' : 'Generuj ponownie'}
+          {pending ? (hasKey ? 'Układam z AI…' : 'Generuję…') : hasKey ? 'Od nowa z AI' : 'Od nowa'}
         </button>
       ) : null}
       <button

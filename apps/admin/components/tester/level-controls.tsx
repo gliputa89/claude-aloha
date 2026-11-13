@@ -3,8 +3,8 @@
 import { TRAINING_LEVEL_INFO, TRAINING_LEVELS } from '@aloha/plan-engine';
 import { useState, useTransition } from 'react';
 
-import type { ActionResult } from '@/app/tester/actions';
-import { generateNextWeekWithReview, setTrainingLevel } from '@/app/tester/level-actions';
+import type { ActionResult } from '@/app/(panel)/tester/actions';
+import { generateNextWeekWithReview, setTrainingLevel } from '@/app/(panel)/tester/level-actions';
 
 const button = 'rounded-button px-3 py-2 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60';
 const field = 'rounded-button border border-border-strong bg-surface px-3 py-2 text-sm outline-none focus:border-action';
@@ -73,7 +73,7 @@ export function NextWeekWithReviewButton({ userId }: { userId: string }) {
         onClick={() => start(async () => setResult(await generateNextWeekWithReview(userId)))}
         className={`${button} bg-action text-text-on-brand hover:bg-action-hover`}
       >
-        {pending ? 'Generuję…' : 'Kolejny tydzień z przeglądem poziomu'}
+        {pending ? 'Układam z AI…' : 'Kolejny tydzień: przegląd poziomu + AI'}
       </button>
       <Feedback result={result} />
     </div>

@@ -1,10 +1,11 @@
 'use server';
 
-import { ENGINE_VERSION, isTrainingLevel, planNextWeek } from '@aloha/plan-engine';
+import { aiAthleteFromSurvey, ENGINE_VERSION, isTrainingLevel, planNextWeek, planWeeksWithAi } from '@aloha/plan-engine';
 import { refresh } from 'next/cache';
 
-import type { ActionResult } from '@/app/tester/actions';
-import { loadAiRuntime } from '@/lib/ai/runtime';
+import type { ActionResult } from '@/app/(panel)/tester/actions';
+import { claudeCaller, hasClaudeKey } from '@/lib/ai/claude';
+import { aiLogger, loadAiRuntime } from '@/lib/ai/runtime';
 import { requireAdmin } from '@/lib/auth';
 import { loadTesterUser, todayIn } from '@/lib/plan-tester';
 import { createServiceClient } from '@/lib/supabase/server';
@@ -35,8 +36,9 @@ export async function setTrainingLevel(userId: string, level: number, reason: st
 }
 
 /**
- * Jak cotygodniowy cron (Edge Function generate-next-week), ale od razu i bez AI: przegląd poziomu + kolejny tydzień
- * silnikiem reguł, zapis poziomu i tygodnia.
+ * Jak cotygodniowy cron (Edge Function generate-next-week), tylko od razu: przegląd poziomu, kolejny tydzień
+ * szkicem silnika, dopasowanie przez Claude z walidacją silnika, zapis poziomu i tygodnia (z radami trenera).
+ * Gdy model zawiedzie, zapisuje się szkic silnika – dokładnie jak w aplikacji.
  */
 export async function generateNextWeekWithReview(userId: string): Promise<ActionResult> {
   const admin = await requireAdmin();
@@ -48,7 +50,7 @@ export async function generateNextWeekWithReview(userId: string): Promise<Action
   const data = await loadTrainingLevel(user);
   if (!data.available) return { ok: false, message: NO_MIGRATION };
   const db = createServiceClient();
-  const { engine } = await loadAiRuntime(db);
+  const { engine, prompt } = await loadAiRuntime(db);
   const rows = nextWeekRows(user, data, engine.params);
   if (!rows) return { ok: false, message: 'Użytkownik nie skończył ankiety.' };
   const next = planNextWeek(rows);
@@ -69,17 +71,50 @@ export async function generateNextWeekWithReview(userId: string): Promise<Action
   });
   if (levelRes.error) return { ok: false, message: `Zapis poziomu nie powiódł się: ${levelRes.error.message}` };
 
+  // Ta sama droga co w aplikacji: szkic z przeglądu → Claude → walidacja silnika. Bez klucza zostaje sam szkic.
+  const ai = hasClaudeKey()
+    ? await planWeeksWithAi({
+        input: next.input,
+        draft: [next.week],
+        previousWeek: next.previousWeek,
+        athlete: aiAthleteFromSurvey({ profile: rows.profile, goal: rows.goal, availability: rows.availability }),
+        today: rows.today,
+        prompt,
+        engine,
+        call: claudeCaller(),
+        log: aiLogger(db),
+        meta: { userId, source: 'tester', isTest: user.isTest },
+      })
+    : null;
+  const week = ai?.weeks[0] ?? next.week;
+  const fromAi = ai?.source === 'ai';
+
   const { error } = await db.rpc('admin_save_plan_week', {
     p_admin_id: admin.id,
     p_user_id: userId,
     p_goal_id: user.goal?.id ?? null,
     p_plan_starts_on: user.plan.starts_on,
     p_engine_version: ENGINE_VERSION,
-    p_week: { ...next.week, source: 'rules', aiCallId: null, engineConfigVersion: engine.version },
+    p_week: {
+      ...week,
+      source: fromAi ? 'ai' : 'rules',
+      aiCallId: fromAi ? ai.finalCallId : null,
+      engineConfigVersion: engine.version,
+    },
   });
   if (error) return { ok: false, message: `Zapis tygodnia nie powiódł się: ${error.message}` };
 
+  if (fromAi && Object.keys(ai.tips).length > 0) {
+    const { error: tipsError } = await db.rpc('set_session_coach_tips', { p_user_id: userId, p_tips: ai.tips });
+    if (tipsError) console.error('set_session_coach_tips failed', tipsError.code, tipsError.message);
+  }
+
   refresh();
   const change = review.change === 'none' ? `poziom bez zmian (${review.level})` : `poziom ${next.previousLevel} → ${review.level}`;
-  return { ok: true, message: `Tydzień ${next.week.weekIndex + 1} dodany · ${change}.` };
+  const how = !ai
+    ? 'bez AI (brak klucza) – sam silnik'
+    : fromAi
+      ? `AI · wywołanie #${ai.finalCallId}`
+      : `sam silnik (${ai.attempts.at(-1)?.error ?? 'model nie poprawił szkicu'})`;
+  return { ok: true, message: `Tydzień ${week.weekIndex + 1} dodany · ${change} · ${how}.` };
 }

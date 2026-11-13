@@ -162,6 +162,39 @@ export async function regeneratePlan(userId: string, useAi = false, weekCount: n
   return result;
 }
 
+/**
+ * Archiwizuje aktywny plan od razu, zanim ruszy układanie nowego (to samo robi `save_generated_plan` na końcu).
+ * Dzięki temu po potwierdzeniu stary plan znika z ekranu i nie da się go pomylić z nowym, który dopiero powstaje.
+ */
+export async function archivePlan(userId: string): Promise<SurveyResult> {
+  const admin = await requireAdmin();
+  if (!UUID.test(userId)) return { ok: false, message: 'Nieprawidłowy użytkownik.' };
+
+  const db = createServiceClient();
+  const { data, error } = await db
+    .from('plans')
+    .update({ status: 'archived' })
+    .eq('user_id', userId)
+    .eq('status', 'active')
+    .select('id');
+  if (error) {
+    console.error('archive plan failed', error.code, error.message);
+    return { ok: false, message: `Archiwizacja planu nie powiodła się: ${error.message}` };
+  }
+
+  if (data?.length) {
+    await db.rpc('admin_log', {
+      p_admin_id: admin.id,
+      p_action: 'tester_archive_plan',
+      p_target_type: 'user',
+      p_target_id: userId,
+      p_details: { plan_ids: data.map((p) => p.id) },
+    });
+  }
+  refresh();
+  return { ok: true, message: data?.length ? 'Stary plan zarchiwizowany.' : 'Nie było aktywnego planu.' };
+}
+
 export type CreateResult = { ok: boolean; message: string; userIds: string[] };
 
 /** Zakłada konta testowe (bez hasła, bez maili) z ankietami z gotowych profili, opcjonalnie od razu z planem. */

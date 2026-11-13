@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useState, useTransition } from 'react';
 
-import { previewAiWeek, saveAiWeek, type AiPreview } from '@/app/tester/ai-actions';
+import { previewAiWeek, saveAiWeek, type AiPreview } from '@/app/(panel)/tester/ai-actions';
 import { inputClass, primaryButton, secondaryButton, StatusBadge } from '@/components/ai/ui';
 import { CoachTipList } from '@/components/ai/coach-tips';
 import { OperationList, WeekCompare } from '@/components/ai/week-compare';

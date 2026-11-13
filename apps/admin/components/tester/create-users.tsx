@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 
-import { createTestUsers, type CreateResult } from '@/app/tester/survey-actions';
+import { createTestUsers, type CreateResult } from '@/app/(panel)/tester/survey-actions';
 
 export function CreateUsersForm({ presets }: { presets: { key: string; label: string }[] }) {
   const router = useRouter();

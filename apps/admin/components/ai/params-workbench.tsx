@@ -13,7 +13,7 @@ import {
 } from '@aloha/plan-engine';
 import { useState, useTransition } from 'react';
 
-import { activateEngineConfig, createEngineConfig, type AiActionResult } from '@/app/ai/actions';
+import { activateEngineConfig, createEngineConfig, type AiActionResult } from '@/app/(panel)/ai/actions';
 import { inputClass, primaryButton, secondaryButton } from '@/components/ai/ui';
 import type { EngineConfigVersion } from '@/lib/ai/data';
 import { formatDateTime } from '@/lib/format';

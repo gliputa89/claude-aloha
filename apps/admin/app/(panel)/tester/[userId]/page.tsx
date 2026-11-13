@@ -21,6 +21,7 @@ import { WorkoutChart, WorkoutSteps } from '@/components/workout/workout-chart';
 import { DeleteUserButton, RegeneratePlanButton, ResetUserButton } from '@/components/tester/user-actions';
 import { NextWeekWithReviewButton, SetLevelForm } from '@/components/tester/level-controls';
 import { StravaControls } from '@/components/tester/strava-controls';
+import { PlanRegenProvider, PlanWeeks } from '@/components/tester/plan-regen';
 import { GenerateWeekForm, WeekActions } from '@/components/tester/week-controls';
 import { hasClaudeKey } from '@/lib/ai/claude';
 import { getAiCostByUser, listAiPrompts, listEngineConfigs } from '@/lib/ai/data';
@@ -151,7 +152,8 @@ async function UserDetail({ params, searchParams }: Pick<PageProps<'/tester/[use
 
       <StravaCard userId={user.id} data={strava} returned={stravaReturned} />
 
-      <section className="flex flex-col gap-4">
+      <PlanRegenProvider>
+        <section className="flex flex-col gap-4">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div className="flex flex-col gap-1">
             <h2 className="font-display text-xl font-semibold">Plan</h2>
@@ -166,7 +168,7 @@ async function UserDetail({ params, searchParams }: Pick<PageProps<'/tester/[use
           </div>
           {canGenerate ? (
             <div className="flex flex-col items-end gap-2">
-              <GenerateWeekForm userId={user.id} defaultWeek={nextIndex + 1} />
+              <GenerateWeekForm userId={user.id} defaultWeek={nextIndex + 1} hasKey={hasClaudeKey()} />
               <RegeneratePlanButton userId={user.id} hasPlan={!!user.plan} maxWeeks={MAX_REGENERATE_WEEKS} />
             </div>
           ) : (
@@ -176,24 +178,51 @@ async function UserDetail({ params, searchParams }: Pick<PageProps<'/tester/[use
           )}
         </div>
 
-        {canGenerate ? (
-          <AiPreviewPanel
-            userId={user.id}
-            defaultWeek={nextIndex + 1}
-            hasKey={hasClaudeKey()}
-            prompts={prompts.map((p) => ({ id: p.id, label: `v${p.version} (${p.status === 'active' ? 'aktywna' : p.status === 'draft' ? 'szkic' : 'archiwum'}) · ${p.model}` }))}
-            configs={configs.map((c) => ({ id: c.id, label: `v${c.version} (${c.status === 'active' ? 'aktywna' : c.status === 'draft' ? 'szkic' : 'archiwum'})` }))}
-          />
-        ) : null}
+        <p className="text-sm text-text-muted">
+          Każdy tydzień powstaje tu tak samo jak u użytkownika: szkic silnika → Claude → walidacja silnika → zapis z radami
+          trenera. „Od nowa z AI” przy tygodniu wyrzuca go i układa od zera, „Usuń” zostawia lukę w planie.
+        </p>
 
         {user.plan?.weeks.length ? (
-          <ol className="flex flex-col gap-3">
-            {user.plan.weeks.map((week) => (
-              <WeekCard key={week.week_index} userId={user.id} week={week} today={today} canGenerate={canGenerate} paces={paces} />
-            ))}
-          </ol>
+          <PlanWeeks>
+            <ol className="flex flex-col gap-3">
+              {user.plan.weeks.map((week) => (
+                <WeekCard
+                  key={week.week_index}
+                  userId={user.id}
+                  week={week}
+                  today={today}
+                  canGenerate={canGenerate}
+                  paces={paces}
+                  hasKey={hasClaudeKey()}
+                />
+              ))}
+            </ol>
+          </PlanWeeks>
         ) : null}
-      </section>
+
+        {canGenerate ? (
+          <details className="rounded-card border border-border bg-surface p-5">
+            <summary className="cursor-pointer font-semibold">
+              Porównanie wersji: podgląd z AI bez zapisu
+              <span className="block text-sm font-normal text-text-muted">
+                Ten sam przebieg, ale z wybraną wersją promptu i parametrów – do testu szkicu przed aktywacją. Wynik widać
+                obok szkicu i można go zapisać ręcznie.
+              </span>
+            </summary>
+            <div className="pt-4">
+              <AiPreviewPanel
+                userId={user.id}
+                defaultWeek={nextIndex + 1}
+                hasKey={hasClaudeKey()}
+                prompts={prompts.map((p) => ({ id: p.id, label: `v${p.version} (${p.status === 'active' ? 'aktywna' : p.status === 'draft' ? 'szkic' : 'archiwum'}) · ${p.model}` }))}
+                configs={configs.map((c) => ({ id: c.id, label: `v${c.version} (${c.status === 'active' ? 'aktywna' : c.status === 'draft' ? 'szkic' : 'archiwum'})` }))}
+              />
+            </div>
+          </details>
+        ) : null}
+        </section>
+      </PlanRegenProvider>
     </div>
   );
 }
@@ -466,12 +495,14 @@ function WeekCard({
   today,
   canGenerate,
   paces,
+  hasKey,
 }: {
   userId: string;
   week: TesterWeek;
   today: string;
   canGenerate: boolean;
   paces: PaceZones | null;
+  hasKey: boolean;
 }) {
   const minutes = week.sessions.reduce((sum, s) => sum + (s.duration_min ?? 0), 0);
   const approxM = week.sessions.reduce((sum, s) => sum + sessionDistanceM(s, paces), 0);
@@ -506,6 +537,7 @@ function WeekCard({
           weekIndex={week.week_index}
           touchedSessions={touched}
           canGenerate={canGenerate}
+          hasKey={hasKey}
         />
       </div>
       {week.sessions.length ? (
@@ -539,15 +571,12 @@ function WeekCard({
                 </span>
               </span>
             </div>
+            {/* Struktura od razu widoczna – po to jest tester: widać, co dokładnie dostanie biegacz. */}
             {steps.length ? (
-              <details className="group pl-[4.25rem]">
-                <summary className="cursor-pointer list-none">
-                  <WorkoutChart steps={steps} height="h-9" />
-                </summary>
-                <div className="pt-2">
-                  <WorkoutSteps steps={steps} />
-                </div>
-              </details>
+              <div className="flex flex-col gap-2 pl-[4.25rem]">
+                <WorkoutChart steps={steps} height="h-9" />
+                <WorkoutSteps steps={steps} />
+              </div>
             ) : null}
             <SessionCoachTip tip={s.coach_tip} />
             </li>

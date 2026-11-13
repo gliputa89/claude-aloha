@@ -25,7 +25,6 @@ import {
 import Link from 'next/link';
 import { Suspense } from 'react';
 
-import { signOut } from '@/app/login/actions';
 import { loadAiRuntime } from '@/lib/ai/runtime';
 import { requireAdmin } from '@/lib/auth';
 import { createServiceClient } from '@/lib/supabase/server';
@@ -65,34 +64,11 @@ const SECTIONS = [
 
 export default function HowItWorksPage() {
   return (
-    <div className="flex min-h-full flex-1 flex-col">
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-surface px-4 py-3 print:hidden">
-        <Link href="/jak-dziala" className="font-display text-lg font-semibold tracking-tight">
-          Jak to działa
-        </Link>
-        <nav className="flex items-center gap-4 text-sm">
-          <Link href="/ai/rules" className="text-text-muted hover:text-text">
-            Ramy planu
-          </Link>
-          <Link href="/tester" className="text-text-muted hover:text-text">
-            Tester planów
-          </Link>
-          <Link href="/" className="text-text-muted hover:text-text">
-            Panel
-          </Link>
-          <form action={signOut}>
-            <button type="submit" className="text-text-muted hover:text-text">
-              Wyloguj
-            </button>
-          </form>
-        </nav>
-      </header>
-      <main className="mx-auto flex w-full max-w-4xl min-w-0 flex-1 flex-col gap-10 px-4 py-8">
-        <Suspense fallback={<p className="text-text-muted">Wczytuję opis systemu…</p>}>
-          <Content />
-        </Suspense>
-      </main>
-    </div>
+    <main className="mx-auto flex w-full max-w-4xl min-w-0 flex-1 flex-col gap-10 px-4 py-8">
+      <Suspense fallback={<p className="text-text-muted">Wczytuję opis systemu…</p>}>
+        <Content />
+      </Suspense>
+    </main>
   );
 }
 

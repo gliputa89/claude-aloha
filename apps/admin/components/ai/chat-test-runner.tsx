@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useState, useTransition } from 'react';
 
-import { runChatTest, type ChatTestResult } from '@/app/ai/chat-test/actions';
+import { runChatTest, type ChatTestResult } from '@/app/(panel)/ai/chat-test/actions';
 
 const field = 'rounded-button border border-border-strong bg-surface px-3 py-2 text-sm outline-none focus:border-action';
 

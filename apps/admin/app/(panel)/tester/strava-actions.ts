@@ -3,7 +3,7 @@
 import { refresh } from 'next/cache';
 import { headers } from 'next/headers';
 
-import type { ActionResult } from '@/app/tester/actions';
+import type { ActionResult } from '@/app/(panel)/tester/actions';
 import { requireAdmin, type Admin } from '@/lib/auth';
 import { serviceRoleKey, supabaseUrl } from '@/lib/env';
 import { createServiceClient } from '@/lib/supabase/server';

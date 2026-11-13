@@ -1,9 +1,10 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useState, useTransition } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 
-import { deleteUser, regeneratePlan, resetUser, type SurveyResult } from '@/app/tester/survey-actions';
+import { archivePlan, deleteUser, regeneratePlan, resetUser, type SurveyResult } from '@/app/(panel)/tester/survey-actions';
+import { usePlanRegen } from '@/components/tester/plan-regen';
 
 const button = 'rounded-button px-3 py-2 text-sm font-semibold transition-colors disabled:opacity-60';
 
@@ -65,15 +66,104 @@ function ConfirmButton({
   );
 }
 
+/** Licznik sekund od startu – przy układaniu kilku tygodni widać, że to trwa, a nie że coś zawisło. */
+function Elapsed() {
+  const [s, setS] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setS((n) => n + 1), 1000);
+    return () => clearInterval(id);
+  }, []);
+  return <span className="tabular-nums">{s < 60 ? `${s} s` : `${Math.floor(s / 60)} min ${s % 60} s`}</span>;
+}
+
+/**
+ * Cały plan od nowa, jak po ankiecie w aplikacji. Po potwierdzeniu najpierw archiwizujemy stary plan
+ * (znika z ekranu od razu), potem układamy nowy – układanie kilku tygodni to kilka wywołań modelu i trwa,
+ * więc przez ten czas widać loader, a nie nieaktualny plan.
+ */
 export function RegeneratePlanButton({ userId, hasPlan, maxWeeks }: { userId: string; hasPlan: boolean; maxWeeks: number }) {
+  const router = useRouter();
+  const { setBusy } = usePlanRegen();
   const [weeks, setWeeks] = useState(2);
+  const [asking, setAsking] = useState(false);
+  const [archiving, setArchiving] = useState(false);
+  const [result, setResult] = useState<SurveyResult | null>(null);
+  const [pending, start] = useTransition();
   const span = weeks === 1 ? '1 tydzień' : weeks <= 4 ? `${weeks} tygodnie` : `${weeks} tygodni`;
-  const question = hasPlan ? `Zarchiwizować obecny plan i ułożyć ${span} od nowa` : `Ułożyć ${span} planu jak po ankiecie`;
+  const question = hasPlan ? `Wyrzucić obecny plan i ułożyć ${span} od nowa` : `Ułożyć ${span} planu jak po ankiecie`;
   // Jak aplikacja w czasie: 2 tygodnie po ankiecie w jednym wywołaniu, każdy kolejny tydzień osobno.
   const calls = Math.max(1, weeks - 1);
   const cost = calls === 1 ? 'płatne wywołanie' : `${calls} płatnych wywołań, ok. ${Math.ceil(calls / 2)} min`;
+
+  // Archiwizacja celowo poza `startTransition`: w trakcie przejścia React trzyma stary ekran, więc plan zniknąłby
+  // dopiero po ułożeniu nowego. Tak znika od razu po potwierdzeniu, a dopiero potem rusza (długie) układanie.
+  const run = async () => {
+    setAsking(false);
+    setResult(null);
+    setArchiving(true);
+    // Tygodnie znikają z ekranu już teraz – na serwerze stary plan za chwilę trafi do archiwum.
+    setBusy(true);
+    const archived = await archivePlan(userId);
+    setArchiving(false);
+    if (!archived.ok) {
+      setBusy(false);
+      setResult(archived);
+      return;
+    }
+    start(async () => {
+      const done = await regeneratePlan(userId, true, weeks);
+      setResult(done);
+      setBusy(false);
+      router.refresh();
+    });
+  };
+
+  if (archiving || pending) {
+    return (
+      <div className="flex w-full flex-col gap-2 rounded-card border border-action bg-surface p-4">
+        <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+          <span className="font-semibold">{archiving ? 'Wyrzucam stary plan…' : `Układam ${span} od nowa…`}</span>
+          <span className="text-text-muted">
+            <Elapsed /> · {calls === 1 ? '1 wywołanie' : `${calls} wywołania`} modelu
+          </span>
+        </div>
+        <div className="h-1.5 overflow-hidden rounded-pill bg-background" role="progressbar" aria-label="Układanie planu">
+          <div className="h-full w-1/3 animate-pulse rounded-pill bg-action" />
+        </div>
+        <p className="text-xs text-text-muted">
+          {archiving ? 'Stary plan trafia do archiwum.' : 'Stary plan jest już zarchiwizowany.'} Każdy tydzień przechodzi tę
+          samą drogę co u użytkownika: szkic silnika → Claude → walidacja silnika → zapis. Nie zamykaj strony.
+        </p>
+      </div>
+    );
+  }
+
+  if (asking) {
+    return (
+      <div className="flex flex-wrap items-center gap-2 rounded-md bg-surface-accent-soft px-3 py-2">
+        <span className="text-sm text-text-accent-strong">{`${question} – silnik + Claude (${cost})?`}</span>
+        <button
+          type="button"
+          autoFocus
+          onClick={run}
+          className={`${button} bg-action text-text-on-brand hover:bg-action-hover`}
+        >
+          Tak, ułóż z AI
+        </button>
+        <button type="button" onClick={() => setAsking(false)} className={`${button} border border-border-strong hover:bg-background`}>
+          Anuluj
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-wrap items-center justify-end gap-2">
+      {result ? (
+        <span role="status" className={`text-sm ${result.ok ? 'text-text-brand' : 'text-text-accent-strong'}`}>
+          {result.message}
+        </span>
+      ) : null}
       <label className="flex items-center gap-2 text-sm text-text-muted">
         Tygodni
         <select
@@ -88,18 +178,13 @@ export function RegeneratePlanButton({ userId, hasPlan, maxWeeks }: { userId: st
           ))}
         </select>
       </label>
-      <ConfirmButton
-        label="Plan od nowa z AI (jak w aplikacji)"
-        question={`${question} – silnik + Claude (${cost})?`}
-        confirmLabel="Tak, ułóż z AI"
-        onConfirm={() => regeneratePlan(userId, true, weeks)}
-      />
-      <ConfirmButton
-        label="Plan od nowa – sam silnik"
-        question={`${question} – sam silnik reguł?`}
-        confirmLabel="Tak, ułóż"
-        onConfirm={() => regeneratePlan(userId, false, weeks)}
-      />
+      <button
+        type="button"
+        onClick={() => setAsking(true)}
+        className={`${button} border border-border-strong hover:bg-background`}
+      >
+        Cały plan od nowa (jak w aplikacji)
+      </button>
     </div>
   );
 }

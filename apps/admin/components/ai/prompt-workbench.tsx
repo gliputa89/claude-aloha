@@ -3,7 +3,7 @@
 import { AI_EFFORTS, AI_MODELS, type AiPromptConfig } from '@aloha/plan-engine';
 import { useState, useTransition } from 'react';
 
-import { activatePrompt, createPromptVersion, type AiActionResult } from '@/app/ai/actions';
+import { activatePrompt, createPromptVersion, type AiActionResult } from '@/app/(panel)/ai/actions';
 import { inputClass, JsonBlock, primaryButton, secondaryButton } from '@/components/ai/ui';
 import type { AiPromptVersion } from '@/lib/ai/data';
 import { formatDateTime } from '@/lib/format';

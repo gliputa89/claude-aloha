@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useState, useTransition } from 'react';
 
-import { runReviewTest, type ReviewTestResult } from '@/app/ai/review-test/actions';
+import { runReviewTest, type ReviewTestResult } from '@/app/(panel)/ai/review-test/actions';
 
 const VERDICT: Record<string, string> = {
   spot_on: 'W punkt',

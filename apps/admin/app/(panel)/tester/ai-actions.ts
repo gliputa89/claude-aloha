@@ -15,6 +15,7 @@ import {
 } from '@aloha/plan-engine';
 import { refresh } from 'next/cache';
 
+import { generateWeek, type ActionResult } from '@/app/(panel)/tester/actions';
 import { claudeCaller, hasClaudeKey } from '@/lib/ai/claude';
 import { getAiCall } from '@/lib/ai/data';
 import { aiLogger, loadAiRuntime } from '@/lib/ai/runtime';
@@ -157,4 +158,42 @@ export async function saveAiWeek(userId: string, weekIndex: number, callId: numb
   }
   refresh();
   return { ok: true, message: `Tydzień ${weekIndex + 1} zapisany z wywołania #${callId}.` };
+}
+
+const formatCost = (usd: number) => `$${usd.toFixed(usd < 0.01 ? 4 : 2)}`;
+
+/** „1 zmiana”, „3 zmiany”, „7 zmian” – bez tego komunikaty czyta się jak tłumaczenie maszynowe. */
+const changes = (n: number) => `${n} ${n === 1 ? 'zmiana' : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? 'zmiany' : 'zmian'}`;
+
+/**
+ * Pełna ścieżka tygodnia, dokładnie jak u użytkownika: szkic silnika → Claude → walidacja silnika → zapis
+ * razem z radami trenera. Istniejący tydzień o tym numerze jest podmieniany. Gdy model odpowie błędem,
+ * zapisuje się szkic silnika – tak samo zachowuje się aplikacja.
+ */
+export async function generateWeekWithAi(userId: string, weekIndex: number): Promise<ActionResult> {
+  // Bez klucza nie ma czym wołać modelu – wtedy zostaje sam silnik, tak jak w aplikacji przy awarii AI.
+  if (!hasClaudeKey()) {
+    const rules = await generateWeek(userId, weekIndex);
+    return rules.ok ? { ok: true, message: `${rules.message} Bez AI – brak ANTHROPIC_API_KEY w panelu.` } : rules;
+  }
+
+  const preview = await previewAiWeek(userId, weekIndex, null, null);
+  if (!preview.ok) return { ok: false, message: preview.message };
+  if (preview.finalCallId === null) {
+    return { ok: false, message: 'Wywołanie AI nie zapisało się w logu – tydzień nie został zapisany.' };
+  }
+
+  const saved = await saveAiWeek(userId, weekIndex, preview.finalCallId);
+  if (!saved.ok) return { ok: false, message: saved.message };
+
+  const applied = preview.operations.filter((o) => o.status === 'applied').length;
+  const rejected = preview.operations.length - applied;
+  const how =
+    preview.source === 'ai'
+      ? `AI: ${changes(applied)}${rejected ? `, ${rejected} odrzuconych przez silnik` : ''}`
+      : `sam silnik (${preview.error ?? 'model nie poprawił szkicu'})`;
+  return {
+    ok: true,
+    message: `Tydzień ${weekIndex + 1}: ${how} · ${formatCost(preview.costUsd)} · wywołanie #${preview.finalCallId}.`,
+  };
 }
