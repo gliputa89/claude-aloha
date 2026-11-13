@@ -45,7 +45,15 @@ import {
   weekdayShort,
   WEEK_FOCUS_LABEL,
 } from '@/lib/format';
-import { loadTesterUser, MAX_REGENERATE_WEEKS, todayIn, type TesterSession, type TesterUser, type TesterWeek } from '@/lib/plan-tester';
+import {
+  loadTesterUser,
+  MAX_REGENERATE_WEEKS,
+  startsInPast,
+  todayIn,
+  type TesterSession,
+  type TesterUser,
+  type TesterWeek,
+} from '@/lib/plan-tester';
 import { loadStrava, type StravaData } from '@/lib/strava';
 import { createServiceClient } from '@/lib/supabase/server';
 import { surveyValuesFromRows } from '@/lib/survey';
@@ -166,6 +174,12 @@ async function UserDetail({ params, searchParams }: Pick<PageProps<'/tester/[use
             ) : (
               <p className="text-sm text-text-muted">Brak aktywnego planu – pierwszy wygenerowany tydzień go założy.</p>
             )}
+            {startsInPast(user.goal?.plan_starts_on, today) ? (
+              <p className="text-xs text-text-muted">
+                Start planu z ankiety wypada w przeszłości – w panelu generujemy od tej daty (są treningi do
+                odhaczenia i symulacji). Aplikacja przesunęłaby start na dziś.
+              </p>
+            ) : null}
           </div>
           {canGenerate ? (
             <div className="flex flex-col items-end gap-2">

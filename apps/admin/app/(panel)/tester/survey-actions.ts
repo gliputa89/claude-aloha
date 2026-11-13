@@ -4,7 +4,6 @@ import {
   aiAthleteFromSurvey,
   generateInitialPlan,
   planInputFromSurvey,
-  planStartDate,
   planWeeksWithAi,
   surveyTrainingLevel,
   TRAINING_LEVEL_INFO,
@@ -17,7 +16,7 @@ import { claudeCaller, hasClaudeKey } from '@/lib/ai/claude';
 import { aiLogger, loadAiRuntime } from '@/lib/ai/runtime';
 import { requireAdmin, type Admin } from '@/lib/auth';
 import { serviceRoleKey, supabaseUrl } from '@/lib/env';
-import { loadTesterUser, MAX_REGENERATE_WEEKS, todayIn } from '@/lib/plan-tester';
+import { loadTesterUser, MAX_REGENERATE_WEEKS, testerPlanStart, todayIn } from '@/lib/plan-tester';
 import { createServiceClient } from '@/lib/supabase/server';
 import { presetByKey, validateSurvey, type SurveyErrors, type SurveyValues } from '@/lib/survey';
 
@@ -62,7 +61,8 @@ async function regeneratePlanRow(admin: Admin, userId: string, useAi = false, we
   const db = createServiceClient();
   const { prompt, engine } = await loadAiRuntime(db);
   const survey = { profile: { ...profile, level: profile.level }, goal, availability };
-  const baseInput = planInputFromSurvey(survey, planStartDate(goal, today));
+  // W panelu plan może zaczynać się w przeszłości – wtedy są treningi do odhaczenia i symulacji (testerPlanStart).
+  const baseInput = planInputFromSurvey(survey, testerPlanStart(goal, today));
   // Jak generate-plan: nowy plan = poziom startowy z ankiety (brak migracji poziomu → tylko ostrzeżenie w logu).
   const surveyLevel = surveyTrainingLevel(baseInput);
   const levelRes = await db.rpc('set_training_level', {

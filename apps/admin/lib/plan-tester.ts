@@ -215,6 +215,18 @@ export async function loadTesterUser(userId: string): Promise<TesterUser | null>
   };
 }
 
+/**
+ * Start planu w testerze. W aplikacji plan nigdy nie zaczyna się w przeszłości (`planStartDate`), bo biegacz
+ * dostałby treningi, których nie da się już zrobić. W panelu jest odwrotnie: data z ankiety sprzed dziś jest
+ * najwygodniejszym sposobem, żeby mieć treningi do odhaczenia i symulacji wykonania – więc bierzemy ją wprost.
+ */
+export function testerPlanStart(goal: Pick<SurveyGoal, 'plan_starts_on'>, today: string) {
+  return goal.plan_starts_on ?? planStartDate(goal, today);
+}
+
+/** Czy start planu wypada w przeszłości – w aplikacji przesunąłby się na dziś (pokazujemy to w panelu). */
+export const startsInPast = (startsOn: string | null | undefined, today: string) => !!startsOn && startsOn < today;
+
 const toList = <T,>(value: T | T[] | null | undefined): T[] => (Array.isArray(value) ? value : value ? [value] : []);
 
 /** Dzisiejsza data w strefie użytkownika, `YYYY-MM-DD` (jak w Edge Function generate-plan). */
@@ -244,7 +256,7 @@ export function buildWeek(user: TesterUser, weekIndex: number, params?: Partial<
   // Bez planu: start jak w produkcji – pusty niepełny tydzień 0 przesuwa plan na poniedziałek.
   const planStartsOn =
     user.plan?.starts_on ??
-    generateInitialPlan({ ...planInputFromSurvey(survey, planStartDate(goal, todayIn(profile.timezone))), weeks: 1, params }).startsOn;
+    generateInitialPlan({ ...planInputFromSurvey(survey, testerPlanStart(goal, todayIn(profile.timezone))), weeks: 1, params }).startsOn;
   const input = { ...planInputFromSurvey(survey, planStartsOn), params, trainingLevel: trainingLevel ?? null };
   return { ok: true, planStartsOn, week: generatePlanWeek(input, weekIndex) };
 }
