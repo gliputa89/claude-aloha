@@ -2,17 +2,20 @@ import { stepsOf, toWatchWorkout, type WatchStep } from '@aloha/plan-engine';
 import { useCallback, useEffect, useState } from 'react';
 import { Platform } from 'react-native';
 
-import { AlohaWorkoutKit, type AppleWorkout } from '../../../modules/aloha-workoutkit/src/AlohaWorkoutKitModule';
+import { AlohaWorkoutKit, type AppleWorkout, type WatchAuthorization } from '../../../modules/aloha-workoutkit/src/AlohaWorkoutKitModule';
 import type { PlanSession } from '@/features/plan/api';
 import { sessionTitleKey } from '@/features/plan/session-title';
 import { useT } from '@/hooks/use-t';
 
 /**
  * Stan wysyłki na zegarek:
- * `idle` – można wysłać · `sending` – trwa · `scheduled` – trening czeka w aplikacji Trening ·
- * `denied` – brak zgody w Ustawieniach · `error` – coś poszło nie tak.
+ * `idle` – można wysłać · `sending` – trwa · `scheduled` – trening czeka w aplikacji Trening · `error` – coś poszło nie tak.
+ * Brak zgody nie jest stanem ekranu – przycisk pokazuje wtedy okienko z instrukcją (AppleWatchButton).
  */
-export type WatchState = 'idle' | 'sending' | 'scheduled' | 'denied' | 'error';
+export type WatchState = 'idle' | 'sending' | 'scheduled' | 'error';
+
+/** Wynik wysyłki: `denied` / `restricted` – brak zgody (odmowa albo blokada na iPhonie); iOS drugi raz nie zapyta. */
+export type WatchSendResult = 'scheduled' | 'denied' | 'restricted' | 'error';
 
 /** Czy ten telefon może planować treningi na Apple Watch (iOS 17+, moduł w buildzie, zegarek obsługiwany). */
 export function appleWatchAvailable(): boolean {
@@ -68,20 +71,37 @@ export function useAppleWatch(session: PlanSession) {
     };
   }, [available, session.id, session.scheduled_on]);
 
-  const send = useCallback(async () => {
-    if (!AlohaWorkoutKit || !workout) return;
+  /** Zgoda na dodawanie treningów: `notDetermined` – iOS jeszcze nie pytał (przed pytaniem pokazujemy wyjaśnienie). */
+  const authorization = useCallback(async (): Promise<WatchAuthorization> => {
+    if (!AlohaWorkoutKit) return 'unsupported';
+    try {
+      return await AlohaWorkoutKit.getAuthorizationState();
+    } catch {
+      return 'unsupported';
+    }
+  }, []);
+
+  /** Prosi iOS o zgodę (jeśli jeszcze nie pytał) i planuje trening na dzień z planu. */
+  const send = useCallback(async (): Promise<WatchSendResult> => {
+    if (!AlohaWorkoutKit || !workout) return 'error';
     setState('sending');
     try {
       let auth = await AlohaWorkoutKit.getAuthorizationState();
       if (auth === 'notDetermined') auth = await AlohaWorkoutKit.requestAuthorization();
+      if (auth === 'denied' || auth === 'restricted') {
+        setState('idle');
+        return auth;
+      }
       if (auth !== 'authorized') {
-        setState('denied');
-        return;
+        setState('error');
+        return 'error';
       }
       await AlohaWorkoutKit.schedule(workout, dateOf(session.scheduled_on));
       setState('scheduled');
+      return 'scheduled';
     } catch {
       setState('error');
+      return 'error';
     }
   }, [workout, session.scheduled_on]);
 
@@ -94,5 +114,5 @@ export function useAppleWatch(session: PlanSession) {
     }
   }, [workout]);
 
-  return { available, state, send, preview };
+  return { available, state, authorization, send, preview };
 }
