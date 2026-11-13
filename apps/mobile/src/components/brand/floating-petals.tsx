@@ -15,28 +15,52 @@ const PETALS = [
   { x: 0.28, size: 26, rise: 34000, delay: 21000, sway: 16, spin: 26000 },
 ];
 
+/**
+ * Gęsty rój na ekran układania planu: więcej kwiatów, a ujemne opóźnienie startuje każdy w innym miejscu drogi –
+ * niebo jest pełne od pierwszej sekundy (cały ekran trwa zwykle 10–30 s).
+ */
+const DENSE_PETALS = [
+  { x: 0.08, size: 18, rise: 22000, delay: -1100, sway: 12, spin: 16000 },
+  { x: 0.62, size: 24, rise: 26000, delay: -14300, sway: 16, spin: 22000 },
+  { x: 0.34, size: 14, rise: 20000, delay: -6000, sway: 10, spin: 14000 },
+  { x: 0.86, size: 20, rise: 24000, delay: -19200, sway: 14, spin: 19000 },
+  { x: 0.2, size: 26, rise: 28000, delay: -4200, sway: 18, spin: 25000 },
+  { x: 0.5, size: 16, rise: 21000, delay: -14300, sway: 12, spin: 15000 },
+  { x: 0.74, size: 14, rise: 19000, delay: -8000, sway: 10, spin: 13000 },
+  { x: 0.95, size: 22, rise: 27000, delay: -24800, sway: 14, spin: 21000 },
+  { x: 0.03, size: 20, rise: 25000, delay: -5500, sway: 12, spin: 18000 },
+  { x: 0.44, size: 22, rise: 29000, delay: -17400, sway: 16, spin: 23000 },
+  { x: 0.68, size: 16, rise: 23000, delay: -8000, sway: 10, spin: 16000 },
+  { x: 0.14, size: 14, rise: 20000, delay: -17000, sway: 10, spin: 14000 },
+  { x: 0.56, size: 26, rise: 30000, delay: -15000, sway: 18, spin: 26000 },
+  { x: 0.9, size: 16, rise: 22000, delay: -2200, sway: 12, spin: 15000 },
+];
+
 type FloatingPetalsProps = {
   /** Wysokość obszaru, przez który kwiaty przelatują. */
   height: number;
   width: number;
   color?: ColorRole;
   opacity?: number;
-  /** Mnożnik tempa: 1 – spokojnie (ekran startowy), 2 – dwa razy szybciej i gęściej (ekran układania planu). */
+  /** Mnożnik tempa: 1 – spokojnie, 2 – dwa razy szybciej. */
   speed?: number;
+  /** Więcej kwiatów, gęściej w czasie (ekran układania planu). */
+  dense?: boolean;
 };
 
 /**
  * Kilka kwiatów plumerii powoli unosi się od dołu ku górze, kołysząc się i obracając.
  * Tylko ekran startowy / onboarding. Przy „Ogranicz ruch” nic nie jest rysowane.
  */
-export function FloatingPetals({ height, width, color = 'textOnBrand', opacity = 0.08, speed = 1 }: FloatingPetalsProps) {
+export function FloatingPetals({ height, width, color = 'textOnBrand', opacity = 0.08, speed = 1, dense = false }: FloatingPetalsProps) {
   const c = useColors();
   const reduced = useReducedMotion();
   if (reduced || height <= 0) return null;
+  const petals = dense ? DENSE_PETALS : PETALS;
 
   return (
     <View pointerEvents="none" style={StyleSheet.absoluteFill} accessible={false}>
-      {PETALS.map((p, i) => (
+      {petals.map((p, i) => (
         <Animated.View
           key={i}
           style={[

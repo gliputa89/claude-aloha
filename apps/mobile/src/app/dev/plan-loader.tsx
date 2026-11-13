@@ -27,6 +27,16 @@ const SCENARIOS: Scenario[] = [
   { key: 'typical', label: 'Typowo 12 s', ms: 12000, result: SAMPLE },
   { key: 'slow', label: 'Wolno 40 s', ms: 40000, result: SAMPLE },
   { key: 'rules', label: 'Bez AI', ms: 6000, result: { ...SAMPLE, note: 'Plan jest ułożony pod Twój cel i Twoje dni. Zaczynamy spokojnie – pierwsze tygodnie mają wejść Ci w nawyk, a resztę dopasuję po drodze.' } },
+  {
+    key: 'long',
+    label: 'Długa notka',
+    ms: 3000,
+    result: {
+      ...SAMPLE,
+      startLabel: 'piątek, 13 listopada',
+      note: 'Ten plan ma pomóc Ci biegać regularnie i z przyjemnością, na solidnej bazie, którą już masz. Przez pierwsze tygodnie biegasz trzy razy w tygodniu: dwa spokojne biegi w tygodniu i jeden dłuższy w weekend, bez forsowania tempa. Dobry rytm to najlepsza inwestycja, więc po prostu ruszaj i ciesz się bieganiem. Po kilku tygodniach dołożymy trochę szybszych odcinków, żeby było ciekawiej, a jeśli któryś tydzień będzie trudniejszy – powiedz, dopasuję plan. Jestem obok na każdym kroku.',
+    },
+  },
   { key: 'error', label: 'Błąd', ms: 6000, result: null },
 ];
 

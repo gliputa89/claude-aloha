@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { StyleSheet, useWindowDimensions, View } from 'react-native';
+import { ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import Animated, {
   Easing,
   FadeIn,
@@ -64,7 +64,8 @@ const SUN_SIZE = 132;
 const GLOW_SIZE = SUN_SIZE * 3;
 /** Słońce w trakcie pracy dochodzi do tej części drogi; resztę pokonuje w finale. */
 const WORKING_RISE = 0.82;
-const WORKING_MS = 11000;
+/** Powolny wschód – generowanie trwa zwykle 15–30 s, słońce nie powinno „stanąć” po kilku sekundach. */
+const WORKING_MS = 24000;
 /** Finał nie wcześniej niż po tylu ms – szybka odpowiedź nie może „mignąć”. */
 const MIN_VISIBLE_MS = 3200;
 const STEP_MS = 2600;
@@ -97,7 +98,7 @@ export function PlanLoader({ texts, task, onContinue, continuing = false }: Plan
 
   useEffect(() => {
     if (reduced) return;
-    rise.value = withTiming(WORKING_RISE, { duration: WORKING_MS, easing: Easing.out(Easing.cubic) });
+    rise.value = withTiming(WORKING_RISE, { duration: WORKING_MS, easing: Easing.out(Easing.quad) });
   }, [reduced, rise]);
 
   useEffect(() => {
@@ -117,7 +118,7 @@ export function PlanLoader({ texts, task, onContinue, continuing = false }: Plan
     Promise.all([task.catch(() => null), minTime]).then(([result]) => {
       if (!active) return;
       setPhase({ kind: 'done', result });
-      rise.value = reduced ? 1 : withSpring(1, { damping: 11, stiffness: 90, mass: 0.9 });
+      rise.value = reduced ? 1 : withSpring(1, { damping: 14, stiffness: 40, mass: 1.2 });
     });
     return () => {
       active = false;
@@ -158,7 +159,7 @@ export function PlanLoader({ texts, task, onContinue, continuing = false }: Plan
             <Rect width="100%" height="100%" fill="url(#loader-dawn)" />
           </Svg>
         </Animated.View>
-        <FloatingPetals width={width} height={skyHeight} speed={2.2} opacity={0.13} />
+        <FloatingPetals width={width} height={skyHeight} dense opacity={0.22} />
 
         <Animated.View style={[styles.sun, { left: (width - SUN_SIZE) / 2 }, sunStyle]}>
           <Animated.View
@@ -232,29 +233,36 @@ export function PlanLoader({ texts, task, onContinue, continuing = false }: Plan
 
         {done ? (
           <View style={styles.result}>
-            <BouncyTitle text={result ? texts.doneTitle : texts.fallbackTitle} style={styles.center} />
-            {result ? (
-              <>
-                <FadeUp delay={420} style={styles.stats}>
-                  <Stat label={texts.sessionsLabel} value={String(result.sessions)} />
-                  <Stat label={texts.startLabel} value={result.startLabel} wide />
+            {/* Długa wiadomość od trenera nie może się uciąć: treść się przewija, przycisk zostaje na dole. */}
+            <ScrollView
+              style={styles.resultScroll}
+              contentContainerStyle={styles.resultContent}
+              showsVerticalScrollIndicator={false}
+              alwaysBounceVertical={false}>
+              <BouncyTitle text={result ? texts.doneTitle : texts.fallbackTitle} style={styles.center} />
+              {result ? (
+                <>
+                  <FadeUp delay={420} style={styles.stats}>
+                    <Stat label={texts.sessionsLabel} value={String(result.sessions)} />
+                    <Stat label={texts.startLabel} value={result.startLabel} wide />
+                  </FadeUp>
+                  <FadeUp delay={560}>
+                    <View style={[styles.coach, { backgroundColor: c.surfaceBrandSoft }]}>
+                      <Text variant="label" color="textBrand">
+                        {texts.coachLabel}
+                      </Text>
+                      <Text>{result.note}</Text>
+                    </View>
+                  </FadeUp>
+                </>
+              ) : (
+                <FadeUp delay={420}>
+                  <Text align="center" color="textMuted">
+                    {texts.fallbackBody}
+                  </Text>
                 </FadeUp>
-                <FadeUp delay={560}>
-                  <View style={[styles.coach, { backgroundColor: c.surfaceBrandSoft }]}>
-                    <Text variant="label" color="textBrand">
-                      {texts.coachLabel}
-                    </Text>
-                    <Text numberOfLines={7}>{result.note}</Text>
-                  </View>
-                </FadeUp>
-              </>
-            ) : (
-              <FadeUp delay={420}>
-                <Text align="center" color="textMuted">
-                  {texts.fallbackBody}
-                </Text>
-              </FadeUp>
-            )}
+              )}
+            </ScrollView>
             <FadeUp delay={result ? 700 : 560}>
               <Button label={texts.cta} loading={continuing} onPress={onContinue} />
             </FadeUp>
@@ -343,14 +351,17 @@ const styles = StyleSheet.create({
   ring: { position: 'absolute', left: 0, top: 0, right: 0, bottom: 0, borderRadius: radius.pill, borderWidth: 2, opacity: 0 },
   disc: { flex: 1, borderRadius: radius.pill },
   waves: { position: 'absolute', left: 0, right: 0, top: -WAVE_HEIGHT, height: WAVE_HEIGHT },
-  panel: { paddingHorizontal: space[5], paddingTop: space[5], minHeight: 300 },
+  // Panel może się kurczyć – przy długiej wiadomości od trenera niebo oddaje miejsce, a reszta się przewija.
+  panel: { paddingHorizontal: space[5], paddingTop: space[5], minHeight: 300, flexShrink: 1 },
   working: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: space[5] },
   message: { minHeight: 84, alignSelf: 'stretch', justifyContent: 'center' },
   messageInner: { alignSelf: 'stretch' },
   dots: { flexDirection: 'row', alignItems: 'center', gap: space[2] },
   dot: { height: space[2], borderRadius: radius.pill },
   slow: { minHeight: space[6], justifyContent: 'center' },
-  result: { gap: space[5] },
+  result: { gap: space[5], flexShrink: 1 },
+  resultScroll: { flexGrow: 0, flexShrink: 1 },
+  resultContent: { gap: space[5] },
   stats: { flexDirection: 'row', gap: space[3] },
   stat: { flex: 1, gap: space[1], padding: space[4], borderRadius: radius.card, borderWidth: 1.5 },
   statWide: { flex: 2 },
