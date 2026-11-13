@@ -10,6 +10,9 @@ export type Profile = {
   onboarding_completed_at: string | null;
   /** Pakiet (free / trial / paid) – z niego wynikają włączone moduły. */
   subscription_status: string | null;
+  /** Język i jednostki, w których serwer pisze teksty – mają być takie jak w aplikacji. */
+  locale: string | null;
+  units: string | null;
 };
 
 type AuthState = {
@@ -32,7 +35,7 @@ const AuthContext = createContext<AuthState>({
 async function fetchProfile(userId: string): Promise<Profile | null> {
   const { data } = await supabase
     .from('profiles')
-    .select('display_name, onboarding_completed_at, subscription_status')
+    .select('display_name, onboarding_completed_at, subscription_status, locale, units')
     .eq('id', userId)
     .maybeSingle();
   return data ?? null;
@@ -78,11 +81,22 @@ export function AuthProvider({ children }: PropsWithChildren) {
   }, [userId]);
 
   // Język i jednostki wybrane na telefonie trafiają na konto – serwer pisze w nich teksty trenera.
+  // Porównujemy z tym, co faktycznie jest w bazie (profil wczytywany przy starcie i po ankiecie), więc
+  // rozjazd naprawia się sam – także po nieudanym zapisie albo zmianie na innym urządzeniu.
   const language = useLanguage();
   const units = useUnits();
+  const loadedProfile = userId && profileFor === userId ? profile : null;
+  const outOfSync = !!loadedProfile && (loadedProfile.locale !== language || loadedProfile.units !== units);
   useEffect(() => {
-    if (userId) void syncAccountPreferences(userId, language, units);
-  }, [userId, language, units]);
+    if (!userId || !outOfSync) return;
+    let active = true;
+    syncAccountPreferences(userId, language, units).then((ok) => {
+      if (ok && active) setProfile((p) => (p ? { ...p, locale: language, units } : p));
+    });
+    return () => {
+      active = false;
+    };
+  }, [userId, outOfSync, language, units]);
 
   const refreshProfile = useCallback(async () => {
     if (!userId) return;

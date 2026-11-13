@@ -43,7 +43,7 @@ function pick<T>(items: T[], seed: string): T | undefined {
 }
 
 /**
- * Rada trenera do treningu: najpierw ta od AI (zapisana w treningu), potem z bazy rad,
+ * Rada trenera do treningu: najpierw ta od AI (zapisana w treningu, o ile w języku aplikacji), potem z bazy rad,
  * a bez sieci – stały tekst ze słownika. Przy biegu dłuższym niż 75 min gotowa rada dostaje dopisek o jedzeniu
  * w trakcie (AI ma to w swoich regułach i pisze o tym sama).
  */
@@ -52,9 +52,11 @@ export function useCoachTip(session: PlanSession): string {
   const locale = useLocale();
   const [fromDb, setFromDb] = useState<{ id: string; text: string } | null>(null);
   const fallback = t(`workoutDetail.tip.${session.type}` as TranslationKey);
+  // Rada od AI w innym języku (biegacz zmienił język po ułożeniu planu) – bierzemy radę z bazy w bieżącym.
+  const aiTip = session.coach_tip && (!session.coach_tip_locale || session.coach_tip_locale === locale) ? session.coach_tip : null;
 
   useEffect(() => {
-    if (session.coach_tip) return;
+    if (aiTip) return;
     let active = true;
     loadTips(locale)
       .then((tips) => {
@@ -65,9 +67,9 @@ export function useCoachTip(session: PlanSession): string {
     return () => {
       active = false;
     };
-  }, [locale, session.coach_tip, session.id, session.type]);
+  }, [locale, aiTip, session.id, session.type]);
 
-  if (session.coach_tip) return session.coach_tip;
+  if (aiTip) return aiTip;
   const tip = fromDb?.id === session.id ? fromDb.text : fallback;
   return needsFuel({ type: session.type, durationMin: session.duration_min, distanceM: session.distance_m })
     ? `${tip} ${t('workoutDetail.tipFuel')}`

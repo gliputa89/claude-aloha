@@ -12,6 +12,7 @@ import { FunctionsHttpError, type AuthError, type User } from '@supabase/supabas
 import { Platform } from 'react-native';
 
 import { clearSavedPlaces } from '@/features/weather/api';
+import { clearCache } from '@/lib/data-cache';
 
 import { isSupabaseConfigured, supabase } from './supabase';
 
@@ -285,28 +286,36 @@ export function exchangeCode(code: string) {
   });
 }
 
-const SYNCED_KEY = 'aloha.account-preferences';
+/** Dawny znacznik „już zapisane” – zostawał nawet wtedy, gdy profil w bazie miał inny język. Sprzątamy go. */
+const LEGACY_SYNCED_KEY = 'aloha.account-preferences';
 
 /**
  * Język i jednostki z telefonu → konto (`profiles.locale`, `profiles.units`): w nich serwer pisze plan,
- * notki, porady i odpowiedzi trenera. Zapisujemy tylko wtedy, gdy różnią się od ostatnio zapisanych
- * dla tego konta; nieudany zapis ponowi się przy następnej okazji.
+ * notki, porady i odpowiedzi trenera. Wołane, gdy profil w bazie ma inne wartości niż telefon (porównanie
+ * w AuthProvider przy każdym wczytaniu profilu i każdej zmianie w Profilu). `true` – profil zapisany.
  */
 export async function syncAccountPreferences(userId: string, locale: 'pl' | 'en', units: 'metric' | 'imperial') {
-  if (!isSupabaseConfigured) return;
-  const key = `${userId}|${locale}|${units}`;
+  if (!isSupabaseConfigured) return false;
   try {
-    if (typeof localStorage !== 'undefined' && localStorage.getItem(SYNCED_KEY) === key) return;
-    const { error } = await supabase.from('profiles').update({ locale, units }).eq('id', userId);
-    if (!error && typeof localStorage !== 'undefined') localStorage.setItem(SYNCED_KEY, key);
+    if (typeof localStorage !== 'undefined') localStorage.removeItem(LEGACY_SYNCED_KEY);
   } catch {
-    // Bez sieci – spróbujemy przy następnym uruchomieniu albo zmianie.
+    // bez znaczenia
+  }
+  try {
+    // `select` – sprawdzamy, że wiersz naprawdę się zmienił (RLS bez dopasowania nie zgłasza błędu).
+    const { data, error } = await supabase.from('profiles').update({ locale, units }).eq('id', userId).select('id');
+    return !error && (data?.length ?? 0) > 0;
+  } catch {
+    // Bez sieci – spróbujemy przy następnym wczytaniu profilu albo zmianie.
+    return false;
   }
 }
 
 export async function signOut({ local = false }: { local?: boolean } = {}) {
   // `local` – tylko ten telefon (np. po usunięciu konta, gdy sesji na serwerze już nie ma).
   await supabase.auth.signOut(local ? { scope: 'local' } : undefined);
+  // Plan, pogoda i notka dnia zapamiętane na telefonie nie mogą zostać po wylogowaniu.
+  clearCache();
   // Bez tego Google przy następnym logowaniu od razu wybrałby to samo konto.
   if (googleSignInAvailable) await GoogleSignin.signOut().catch(() => {});
 }

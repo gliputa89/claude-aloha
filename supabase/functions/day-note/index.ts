@@ -1,8 +1,11 @@
 // Edge Function: notka trenera AI na dzień bez treningu (ekran „Dzisiaj”).
 //
-//   POST { today: 'YYYY-MM-DD' } z tokenem użytkownika → { text } albo { text: null }
+//   POST { today: 'YYYY-MM-DD', locale?: 'pl' | 'en' } z tokenem użytkownika → { text } albo { text: null }
 //
-// Jedna notka na użytkownika i dzień (public.day_notes) – kolejne wywołania tego dnia oddają zapisaną.
+// Jedna notka na użytkownika i dzień (public.day_notes) – kolejne wywołania tego dnia oddają zapisaną,
+// chyba że biegacz zmienił język: wtedy notka powstaje od nowa w nowym języku i zastępuje zapisaną.
+// Język: z aplikacji (`locale`, aktualny wybór z Profilu – profil w bazie może się jeszcze nie zsynchronizować),
+// a bez niego z profilu.
 // Gdy dziś jest bieg w planie, nie ma klucza ANTHROPIC_API_KEY albo model zawiedzie → { text: null },
 // a aplikacja pokazuje tekst ze słownika. Do modelu idzie tylko kontekst treningowy, bez danych osobowych.
 // Prompt: funkcja AI 'day-note' (ops.ai_prompts, edytowana w panelu); logika w packages/plan-engine/src/coach/day-note.ts.
@@ -53,9 +56,13 @@ Deno.serve(async (req) => {
 
   try {
     if (!(await userModules(db, userId)).has('coach')) return json({ text: null });
-    const saved = await db.from('day_notes').select('text').eq('user_id', userId).eq('day', today).maybeSingle();
+    const [saved, profile] = await Promise.all([
+      db.from('day_notes').select('text, locale').eq('user_id', userId).eq('day', today).maybeSingle(),
+      db.from('profiles').select('locale').eq('id', userId).maybeSingle(),
+    ]);
     if (saved.error) throw new Error(saved.error.message);
-    if (saved.data) return json({ text: saved.data.text });
+    const locale = body?.locale === 'pl' || body?.locale === 'en' ? (body.locale as string) : ((profile.data?.locale as string | undefined) ?? 'pl');
+    if (saved.data && saved.data.locale === locale) return json({ text: saved.data.text });
 
     const planRes = await db
       .from('plans')
@@ -80,14 +87,13 @@ Deno.serve(async (req) => {
     const last = training.filter((s) => s.scheduled_on < today && (s.status === 'done' || s.status === 'partial')).at(-1);
     const next = training.find((s) => s.scheduled_on > today);
     const twoWeeks = training.filter((s) => s.scheduled_on < today && s.scheduled_on >= addDaysIso(today, -14));
-    const [profile, promptRes, review, previous] = await Promise.all([
-      db.from('profiles').select('locale').eq('id', userId).maybeSingle(),
+    const [promptRes, review, previous] = await Promise.all([
       db.rpc('get_ai_prompt', { p_function: 'day-note' }),
       last ? db.from('session_reviews').select('verdict').eq('session_id', last.id).maybeSingle() : Promise.resolve({ data: null }),
-      db.from('day_notes').select('text').eq('user_id', userId).order('day', { ascending: false }).limit(3),
+      // Poprzednie notki tylko w tym samym języku (żeby się nie powtarzać) – starsze w innym nic nie wnoszą.
+      db.from('day_notes').select('text').eq('user_id', userId).eq('locale', locale).neq('day', today).order('day', { ascending: false }).limit(3),
     ]);
     if (promptRes.error) console.error('get_ai_prompt failed', promptRes.error.message);
-    const locale = (profile.data?.locale as string | undefined) ?? 'pl';
     const previousNotes = (previous.data ?? []).map((r) => r.text as string);
 
     const outcome = await shortNoteWithAi({
@@ -118,8 +124,11 @@ Deno.serve(async (req) => {
     });
     if (!outcome.note) return json({ text: null });
 
-    // Dwa wywołania naraz (np. dwa urządzenia): zostaje pierwsza zapisana notka.
-    const { error } = await db.from('day_notes').upsert({ user_id: userId, day: today, text: outcome.note, locale }, { onConflict: 'user_id,day', ignoreDuplicates: true });
+    // Dwa wywołania naraz (np. dwa urządzenia): zostaje pierwsza zapisana notka. Notka w innym języku
+    // jest zastępowana – po zmianie języka ma zostać ta nowa.
+    const { error } = await db
+      .from('day_notes')
+      .upsert({ user_id: userId, day: today, text: outcome.note, locale }, { onConflict: 'user_id,day', ignoreDuplicates: !saved.data });
     if (error) console.error('day_notes save failed', error.code, error.message);
     return json({ text: outcome.note });
   } catch (e) {

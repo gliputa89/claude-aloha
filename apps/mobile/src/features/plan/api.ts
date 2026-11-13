@@ -21,10 +21,15 @@ export type PlanSession = {
   review: SessionReview | null;
   /** Rada trenera od AI (przy układaniu tygodnia); null – brak, aplikacja bierze radę z bazy. */
   coach_tip: string | null;
+  /** Język rady od AI; inny niż język aplikacji → rada z bazy w bieżącym języku. null – nieznany (starsza baza). */
+  coach_tip_locale: string | null;
 };
 
-/** Ocena z notką trenera AI; `seen` – biegacz już ją otwierał (świętowanie gra tylko za pierwszym razem). */
-export type SessionReview = WorkoutReview & { note: string | null; seen: boolean };
+/**
+ * Ocena z notką trenera AI; `seen` – biegacz już ją otwierał (świętowanie gra tylko za pierwszym razem).
+ * `noteLocale` – język notki (po zmianie języka notka w starym nie jest pokazywana, serwer pisze nową).
+ */
+export type SessionReview = WorkoutReview & { note: string | null; noteLocale: string | null; seen: boolean };
 
 export type PlanWeek = {
   id: string;
@@ -64,9 +69,10 @@ export const isReviewNew = (sessionId: string, review: SessionReview | null) => 
 
 /** Oceny treningów. Błąd (np. baza bez tej tabeli) = brak ocen, plan działa dalej. */
 async function fetchReviews(): Promise<Map<string, SessionReview>> {
-  const { data, error } = await supabase
-    .from('session_reviews')
-    .select('session_id, verdict, volume, intensity, facts, engine_version, note, seen_at');
+  const columns = 'session_id, verdict, volume, intensity, facts, engine_version, note, seen_at';
+  let { data, error } = await supabase.from('session_reviews').select(`${columns}, note_locale`);
+  // Baza bez migracji z językiem notek (42703 = nieznana kolumna) – oceny bez tej informacji.
+  if (error?.code === '42703') ({ data, error } = await supabase.from('session_reviews').select(columns));
   const map = new Map<string, SessionReview>();
   for (const r of error ? [] : (data ?? [])) {
     map.set(r.session_id as string, {
@@ -76,6 +82,7 @@ async function fetchReviews(): Promise<Map<string, SessionReview>> {
       intensity: r.intensity as WorkoutReview['intensity'],
       facts: (Array.isArray(r.facts) ? r.facts : []) as WorkoutReview['facts'],
       note: (r.note as string | null) ?? null,
+      noteLocale: ((r as { note_locale?: string | null }).note_locale as string | null | undefined) ?? null,
       seen: r.seen_at !== null || seenHere.has(r.session_id as string),
     });
   }
@@ -87,13 +94,23 @@ export async function fetchActivePlan(): Promise<ActivePlan | null> {
   const activitiesPromise = fetchSessionActivities();
   const suggestionsPromise = fetchMatchSuggestions();
   const reviewsPromise = fetchReviews();
+  // Pełny wybór – z radami trenera i ich językiem.
   let { data, error } = await plans()
     .select(
-      'id, starts_on, ends_on, weeks(id, week_index, starts_on, focus, sessions(id, scheduled_on, type, duration_min, distance_m, intensity, structure, status, actual_distance_m, actual_duration_s, coach_tip))',
+      'id, starts_on, ends_on, weeks(id, week_index, starts_on, focus, sessions(id, scheduled_on, type, duration_min, distance_m, intensity, structure, status, actual_distance_m, actual_duration_s, coach_tip, coach_tip_locale))',
     )
     .eq('status', 'active')
     .maybeSingle();
-  // Baza bez migracji z radami trenera (42703 = nieznana kolumna) – plan bez rad AI, rady weźmiemy z zapasu.
+  // Baza bez migracji z językiem rad (42703 = nieznana kolumna) – rady bez tej informacji.
+  if (error?.code === '42703') {
+    ({ data, error } = await plans()
+      .select(
+        'id, starts_on, ends_on, weeks(id, week_index, starts_on, focus, sessions(id, scheduled_on, type, duration_min, distance_m, intensity, structure, status, actual_distance_m, actual_duration_s, coach_tip))',
+      )
+      .eq('status', 'active')
+      .maybeSingle());
+  }
+  // Baza bez migracji z radami trenera – plan bez rad AI, rady weźmiemy z zapasu.
   if (error?.code === '42703') {
     ({ data, error } = await plans()
       .select(
@@ -114,6 +131,7 @@ export async function fetchActivePlan(): Promise<ActivePlan | null> {
         .map((s) => ({
           ...s,
           coach_tip: s.coach_tip ?? null,
+          coach_tip_locale: s.coach_tip_locale ?? null,
           activities: activities.filter((a) => a.session_id === s.id),
           review: reviews.get(s.id) ?? null,
         }))

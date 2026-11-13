@@ -1,6 +1,9 @@
+import type { Locale } from '@aloha/i18n';
+import type { Units } from '@aloha/plan-engine';
 import { createContext, use, useCallback, useEffect, useRef, useState, type PropsWithChildren } from 'react';
 import { AppState } from 'react-native';
 
+import type { ActivePlan } from '@/features/plan/api';
 import { allSessions, usePlan } from '@/features/plan/plan-provider';
 import {
   devicePlace,
@@ -19,11 +22,56 @@ import {
   type WeatherPlace,
 } from '@/features/weather/api';
 import { useLocale } from '@/hooks/use-t';
+import { readCache, writeCache } from '@/lib/data-cache';
 import { useUnits } from '@/lib/locale-preference';
-import { useWeatherVisible } from '@/lib/weather-preference';
+import { isWeatherHidden, useWeatherVisible } from '@/lib/weather-preference';
+import { useAuth } from '@/providers/auth-provider';
 
-/** Po powrocie do aplikacji odświeżamy pogodę, jeśli ostatnia jest starsza niż tyle. */
+/** Pogodę starszą niż tyle odświeżamy (po powrocie do aplikacji i co jakiś czas, gdy jest otwarta). */
 const STALE_MS = 30 * 60 * 1000;
+/** Co ile sprawdzamy, czy otwarta aplikacja nie ma już nieświeżej pogody. */
+const CHECK_EVERY_MS = 5 * 60 * 1000;
+
+/** Ostatnia prognoza zapamiętana na telefonie – „Dzisiaj” pokazuje ją od razu, bez czekania na sieć. */
+type WeatherCache = {
+  at: number;
+  locale: Locale;
+  units: Units;
+  /** Plan, do którego treningów jest prognoza (inny plan / nowy tydzień = inne treningi). */
+  planKey: string;
+  /** Miejsce domyślne, dla którego jest prognoza (karta pokazuje jego nazwę). */
+  place: WeatherPlace | null;
+  list: SessionForecast[];
+};
+
+/** Klucz planu dla pogody: inny plan albo dopisany tydzień wymaga nowej prognozy. */
+export const weatherPlanKey = (plan: ActivePlan) => `${plan.id}:${plan.weeks.length}`;
+
+function cachedWeather(userId: string | null, locale: Locale, units: Units): WeatherCache | null {
+  const cached = readCache<WeatherCache>('weather', userId);
+  // Inny język albo jednostki – tekst porady trenera by się nie zgadzał.
+  return cached && cached.locale === locale && cached.units === units ? cached : null;
+}
+
+/**
+ * Pobiera pogodę do treningów planu z wyprzedzeniem (np. zaraz po ułożeniu planu, zanim biegacz otworzy
+ * „Dzisiaj”) i zapisuje ją na telefonie. O zgodę nie pyta – bez niej i bez wpisanego miejsca nic nie robi.
+ */
+export async function prefetchWeather(userId: string, locale: Locale, units: Units, plan: ActivePlan) {
+  if (isWeatherHidden()) return;
+  try {
+    const places = getSessionPlaces();
+    const saved = getSavedPlace();
+    const access = await getLocationAccess().catch((): LocationAccess => 'denied');
+    if (!saved && access !== 'granted' && Object.keys(places).length === 0) return;
+    const where = saved ?? (access === 'granted' ? await devicePlace().catch(() => null) : null);
+    if (!where && Object.keys(places).length === 0) return;
+    const list = await fetchSessionWeather(locale, units, where, places);
+    writeCache<WeatherCache>('weather', userId, { at: Date.now(), locale, units, planKey: weatherPlanKey(plan), place: where, list });
+  } catch {
+    // Pogoda to dodatek – „Dzisiaj” wczyta ją samo.
+  }
+}
 
 type WeatherContextValue = {
   /** Zgoda na lokalizację telefonu; `null` – jeszcze nie wiemy (pierwsze sprawdzenie). */
@@ -76,16 +124,33 @@ export function WeatherProvider({ children }: PropsWithChildren) {
   const locale = useLocale();
   // Porada od trenera pisze o °F i mph albo °C i km/h – po zmianie jednostek wczytujemy od nowa.
   const units = useUnits();
+  const userId = useAuth().session?.user.id ?? null;
   const { state } = usePlan();
+  // Prognoza zapamiętana na telefonie: karty pogody od razu, bez szkieletu ładowania.
+  // Tylko prognoza do tego samego planu – inaczej karty nowych treningów udawałyby, że pogody nie ma.
+  const [initial] = useState(() => {
+    const cached = cachedWeather(userId, locale, units);
+    return cached && state.kind === 'ready' && cached.planKey === weatherPlanKey(state.plan) ? cached : null;
+  });
   const [access, setAccess] = useState<LocationAccess | null>(null);
-  const [place, setPlace] = useState<WeatherPlace | null>(getSavedPlace);
+  const [place, setPlace] = useState<WeatherPlace | null>(() => getSavedPlace() ?? initial?.place ?? null);
   const [sessionPlaces, setSessionPlaces] = useState<SessionPlaces>(getSessionPlaces);
-  const [bySession, setBySession] = useState<ReadonlyMap<string, SessionForecast>>(EMPTY);
-  const [settled, setSettled] = useState(false);
-  const loadedAt = useRef(0);
+  const [bySession, setBySession] = useState<ReadonlyMap<string, SessionForecast>>(() =>
+    initial ? new Map(initial.list.map((f) => [f.sessionId, f])) : EMPTY,
+  );
+  const [settled, setSettled] = useState(!!initial);
+  const loadedAt = useRef(initial?.at ?? 0);
   const lastAccess = useRef<LocationAccess | null>(null);
   /** Numer ostatniego wczytania – wynik starszego (np. sprzed zmiany miejsca) jest pomijany. */
   const run = useRef(0);
+
+  const plan = state.kind === 'ready' ? state.plan : null;
+  const planKey = plan ? weatherPlanKey(plan) : null;
+  // Do zapisu prognozy na telefonie: do którego planu należy (wczytanie biegnie poza renderem).
+  const planKeyRef = useRef(planKey);
+  useEffect(() => {
+    planKeyRef.current = planKey;
+  }, [planKey]);
 
   /** Wczytuje pogodę: miejsce domyślne (zapisane albo okolica z telefonu) + miejsca pojedynczych treningów. */
   const load = useCallback(async () => {
@@ -99,24 +164,33 @@ export function WeatherProvider({ children }: PropsWithChildren) {
       setSessionPlaces(places);
       if (!where && Object.keys(places).length === 0) {
         setBySession(EMPTY);
+        writeCache('weather', userId, null);
         return;
       }
       const list = await fetchSessionWeather(locale, units, where, places);
       if (id !== run.current) return;
       loadedAt.current = Date.now();
       setBySession(new Map(list.map((f) => [f.sessionId, f])));
+      if (planKeyRef.current) {
+        writeCache<WeatherCache>('weather', userId, {
+          at: loadedAt.current,
+          locale,
+          units,
+          planKey: planKeyRef.current,
+          place: where,
+          list,
+        });
+      }
     } catch {
       // Pogoda to dodatek – zostaje to, co było.
     } finally {
       // Wynik starszego wczytania pomijamy – stan zamknie to nowsze.
       if (id === run.current) setSettled(true);
     }
-  }, [locale, units]);
+  }, [locale, units, userId]);
 
   // Plan gotowy (albo zmieniony) → sprzątamy miejsca treningów spoza planu, sprawdzamy zgodę i wczytujemy pogodę.
   // Samo sprawdzenie zgody o nic nie pyta.
-  const plan = state.kind === 'ready' ? state.plan : null;
-  const planKey = plan ? `${plan.id}:${plan.weeks.length}` : null;
   // Pogoda ukryta w Profilu: niczego nie pobieramy (ani lokalizacji, ani prognozy) i czyścimy to, co było.
   const visible = useWeatherVisible();
   useEffect(() => {
@@ -134,8 +208,21 @@ export function WeatherProvider({ children }: PropsWithChildren) {
         if (!active) return;
         lastAccess.current = a;
         setAccess(a);
-        if (a === 'granted' || getSavedPlace() || Object.keys(places).length > 0) load();
-        else setSettled(true);
+        if (!(a === 'granted' || getSavedPlace() || Object.keys(places).length > 0)) {
+          setSettled(true);
+          return;
+        }
+        // Świeża prognoza do tego samego planu już jest (z pamięci telefonu albo pobrana po ułożeniu planu).
+        const cached = cachedWeather(userId, locale, units);
+        const fresh = cached && cached.planKey === planKey && Date.now() - cached.at < STALE_MS;
+        if (fresh) {
+          setPlace(getSavedPlace() ?? cached.place);
+          setBySession(new Map(cached.list.map((f) => [f.sessionId, f])));
+          loadedAt.current = cached.at;
+          setSettled(true);
+        } else {
+          load();
+        }
       });
     return () => {
       active = false;
@@ -159,7 +246,14 @@ export function WeatherProvider({ children }: PropsWithChildren) {
           if (changed || Date.now() - loadedAt.current > STALE_MS) load();
         });
     });
-    return () => sub.remove();
+    // Aplikacja otwarta dłużej: co jakiś czas sprawdzamy, czy prognoza się nie zestarzała.
+    const timer = setInterval(() => {
+      if (AppState.currentState === 'active' && Date.now() - loadedAt.current > STALE_MS) load();
+    }, CHECK_EVERY_MS);
+    return () => {
+      sub.remove();
+      clearInterval(timer);
+    };
   }, [planKey, load, visible]);
 
   const enable = useCallback(async () => {

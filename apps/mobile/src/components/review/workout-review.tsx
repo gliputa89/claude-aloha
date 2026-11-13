@@ -10,7 +10,7 @@ import { EASE_OUT } from '@/constants/easing';
 import { radius, space } from '@/constants/theme';
 import type { SessionReview } from '@/features/plan/api';
 import { useColors } from '@/hooks/use-colors';
-import { useT } from '@/hooks/use-t';
+import { useLocale, useT } from '@/hooks/use-t';
 import { useUnitFormat } from '@/lib/units';
 
 /** Skala paska objętości: 100% planu wypada w 5/7 szerokości, żeby „za dużo” też było widać. */
@@ -24,6 +24,9 @@ const BAR_MAX_PERCENT = 140;
 export function WorkoutReview({ review, play, delay }: { review: SessionReview; play: boolean; delay: number }) {
   const c = useColors();
   const t = useT();
+  const locale = useLocale();
+  // Notka w innym języku (biegacz zmienił język) – nie pokazujemy jej, serwer pisze nową przy synchronizacji.
+  const note = review.note && (!review.noteLocale || review.noteLocale === locale) ? review.note : null;
   const u = useUnitFormat();
   const reduced = useReducedMotion();
   const animate = play && !reduced;
@@ -86,7 +89,7 @@ export function WorkoutReview({ review, play, delay }: { review: SessionReview; 
         ))}
       </View>
 
-      {review.note ? (
+      {note ? (
         <FadeUp delay={step(4 + review.facts.length)} distance={8}>
           <View style={[styles.note, { backgroundColor: c.surface }]}>
             <View style={styles.noteHead}>
@@ -98,7 +101,7 @@ export function WorkoutReview({ review, play, delay }: { review: SessionReview; 
               </Text>
             </View>
             <Text variant="caption" color="text">
-              {review.note}
+              {note}
             </Text>
           </View>
         </FadeUp>
