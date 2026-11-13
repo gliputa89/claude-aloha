@@ -1,5 +1,6 @@
 {
   "ios": {
-    "NSLocationWhenInUseUsageDescription": "Aloha checks the weather in your area to suggest the best time for your run."
+    "NSLocationWhenInUseUsageDescription": "Aloha checks the weather in your area to suggest the best time for your run.",
+    "NSHealthShareUsageDescription": "Aloha reads your runs from Apple Health (time, distance, pace and heart rate) to tick off workouts in your plan and review how they went."
   }
 }

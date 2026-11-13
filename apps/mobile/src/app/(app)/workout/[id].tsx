@@ -27,6 +27,7 @@ import { Button } from '@/components/ui/button';
 import { FadeUp } from '@/components/ui/fade-up';
 import { InfoCard } from '@/components/ui/info-card';
 import { Text } from '@/components/ui/text';
+import { AppleWatchButton } from '@/components/watch/apple-watch-button';
 import { EASE_BACK, EASE_OUT } from '@/constants/easing';
 import { radius, space } from '@/constants/theme';
 import { formatDuration, fromIsoDate, todayIso } from '@/features/onboarding/time';
@@ -280,16 +281,18 @@ function Detail({ session }: { session: PlanSession }) {
             {lastActivity ? (
               <View style={styles.source}>
                 <Text variant="caption" color="text" style={styles.flex}>
-                  {t('workoutDetail.fromStrava')}
+                  {t(lastActivity.source === 'apple_health' ? 'workoutDetail.fromHealth' : 'workoutDetail.fromStrava')}
                 </Text>
-                <Pressable
-                  accessibilityRole="link"
-                  hitSlop={space[3]}
-                  onPress={() => openURL(stravaActivityUrl(lastActivity.id)).catch(() => {})}>
-                  <Text variant="label" color="textBrand" style={styles.link}>
-                    {t('workoutDetail.viewOnStrava')}
-                  </Text>
-                </Pressable>
+                {lastActivity.source === 'apple_health' ? null : (
+                  <Pressable
+                    accessibilityRole="link"
+                    hitSlop={space[3]}
+                    onPress={() => openURL(stravaActivityUrl(lastActivity.id)).catch(() => {})}>
+                    <Text variant="label" color="textBrand" style={styles.link}>
+                      {t('workoutDetail.viewOnStrava')}
+                    </Text>
+                  </Pressable>
+                )}
               </View>
             ) : null}
           </View>
@@ -322,6 +325,13 @@ function Detail({ session }: { session: PlanSession }) {
             label={t(completed ? 'chat.askAfter' : 'chat.askBefore')}
             onPress={() => router.push({ pathname: '/coach', params: { sessionId: session.id } })}
           />
+        </FadeUp>
+      ) : null}
+
+      {/* Na zegarek tylko treningi przed nami – przeszłych nie ma sensu planować. */}
+      {!completed && hasSteps && session.scheduled_on >= todayIso() ? (
+        <FadeUp delay={T.stats + 320}>
+          <AppleWatchButton session={session} />
         </FadeUp>
       ) : null}
 

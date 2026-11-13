@@ -38,6 +38,14 @@ export const MODULES = {
     functions: ['strava-oauth', 'strava-sync', 'strava-history'],
     tables: ['strava_connections', 'strava_activities'],
   },
+  health: {
+    label: 'Apple Zdrowie',
+    description: 'Biegi zapisane w Apple Zdrowie (np. z Apple Watch) odhaczają treningi tak jak biegi ze Stravy.',
+    core: false,
+    folder: 'strava',
+    functions: ['health-sync'],
+    tables: ['health_connections', 'strava_activities'],
+  },
   review: {
     label: 'Ocena treningu',
     description: 'Porównanie biegu z planem: werdykt, objętość, intensywność, fakty z liczbami (tempo, tętno). Wymaga Stravy.',

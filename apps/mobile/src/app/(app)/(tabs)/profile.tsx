@@ -11,6 +11,7 @@ import { Screen } from '@/components/ui/screen';
 import { Text } from '@/components/ui/text';
 import { radius, space } from '@/constants/theme';
 import { useCheckInEnabled } from '@/features/checkin/api';
+import { connectHealth, disconnectHealth, fetchHealthStatus, healthAvailable, syncHealth, type HealthStatus } from '@/features/health/api';
 import { useModule } from '@/features/modules/use-module';
 import { usePlan } from '@/features/plan/plan-provider';
 import { connectStrava, disconnectStrava, fetchRecentStravaRuns, fetchStravaStatus, type StravaStatus } from '@/features/strava/api';
@@ -25,12 +26,15 @@ import { useAuth } from '@/providers/auth-provider';
 
 type Integration = { key: 'appleHealth' | 'healthConnect' | 'strava' | 'garmin'; Icon: ComponentType<IconProps> };
 
-/** Działa Strava (łączenie przez ekran zgody Stravy); reszta jest poza MVP – pokazujemy, co będzie można połączyć. */
+/** Działają Strava (ekran zgody Stravy) i Apple Zdrowie (iOS); reszta jest poza MVP – pokazujemy, co będzie można połączyć. */
 const INTEGRATIONS: Integration[] = [
   Platform.OS === 'android' ? { key: 'healthConnect', Icon: Heartbeat } : { key: 'appleHealth', Icon: Heart },
   { key: 'strava', Icon: Lightning },
   { key: 'garmin', Icon: Watch },
 ];
+
+/** Czy chwila jeszcze nie minęła (poza komponentem – czytanie zegara to skutek uboczny, nie część renderu). */
+const isFuture = (iso: string) => Date.parse(iso) > Date.now();
 
 /** Zakładka „Profil”: dane konta, integracje z dostawcami (wkrótce), wylogowanie i usunięcie konta. */
 export default function ProfileScreen() {
@@ -43,9 +47,15 @@ export default function ProfileScreen() {
   const units = useUnits();
   const [strava, setStrava] = useState<StravaStatus | null>(null);
 
+  const [health, setHealth] = useState<HealthStatus | null>(null);
+  const [healthBusy, setHealthBusy] = useState(false);
+  // Apple Zdrowie: moduł pakietu i telefon z HealthKit (iOS, build z modułem natywnym).
+  const healthLive = useModule('health') && healthAvailable();
+
   useEffect(() => {
     let active = true;
     fetchStravaStatus().then((status) => active && setStrava(status));
+    fetchHealthStatus().then((status) => active && setHealth(status));
     return () => {
       active = false;
     };
@@ -133,7 +143,7 @@ export default function ProfileScreen() {
 
   /** Połączona Strava: pobranie biegów (gdy minęły 3 godziny od poprzedniego ręcznego) albo rozłączenie. */
   const manageStrava = () => {
-    const waitUntil = strava?.nextManualAt && Date.parse(strava.nextManualAt) > Date.now() ? strava.nextManualAt : null;
+    const waitUntil = strava?.nextManualAt && isFuture(strava.nextManualAt) ? strava.nextManualAt : null;
     Alert.alert(
       t('profile.strava'),
       waitUntil ? t('profile.stravaOptionsWait', { time: clock(waitUntil) }) : t('profile.stravaOptionsBody'),
@@ -159,6 +169,86 @@ export default function ProfileScreen() {
             }),
           })
         : t('profile.stravaWaiting');
+
+  const syncedAt = (iso: string) =>
+    new Date(iso).toLocaleString(locale === 'en' ? 'en-GB' : 'pl-PL', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  const healthNote = health ? (health.lastSyncedAt ? t('profile.healthSynced', { when: syncedAt(health.lastSyncedAt) }) : t('profile.healthWaiting')) : null;
+
+  const linkHealth = async () => {
+    if (!session) return;
+    setHealthBusy(true);
+    const result = await connectHealth(session.user.id);
+    if (result === 'connected') {
+      await reload();
+      setHealth(await fetchHealthStatus());
+    } else {
+      Alert.alert(t('profile.appleHealth'), t('profile.healthConnectFailed'));
+    }
+    setHealthBusy(false);
+  };
+
+  const fetchHealthRuns = async () => {
+    setHealthBusy(true);
+    const result = await syncHealth(true);
+    if (result?.updated) await reload();
+    Alert.alert(
+      t('profile.appleHealth'),
+      t(!result ? 'profile.healthFetchFailed' : result.imported > 0 ? 'profile.healthFetchDone' : 'profile.healthFetchNone'),
+    );
+    setHealth(await fetchHealthStatus());
+    setHealthBusy(false);
+  };
+
+  const unlinkHealth = () =>
+    Alert.alert(t('profile.healthDisconnectTitle'), t('profile.healthDisconnectBody'), [
+      { text: t('profile.cancel'), style: 'cancel' },
+      {
+        text: t('profile.healthDisconnect'),
+        style: 'destructive',
+        onPress: async () => {
+          setHealthBusy(true);
+          if (await disconnectHealth()) setHealth(null);
+          else Alert.alert(t('profile.appleHealth'), t('profile.healthDisconnectFailed'));
+          setHealthBusy(false);
+        },
+      },
+    ]);
+
+  /** Połączone Apple Zdrowie: pobranie biegów od razu albo odłączenie. */
+  const manageHealth = () =>
+    Alert.alert(t('profile.appleHealth'), t('profile.healthOptionsBody'), [
+      { text: t('profile.healthFetch'), onPress: fetchHealthRuns },
+      { text: t('profile.healthDisconnect'), style: 'destructive' as const, onPress: unlinkHealth },
+      { text: t('profile.cancel'), style: 'cancel' as const },
+    ]);
+
+  /** Stan wiersza integracji: działające połączenia (Strava, Apple Zdrowie) albo „Wkrótce”. */
+  const integrationState = (key: Integration['key']) => {
+    if (key === 'strava') {
+      const active = strava !== null && !strava.needsReconnect;
+      return {
+        live: true,
+        active,
+        busy: stravaBusy,
+        note: strava ? stravaNote : null,
+        badge: active ? t('profile.connected') : t(strava ? 'profile.reconnect' : 'profile.connect'),
+        hint: active ? t('profile.stravaManage') : undefined,
+        onPress: active ? manageStrava : linkStrava,
+      };
+    }
+    if (key === 'appleHealth' && healthLive) {
+      return {
+        live: true,
+        active: health !== null,
+        busy: healthBusy,
+        note: healthNote,
+        badge: t(health ? 'profile.connected' : 'profile.connect'),
+        hint: health ? t('profile.healthManage') : undefined,
+        onPress: health ? manageHealth : linkHealth,
+      };
+    }
+    return { live: false, active: false, busy: false, note: null, badge: t('profile.soon'), hint: undefined, onPress: undefined };
+  };
 
   const chooseTheme = (next: ThemePreference) => {
     setTheme(next);
@@ -213,15 +303,8 @@ export default function ProfileScreen() {
         </View>
         <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
           {integrations.map(({ key, Icon }, i) => {
-            const isStrava = key === 'strava';
-            const active = isStrava && strava !== null && !strava.needsReconnect;
-            const note = isStrava && strava ? stravaNote : null;
-            // Strava: niepołączona → „Połącz”, wygasła → „Połącz ponownie”, połączona → „Połączono” (tapnięcie: pobierz biegi / rozłącz).
-            const badge = !isStrava
-              ? t('profile.soon')
-              : active
-                ? t('profile.connected')
-                : t(strava ? 'profile.reconnect' : 'profile.connect');
+            // Strava / Apple Zdrowie: niepołączone → „Połącz”, połączone → „Połączono” (tapnięcie: opcje połączenia).
+            const { live, active, busy, note, badge, hint, onPress } = integrationState(key);
             const border = i > 0 && { borderTopColor: c.border, borderTopWidth: StyleSheet.hairlineWidth };
             const content = (
               <>
@@ -232,18 +315,18 @@ export default function ProfileScreen() {
                   <Text weight="semibold">{t(`profile.${key}`)}</Text>
                   {note ? <Text variant="caption">{note}</Text> : null}
                 </View>
-                {isStrava && stravaBusy ? (
+                {busy ? (
                   <ActivityIndicator color={c.textBrand} />
                 ) : (
                   <View
                     style={[
                       styles.pill,
-                      { backgroundColor: !isStrava ? c.surfaceAccentSoft : active ? c.surfaceBrandSoft : c.surfaceBrand },
+                      { backgroundColor: !live ? c.surfaceAccentSoft : active ? c.surfaceBrandSoft : c.surfaceBrand },
                     ]}>
                     <Text
                       variant="caption"
                       weight="semibold"
-                      color={!isStrava ? 'textAccentStrong' : active ? 'textBrand' : 'textOnBrand'}>
+                      color={!live ? 'textAccentStrong' : active ? 'textBrand' : 'textOnBrand'}>
                       {badge}
                     </Text>
                   </View>
@@ -251,15 +334,15 @@ export default function ProfileScreen() {
               </>
             );
             const label = [t(`profile.${key}`), badge, note].filter(Boolean).join(', ');
-            return isStrava ? (
+            return live ? (
               <Pressable
                 key={key}
                 accessibilityRole="button"
                 accessibilityLabel={label}
-                accessibilityHint={active ? t('profile.stravaManage') : undefined}
-                accessibilityState={{ busy: stravaBusy }}
-                disabled={stravaBusy}
-                onPress={active ? manageStrava : linkStrava}
+                accessibilityHint={hint}
+                accessibilityState={{ busy }}
+                disabled={busy}
+                onPress={onPress}
                 style={({ pressed }) => [styles.row, border, { opacity: pressed ? 0.6 : 1 }]}>
                 {content}
               </Pressable>

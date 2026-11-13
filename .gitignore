@@ -17,6 +17,8 @@ web-build/
 expo-env.d.ts
 ios/
 android/
+# Kod natywny lokalnych modułów Expo nie jest generowany (CNG) – musi trafić do repo.
+!apps/mobile/modules/*/ios/
 *.jks
 *.p8
 *.p12

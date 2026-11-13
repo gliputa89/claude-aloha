@@ -1,5 +1,6 @@
 {
   "ios": {
-    "NSLocationWhenInUseUsageDescription": "Aloha sprawdza pogodę w Twojej okolicy, żeby podpowiedzieć najlepszą porę na trening."
+    "NSLocationWhenInUseUsageDescription": "Aloha sprawdza pogodę w Twojej okolicy, żeby podpowiedzieć najlepszą porę na trening.",
+    "NSHealthShareUsageDescription": "Aloha czyta Twoje biegi z Apple Zdrowie (czas, dystans, tempo i tętno), żeby odhaczać treningi z planu i oceniać, jak poszły."
   }
 }

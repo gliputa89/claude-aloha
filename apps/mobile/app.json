@@ -14,7 +14,12 @@
       "usesAppleSignIn": true,
       "appleTeamId": "N99V2PD399",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSHealthShareUsageDescription": "Aloha czyta Twoje biegi z Apple Zdrowie (czas, dystans, tempo i tętno), żeby odhaczać treningi z planu i oceniać, jak poszły."
+      },
+      "entitlements": {
+        "com.apple.developer.healthkit": true,
+        "com.apple.developer.healthkit.access": []
       }
     },
     "android": {

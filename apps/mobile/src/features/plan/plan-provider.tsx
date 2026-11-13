@@ -1,6 +1,7 @@
 import { createContext, use, useCallback, useEffect, useRef, useState, type PropsWithChildren } from 'react';
 
 import { fetchActivePlan, generatePlan, type ActivePlan, type PlanSession } from '@/features/plan/api';
+import { syncHealth } from '@/features/health/api';
 import { syncStrava } from '@/features/strava/api';
 
 export type PlanState =
@@ -49,8 +50,8 @@ export function PlanProvider({ children }: PropsWithChildren) {
 
   const reload = useCallback(async () => {
     try {
-      // Pociągnięcie w dół: najpierw nowe biegi ze Stravy, potem plan już z odhaczonymi treningami.
-      await syncStrava(true);
+      // Pociągnięcie w dół: najpierw nowe biegi ze Stravy i z Apple Zdrowie, potem plan już z odhaczonymi treningami.
+      await Promise.all([syncStrava(true), syncHealth(true)]);
       const plan = await fetchActivePlan();
       if (plan) {
         setState({ kind: 'ready', plan });
@@ -78,8 +79,8 @@ export function PlanProvider({ children }: PropsWithChildren) {
         if (!active) return;
         if (plan) {
           setState({ kind: 'ready', plan });
-          // Plan pokazujemy od razu; biegi ze Stravy dociągamy w tle (odhaczone treningi i pytania o przesunięte).
-          syncStrava()
+          // Plan pokazujemy od razu; biegi ze Stravy i z Apple Zdrowie dociągamy w tle (odhaczone treningi i pytania o przesunięte).
+          Promise.all([syncStrava(), syncHealth()])
             .then(() => fetchActivePlan())
             .then((fresh) => active && fresh && setState({ kind: 'ready', plan: fresh }))
             .catch(() => {})

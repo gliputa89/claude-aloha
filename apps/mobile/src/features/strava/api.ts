@@ -5,9 +5,10 @@ import * as WebBrowser from 'expo-web-browser';
 import { todayIso } from '@/features/onboarding/time';
 import { supabase } from '@/lib/supabase';
 
-/** Bieg ze Stravy przypisany do treningu z planu. */
+/** Bieg ze Stravy albo z Apple Zdrowie przypisany do treningu z planu. */
 export type StravaActivity = {
   id: number;
+  source: 'strava' | 'apple_health';
   session_id: string | null;
   name: string | null;
   started_at: string;
@@ -44,11 +45,11 @@ export async function fetchStravaStatus(): Promise<StravaStatus | null> {
   };
 }
 
-/** Biegi ze Stravy dopasowane do treningów. Błąd (np. baza bez tej tabeli) = brak biegów, plan działa dalej. */
+/** Biegi (Strava, Apple Zdrowie) dopasowane do treningów. Błąd (np. baza bez tej tabeli) = brak biegów, plan działa dalej. */
 export async function fetchSessionActivities(): Promise<StravaActivity[]> {
   const { data, error } = await supabase
     .from('strava_activities')
-    .select('id, session_id, name, started_at, distance_m, moving_time_s')
+    .select('id, source, session_id, name, started_at, distance_m, moving_time_s')
     .not('session_id', 'is', null)
     .order('started_at');
   return error ? [] : ((data ?? []) as StravaActivity[]);
