@@ -4,9 +4,9 @@
 // Wszystko deterministyczne (szum z ziarna) – ten sam scenariusz daje zawsze ten sam bieg.
 
 import { REVIEW_RULES, type PaceBuckets, type ReviewFactCode, type ReviewInput, type ReviewVerdict } from './review.ts';
-import { flattenSteps, HARD_ZONES, paceZonesFrom, type PaceRange, type WorkoutItem, type WorkoutStep } from '../core/workout.ts';
+import { flattenSteps, HARD_ZONES, paceZonesFrom, type PaceRange, type PaceZones, type WorkoutItem, type WorkoutStep } from '../core/workout.ts';
 
-/** Biegacz testowy: 10 km w 50:00 – z tego wynikają strefy tempa wszystkich scenariuszy. */
+/** Biegacz testowy: 10 km w 50:00 – z tego wynikają strefy tempa scenariuszy bez własnych stref. */
 const ZONES = paceZonesFrom({ distanceM: 10_000, timeS: 50 * 60 })!;
 const step = (kind: WorkoutStep['kind'], zone: WorkoutStep['zone'], minutes: number): WorkoutStep => ({
   kind,
@@ -60,6 +60,11 @@ export type SimOptions = {
    * procent tętno rośnie do końca biegu. Brak = zegarek bez pomiaru albo brak zgody.
    */
   hr?: { max: number; easy: number; drift?: number };
+  /**
+   * Strefy tempa biegacza – używane tam, gdzie odcinek planu ich nie niesie (bieg „równo zamiast akcentu”,
+   * dołożone minuty, trucht zamiast odcinka). Brak = strefy biegacza testowego (10 km w 50:00).
+   */
+  zones?: PaceZones;
   seed?: number;
 };
 
@@ -82,8 +87,9 @@ const middle = (range: PaceRange | null, fallback: number) => (range ? (range.fa
 /** Sztuczny bieg dla treningu `steps`: tempo sekunda po sekundzie → kubełki jak ze strumieni Stravy. */
 export function simulateRun(steps: WorkoutItem[], opts: SimOptions = {}): SimulatedRun {
   const rand = random(opts.seed ?? 1);
+  const zones = opts.zones ?? ZONES;
   const flat = flattenSteps(steps);
-  const easyPace = middle(ZONES.easy, 360) + (opts.paceOffsetS ?? 0);
+  const easyPace = middle(zones.easy, 360) + (opts.paceOffsetS ?? 0);
   const hardSteps = flat.filter((s) => s.kind === 'work' && HARD_ZONES.includes(s.zone));
 
   // Tempo (s/km) i „wysiłek” (część tętna maksymalnego, do której dąży serce) w każdej sekundzie biegu.
@@ -101,7 +107,7 @@ export function simulateRun(steps: WorkoutItem[], opts: SimOptions = {}): Simula
     } else {
       const done = rep < (opts.repsDone ?? hardSteps.length);
       const spread = hardSteps.length > 1 ? ((rep / (hardSteps.length - 1)) - 0.5) * (opts.repSpreadS ?? 0) : 0;
-      p = done ? middle(s.pace, 300) + (opts.repOffsetS ?? 0) + spread : middle(ZONES.recovery, 400);
+      p = done ? middle(s.pace, 300) + (opts.repOffsetS ?? 0) + spread : middle(zones.recovery, 400);
       e = done ? 0.92 : easyEffort - 0.04;
       rep++;
     }

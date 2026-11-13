@@ -44,6 +44,31 @@ export type TesterSession = {
   status: 'planned' | 'done' | 'partial' | 'missed';
   /** Rada trenera od AI; null – aplikacja bierze radę z bazy. */
   coach_tip: string | null;
+  actual_distance_m: number | null;
+  actual_duration_s: number | null;
+  /** Ocena treningu (reguły + notka trenera) – jeden wiersz albo brak. */
+  session_reviews: TesterReview[] | TesterReview | null;
+  /** Biegi przypisane do treningu (Strava / Apple Zdrowie, też te z symulacji w testerze). */
+  strava_activities: TesterActivity[];
+};
+
+export type TesterReview = {
+  verdict: 'spot_on' | 'good' | 'passed_but' | 'different';
+  volume: 'low' | 'ok' | 'high';
+  intensity: 'low' | 'ok' | 'high' | null;
+  facts: { code: string; values?: Record<string, number> }[];
+  note: string | null;
+  seen_at: string | null;
+};
+
+export type TesterActivity = {
+  id: number;
+  source: 'strava' | 'apple_health';
+  external_id: string | null;
+  name: string | null;
+  distance_m: number;
+  moving_time_s: number;
+  max_hr: number | null;
 };
 
 export type TesterWeek = {
@@ -153,7 +178,7 @@ export async function loadTesterUser(userId: string): Promise<TesterUser | null>
     db
       .from('plans')
       .select(
-        'id, starts_on, ends_on, engine_version, created_at, weeks(id, week_index, starts_on, focus, created_at, source, ai_call_id, engine_config_version, sessions(id, scheduled_on, type, duration_min, distance_m, intensity, structure, status, coach_tip))',
+        'id, starts_on, ends_on, engine_version, created_at, weeks(id, week_index, starts_on, focus, created_at, source, ai_call_id, engine_config_version, sessions(id, scheduled_on, type, duration_min, distance_m, intensity, structure, status, coach_tip, actual_distance_m, actual_duration_s, session_reviews(verdict, volume, intensity, facts, note, seen_at), strava_activities!strava_activities_session_id_fkey(id, source, external_id, name, distance_m, moving_time_s, max_hr)))',
       )
       .eq('user_id', userId)
       .eq('status', 'active')
@@ -168,7 +193,13 @@ export async function loadTesterUser(userId: string): Promise<TesterUser | null>
         ...rawPlan,
         weeks: [...rawPlan.weeks]
           .sort((a, b) => a.week_index - b.week_index)
-          .map((w) => ({ ...w, sessions: [...w.sessions].sort((a, b) => a.scheduled_on.localeCompare(b.scheduled_on)) })),
+          .map((w) => ({
+            ...w,
+            sessions: [...w.sessions]
+              .sort((a, b) => a.scheduled_on.localeCompare(b.scheduled_on))
+              // Ocena jest jedna na trening (klucz główny), więc PostgREST zwraca obiekt, a nie listę.
+              .map((s) => ({ ...s, session_reviews: toList<TesterReview>(s.session_reviews) })),
+          })),
       }
     : null;
 
@@ -183,6 +214,8 @@ export async function loadTesterUser(userId: string): Promise<TesterUser | null>
     plan,
   };
 }
+
+const toList = <T,>(value: T | T[] | null | undefined): T[] => (Array.isArray(value) ? value : value ? [value] : []);
 
 /** Dzisiejsza data w strefie użytkownika, `YYYY-MM-DD` (jak w Edge Function generate-plan). */
 export function todayIn(timeZone: string) {

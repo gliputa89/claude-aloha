@@ -22,6 +22,7 @@ import { DeleteUserButton, RegeneratePlanButton, ResetUserButton } from '@/compo
 import { NextWeekWithReviewButton, SetLevelForm } from '@/components/tester/level-controls';
 import { StravaControls } from '@/components/tester/strava-controls';
 import { PlanRegenProvider, PlanWeeks } from '@/components/tester/plan-regen';
+import { SimulateRun } from '@/components/tester/simulate-run';
 import { GenerateWeekForm, WeekActions } from '@/components/tester/week-controls';
 import { hasClaudeKey } from '@/lib/ai/claude';
 import { getAiCostByUser, listAiPrompts, listEngineConfigs } from '@/lib/ai/data';
@@ -44,7 +45,7 @@ import {
   weekdayShort,
   WEEK_FOCUS_LABEL,
 } from '@/lib/format';
-import { loadTesterUser, MAX_REGENERATE_WEEKS, todayIn, type TesterUser, type TesterWeek } from '@/lib/plan-tester';
+import { loadTesterUser, MAX_REGENERATE_WEEKS, todayIn, type TesterSession, type TesterUser, type TesterWeek } from '@/lib/plan-tester';
 import { loadStrava, type StravaData } from '@/lib/strava';
 import { createServiceClient } from '@/lib/supabase/server';
 import { surveyValuesFromRows } from '@/lib/survey';
@@ -489,6 +490,64 @@ function sessionDistanceM(s: TesterWeek['sessions'][number], paces: PaceZones | 
   return s.distance_m ?? 0;
 }
 
+const VERDICT_LABEL: Record<string, string> = {
+  spot_on: 'W punkt',
+  good: 'Dobra robota',
+  passed_but: 'Zaliczone, ale…',
+  different: 'Inny trening niż w planie',
+};
+const AXIS_LABEL: Record<string, string> = { low: 'za mało', ok: 'w porządku', high: 'za dużo' };
+const INTENSITY_AXIS: Record<string, string> = { low: 'za wolno', ok: 'w strefach', high: 'za mocno' };
+const SOURCE_LABEL: Record<string, string> = { strava: 'Strava', apple_health: 'Apple Zdrowie' };
+
+/**
+ * Wykonanie treningu: symulacja biegu (w kształcie Stravy / Apple Zdrowie) i to, co z niej wyszło –
+ * ocena z reguł i notka trenera od AI, czyli dokładnie to, co widzi biegacz w aplikacji.
+ */
+function SessionRun({
+  userId,
+  session,
+  canGenerate,
+  hasKey,
+}: {
+  userId: string;
+  session: TesterSession;
+  canGenerate: boolean;
+  hasKey: boolean;
+}) {
+  if (session.type === 'rest' || session.type === 'race' || !canGenerate) return null;
+  const reviews = session.session_reviews;
+  const review = (Array.isArray(reviews) ? reviews[0] : reviews) ?? null;
+  const runs = session.strava_activities ?? [];
+  const simulated = runs.some((a) => a.external_id?.startsWith('sim-'));
+
+  return (
+    <div className="flex flex-col gap-2">
+      <SimulateRun userId={userId} sessionId={session.id} simulated={simulated} hasKey={hasKey} />
+      {runs.length ? (
+        <p className="pl-[4.25rem] text-xs text-text-muted">
+          Bieg: {runs.map((a) => `${SOURCE_LABEL[a.source] ?? a.source}${a.external_id?.startsWith('sim-') ? ' (symulacja)' : ''}, ${formatDistance(a.distance_m)} w ${formatDuration(a.moving_time_s)}${a.max_hr ? `, tętno maks. ${a.max_hr}` : ''}`).join(' · ')}
+        </p>
+      ) : null}
+      {review ? (
+        <div className="ml-[4.25rem] flex flex-col gap-1 rounded-card border border-border bg-background p-3 text-sm">
+          <span className="font-semibold">
+            Ocena: {VERDICT_LABEL[review.verdict] ?? review.verdict}
+            <span className="ml-2 font-normal text-text-muted">
+              objętość: {AXIS_LABEL[review.volume] ?? review.volume}
+              {review.intensity ? ` · tempo: ${INTENSITY_AXIS[review.intensity] ?? review.intensity}` : ''}
+            </span>
+          </span>
+          {review.facts.length ? (
+            <span className="text-xs text-text-muted">obserwacje: {review.facts.map((f) => f.code).join(', ')}</span>
+          ) : null}
+          {review.note ? <p className="text-text">Trener: {review.note}</p> : <p className="text-xs text-text-muted">Bez notki trenera.</p>}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function WeekCard({
   userId,
   week,
@@ -579,6 +638,7 @@ function WeekCard({
               </div>
             ) : null}
             <SessionCoachTip tip={s.coach_tip} />
+            <SessionRun userId={userId} session={s} canGenerate={canGenerate} hasKey={hasKey} />
             </li>
             );
           })}
