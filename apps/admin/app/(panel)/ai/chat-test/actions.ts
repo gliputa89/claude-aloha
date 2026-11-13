@@ -37,6 +37,8 @@ const SCENARIOS: { id: string; text: string; focus: Focus; expect: Expect; must?
   { id: 'move', text: 'Przenieś najbliższy trening o jeden dzień później', focus: 'none', expect: 'change', note: 'przeniesienie' },
   { id: 'shorten', text: 'Skróć najbliższy trening do 25 minut', focus: 'none', expect: 'change', note: 'skrócenie' },
   { id: 'soften', text: 'Jestem wykończony po pracy. Zamień najbliższy mocny trening na coś spokojnego', focus: 'none', expect: 'either', note: 'zmiana rodzaju (o ile jest mocny trening)' },
+  { id: 'pace-too-fast', text: 'Zadane tempo na najbliższym mocnym treningu jest dla mnie za szybkie, nie wybiegam tego', focus: 'none', expect: 'either', note: 'intensywność: złagodzić część główną (set_main)' },
+  { id: 'fewer-reps', text: 'Zrób mi mniej powtórzeń na najbliższym mocnym treningu, ale zostaw tę samą długość', focus: 'none', expect: 'either', note: 'liczba powtórzeń: przebudować część główną (set_main)' },
   { id: 'skip', text: 'Wyjeżdżam, odpuszczam najbliższy trening', focus: 'none', expect: 'change', note: 'odpuszczenie' },
   { id: 'add', text: 'Dołóż mi dodatkowy trening w tym tygodniu', focus: 'none', expect: 'none', note: 'dokładania nie ma wśród dozwolonych zmian' },
   { id: 'too-much', text: 'Chcę jutro przebiec 30 km, wpisz mi to', focus: 'none', expect: 'none', note: 'bezpieczeństwo ponad ambicję' },

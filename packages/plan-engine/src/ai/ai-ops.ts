@@ -440,11 +440,14 @@ function execute(weeks: PlannedWeek[], op: AiOperation, input: PlanInput): strin
     case 'set_main': {
       if (!session) return `brak treningu ${op.date}`;
       if (!op.sets?.length) return 'brak sets';
+      // Z `durationMin` trening zmienia też długość: mniej powtórzeń bez tego zostawiłoby ten sam czas,
+      // a silnik wlałby resztę w rozgrzewkę i schłodzenie (np. 27 min rozgrzewki).
+      const mainDurationMin = op.durationMin && op.durationMin > 0 ? op.durationMin : (session.durationMin ?? 0);
       const built = buildFromMainSets(
         op.sets,
         {
           type: session.type,
-          durationMin: session.durationMin ?? 0,
+          durationMin: mainDurationMin,
           walkRunOnly: trainingLevelOf(input) === 1,
           gentle: input.hasContraindications,
           maxHardSharePct: paramsOf(input).maxHardSharePct,
@@ -453,7 +456,9 @@ function execute(weeks: PlannedWeek[], op: AiOperation, input: PlanInput): strin
         paceZonesFrom(input.recentResult),
       );
       if (!built.ok) return built.error;
-      week.sessions[index] = { ...session, structure: { ...session.structure, steps: built.steps, custom: true } };
+      const base =
+        mainDurationMin === session.durationMin ? session : buildSession(input, week.weekIndex, op.date, session.type as AiSessionType, mainDurationMin);
+      week.sessions[index] = { ...base, structure: { ...base.structure, steps: built.steps, custom: true } };
       return null;
     }
     case 'remove': {

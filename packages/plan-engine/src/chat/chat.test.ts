@@ -91,6 +91,19 @@ test('set_main: trener zmienia intensywność i liczbę powtórzeń części gł
   assert.match(steps, /3× \(4′ tempo \/ 2′ trucht\)/);
 });
 
+test('set_main z durationMin skraca też trening, a nie tylko część główną', () => {
+  const quality = sessions.find((s) => s.type === 'intervals' || s.type === 'tempo')!;
+  const sets = [{ repeat: 2, workS: 240, workZone: 'tempo' as const, recoveryS: 120, recoveryZone: 'recovery' as const }];
+  const result = check({ op: 'set_main', date: quality.scheduledOn, sets, durationMin: 30 }, { today: quality.scheduledOn });
+  assert.ok(result.ok, JSON.stringify(result));
+  const write = chatChangeWrite(
+    { op: 'set_main', date: quality.scheduledOn, toDate: null, type: null, durationMin: 30, sets, summary: '' },
+    result.weeks,
+  );
+  assert.equal(write?.kind === 'update' && write.session.durationMin, 30);
+  assert.match(write?.kind === 'update' ? describeSteps(stepsOf(write.session)) : '', /2× \(4′ tempo \/ 2′ trucht\)/);
+});
+
 test('set_main bez serii nie jest propozycją; przesadzone serie odrzuca walidacja', () => {
   const none = { op: 'none', date: null, toDate: null, type: null, durationMin: null, sets: null, summary: '' };
   assert.equal(parseCoachChat({ reply: 'Ok', change: { ...none, op: 'set_main', date: '2026-11-10' } })?.change, null);
