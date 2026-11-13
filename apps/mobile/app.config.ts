@@ -7,7 +7,7 @@ import type { ConfigContext, ExpoConfig } from 'expo/config';
  * (`123-abc.apps.googleusercontent.com` → `com.googleusercontent.apps.123-abc`).
  * Bez EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID wtyczki nie dodajemy – przycisk Google na iOS się wtedy nie pokazuje.
  *
- * Dev client (APP_VARIANT=development albo profil EAS `development*`) nazywa się „Aloha Training Dev”,
+ * Dev client (APP_VARIANT=development albo profil EAS `development*`) nazywa się „Aloha DEV”,
  * żeby na telefonie odróżniał się od wersji ze sklepu.
  */
 const isDevClient =
@@ -22,7 +22,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     plugins.push(['@react-native-google-signin/google-signin', { iosUrlScheme }]);
   }
 
-  const name = isDevClient ? 'Aloha Training Dev' : (config.name ?? 'Aloha Training');
+  const name = isDevClient ? 'Aloha DEV' : (config.name ?? 'Aloha Training');
 
   return { ...config, name, slug: config.slug ?? 'aloha-training', plugins };
 };
