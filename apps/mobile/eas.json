@@ -31,6 +31,10 @@
     "production": {
       "ios": {
         "ascAppId": "6833969144"
+      },
+      "android": {
+        "serviceAccountKeyPath": "/Users/znajdzreklame/.config/aloha/google-play-eas-submit.json",
+        "track": "internal"
       }
     }
   }
