@@ -221,6 +221,8 @@ Deno.serve(async (req) => {
     const r = cached.get(u.session.id);
     // Inne miejsce niż w zapisie = biegacz właśnie je zmienił – pobieramy od razu, bez limitu.
     if (!r || !sameGrid(r, u.grid) || r.forecast.date !== u.session.scheduled_on) return null;
+    // Zapis sprzed podglądu godzinowego („pogoda na cały dzień”) – raz odświeżamy, reszta zostaje z cache'u porady.
+    if (!r.forecast.day) return null;
     const today = u.session.scheduled_on === profileNow.today;
     if (age(r) < MIN_INTERVAL_MS) return r;
     // Porada w innym języku albo innych jednostkach (zmiana w Profilu) – napiszemy nową, ale nie częściej niż co MIN_INTERVAL.

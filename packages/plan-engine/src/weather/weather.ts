@@ -32,6 +32,18 @@ export type WeatherQuality = 'good' | 'ok' | 'poor';
 
 export type WeatherPeriod = { from: string; to: string };
 
+/** Jedna godzina dnia do podglądu „pogoda na cały dzień” (tylko to, co widać na karcie). */
+export type DayHour = {
+  /** Godzina lokalna 0–23. */
+  hour: number;
+  tempC: number;
+  precipProb: number | null;
+  condition: WeatherCondition;
+  isDay: boolean;
+  /** Powód, dla którego lepiej unikać tej godziny (null – nic poważnego). */
+  severe: WeatherFlag | null;
+};
+
 export type SessionWeather = {
   date: string;
   /** Najlepsza pora na trening (`HH:00`). */
@@ -51,6 +63,11 @@ export type SessionWeather = {
   flags: WeatherFlag[];
   /** Pory dnia, których lepiej unikać (najwyżej dwie), z powodem. */
   avoid: (WeatherPeriod & { reason: WeatherFlag })[];
+  /**
+   * Godziny dnia od najwcześniejszej możliwej do końca dnia treningowego (dla dzisiaj – od następnej godziny).
+   * Opcjonalne: starsze zapisy w pamięci podręcznej serwera jeszcze go nie mają.
+   */
+  day?: DayHour[];
 };
 
 /** Progi reguł – w jednym miejscu, żeby łatwo je stroić. */
@@ -241,6 +258,16 @@ export function assessSession(input: SessionWeatherInput): SessionWeather | null
     pm25: pms.length ? round1(Math.max(...pms)) : null,
     flags: WEATHER_FLAGS.filter((f) => flagSet.has(f)),
     avoid: avoid.slice(0, 2),
+    day: [...byHour.entries()]
+      .sort(([a], [b]) => a - b)
+      .map(([hour, h]) => ({
+        hour,
+        tempC: Math.round(h.tempC),
+        precipProb: h.precipProb,
+        condition: conditionOf(h.code),
+        isDay: h.isDay,
+        severe: severeReason(h),
+      })),
   };
 }
 

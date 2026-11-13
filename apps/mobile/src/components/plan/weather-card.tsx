@@ -1,5 +1,7 @@
-import type { WeatherCondition } from '@aloha/plan-engine';
+import type { DayHour, WeatherCondition, WeatherFlag } from '@aloha/plan-engine';
 import {
+  CaretDown,
+  CaretUp,
   Cloud,
   CloudFog,
   CloudLightning,
@@ -7,11 +9,12 @@ import {
   CloudRain,
   CloudSnow,
   CloudSun,
-  Drop,
+  Factory,
   MapPin,
   Moon,
+  Snowflake,
   Sun,
-  Thermometer,
+  ThermometerHot,
   WarningCircle,
   Wind,
   type IconProps,
@@ -55,23 +58,72 @@ function useFallbackAdvice(f: SessionForecast, race: boolean) {
   return tip ? `${main} ${tip}` : main;
 }
 
+
+type WeatherStripViewProps = {
+  forecast: SessionForecast;
+  /** Zawody mają swoją godzinę startu – nie podpowiadamy pory. */
+  race?: boolean;
+  /** Nazwa miejsca prognozy (null – „Twoja okolica”). */
+  place?: string | null;
+  /** Otwiera wybór miejsca dla tego treningu; bez tego wiersz miejsca się nie pokazuje. */
+  onChangePlace?: () => void;
+  /**
+   * Pogoda stojąca sama (szczegóły treningu): własna karta, od razu rozwinięta i bez chowania –
+   * tu jest na nią miejsce, a biegacz przyszedł po szczegóły.
+   */
+  standalone?: boolean;
+  /** Podpis źródła danych (wymóg licencji) – tam, gdzie karta stoi sama. */
+  credit?: boolean;
+};
+
+const FLAG_ICON: Record<WeatherFlag, ComponentType<IconProps>> = {
+  storm: CloudLightning,
+  ice: Snowflake,
+  heat: ThermometerHot,
+  frost: Snowflake,
+  smog: Factory,
+  wind: Wind,
+  rain: CloudRain,
+  uv: Sun,
+  dark: Moon,
+};
+/** Na zwiniętej karcie ostrzegamy tylko o tym, co naprawdę zmienia bieg (zmrok i słońce zostają w rozwinięciu). */
+const SERIOUS: readonly WeatherFlag[] = ['storm', 'ice', 'heat', 'frost', 'smog', 'wind'];
+
+const hourOf = (hhmm: string) => Number(hhmm.slice(0, 2));
+
+/** Co co dwie godziny, od pierwszej dostępnej – tyle mieści się w jednym rzędzie. */
+function dayColumns(day: DayHour[]) {
+  const first = day[0]?.hour ?? 0;
+  return day.filter((h) => (h.hour - first) % 2 === 0).slice(0, 8);
+}
+
 /**
- * Pogoda do treningu: warunki w najlepszym oknie, pora, parę słów od trenera i pory do unikania.
+ * Pogoda do treningu: nagłówek „Pogoda”, najlepsza pora z liczbami i – gdy trzeba – jedna linijka ostrzeżenia.
+ * „Cały dzień” rozwija godziny, poradę, pozostałe ostrzeżenia i miejsce prognozy.
+ * W karcie treningu („Dzisiaj”) jest paskiem na dole karty; z `standalone` – własną kartą, od razu rozwiniętą.
  * Nic nie renderuje, gdy pogody nie ma (brak zgody na lokalizację, sieci albo prognozy na ten dzień).
- * Dopóki pierwsze wczytanie trwa – spokojny zarys karty, żeby treść pod spodem nie przeskakiwała.
  */
-export function WeatherCard({ session, credit = false }: { session: PlanSession; credit?: boolean }) {
+export function WeatherStrip({
+  session,
+  standalone = false,
+  credit = false,
+}: {
+  session: PlanSession;
+  standalone?: boolean;
+  credit?: boolean;
+}) {
   const forecast = useSessionForecast(session.id);
   const place = useSessionPlace(session.id);
   const { settled } = useWeather();
-  // Pogoda ukryta w Profilu – ani karty, ani jej zarysu.
   const visible = useWeatherVisible();
   if (!visible) return null;
-  if (!forecast) return settled ? null : <WeatherCardSkeleton />;
+  if (!forecast) return settled ? null : <WeatherStripSkeleton standalone={standalone} />;
   return (
-    <WeatherCardView
+    <WeatherStripView
       forecast={forecast}
       race={session.type === 'race'}
+      standalone={standalone}
       credit={credit}
       place={place?.name ?? null}
       onChangePlace={() => router.push({ pathname: '/weather-location', params: { sessionId: session.id } })}
@@ -79,125 +131,185 @@ export function WeatherCard({ session, credit = false }: { session: PlanSession;
   );
 }
 
-/** Zarys karty pogody na czas wczytywania – układ jak w gotowej karcie. */
-function WeatherCardSkeleton() {
+function WeatherStripSkeleton({ standalone = false }: { standalone?: boolean }) {
   const c = useColors();
   return (
-    <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]} accessible={false}>
-      <View style={styles.row}>
-        <View style={[styles.icon, { backgroundColor: c.surfaceBrandSoft }]} />
-        <View style={[styles.flex, styles.skeletonLines]}>
-          <Skeleton width="70%" height={space[4]} />
-          <Skeleton width="40%" />
-        </View>
-      </View>
-      <Skeleton width="55%" />
-      <View style={styles.skeletonLines}>
-        <Skeleton />
-        <Skeleton width="80%" />
-      </View>
+    <View
+      style={standalone ? [styles.card, { backgroundColor: c.surface, borderColor: c.border }] : [styles.strip, { borderTopColor: c.border }]}
+      accessible={false}>
+      <Skeleton width="25%" />
+      <Skeleton width="70%" />
+      {standalone ? <Skeleton width="90%" height={space[8]} /> : null}
     </View>
   );
 }
 
-type WeatherCardViewProps = {
-  forecast: SessionForecast;
-  /** Zawody mają swoją godzinę startu – nie podpowiadamy pory. */
-  race?: boolean;
-  /** Podpis źródła danych (wymóg licencji) – tam, gdzie karta stoi sama. */
-  credit?: boolean;
-  /** Nazwa miejsca prognozy (null – „Twoja okolica”). */
-  place?: string | null;
-  /** Otwiera wybór miejsca dla tego treningu; bez tego wiersz miejsca się nie pokazuje. */
-  onChangePlace?: () => void;
-};
-
-/** Sama karta – bez danych z serwera (używa jej też podgląd deweloperski). */
-export function WeatherCardView({ forecast: f, race = false, credit = false, place = null, onChangePlace }: WeatherCardViewProps) {
+export function WeatherStripView({
+  forecast: f,
+  race = false,
+  place = null,
+  onChangePlace,
+  standalone = false,
+  credit = false,
+}: WeatherStripViewProps) {
   const c = useColors();
   const t = useT();
   const u = useUnitFormat();
+  // Sama karta jest od razu rozwinięta i nie da się jej zwinąć – chowanie ma sens tylko w karcie treningu.
+  const [expanded, setExpanded] = useState(false);
+  const open = standalone || expanded;
   const fallback = useFallbackAdvice(f, race);
   const advice = f.advice ?? fallback;
+  const time = `${f.window.from}–${f.window.to}`;
+  const hasDay = (f.day?.length ?? 0) > 0;
 
-  const Icon = (f.isDay ? undefined : NIGHT_ICON[f.condition]) ?? DAY_ICON[f.condition];
-  const headline = race
-    ? t('weather.raceDay')
-    : f.quality === 'poor'
-      ? t('weather.leastBad', f.window)
-      : f.allDay
-        ? t('weather.anytime')
-        : t('weather.best', f.window);
+  const flag = f.flags.find((x) => SERIOUS.includes(x));
+  const shown = flag ? null : f.avoid[0];
+  const alert = flag
+    ? { Icon: FLAG_ICON[flag], text: t(`weather.tip.${flag}`) }
+    : shown
+      ? { Icon: FLAG_ICON[shown.reason], text: t('weather.avoid', { from: shown.from, to: shown.to, reason: t(`weather.reason.${shown.reason}`) }) }
+      : null;
+  const moreAvoid = f.avoid.filter((a) => a !== shown);
+
+  const wind = { n: u.speed(f.windKmh), unit: u.speedUnit };
+  const label = race ? t('weather.raceDay') : f.allDay ? t('weather.anytime') : t(f.quality === 'poor' ? 'weather.leastBadLabel' : 'weather.bestLabel');
+  const showTime = !race && !f.allDay;
+  const summary = [
+    t('weather.a11yTemp', { n: u.temp(f.tempC) }),
+    f.precipProb !== null ? t('weather.a11yPrecip', { n: f.precipProb }) : null,
+    t('weather.a11yWind', wind),
+  ]
+    .filter(Boolean)
+    .join(', ');
+
+  // Sama karta ma miejsce na warunki i odczuwalną – w pasku na karcie treningu byłyby zbędnym szumem.
   const condition = t(`weather.condition.${f.condition}`);
   const feels = Math.abs(f.feelsC - f.tempC) >= 2 ? t('weather.feels', { n: u.temp(f.feelsC) }) : null;
-  const wind = { n: u.speed(f.windKmh), unit: u.speedUnit };
-  const metrics = [
-    {
-      Icon: Thermometer,
-      value: [t('weather.temp', { n: u.temp(f.tempC) }), feels].filter(Boolean).join(' · '),
-      label: [t('weather.a11yTemp', { n: u.temp(f.tempC) }), feels].filter(Boolean).join(', '),
-    },
-    f.precipProb !== null
-      ? { Icon: Drop, value: t('weather.percent', { n: f.precipProb }), label: t('weather.a11yPrecip', { n: f.precipProb }) }
-      : null,
-    { Icon: Wind, value: t('weather.speed', wind), label: t('weather.a11yWind', wind) },
-  ].filter((m) => m !== null);
+  const temp = [t('weather.temp', { n: u.temp(f.tempC) }), standalone ? feels : null].filter(Boolean).join(' · ');
+
+  const columns = open ? dayColumns(f.day ?? []) : [];
+  const from = hourOf(f.window.from);
+  const to = hourOf(f.window.to);
 
   return (
-    <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
-      <View style={styles.row} accessible accessibilityLabel={`${headline}, ${condition}`}>
-        <View style={[styles.icon, { backgroundColor: c.surfaceBrandSoft }]}>
-          <Icon size={22} weight="bold" color={c.textBrand} />
-        </View>
-        <View style={styles.flex}>
-          <Text weight="bold" style={styles.headline}>
-            {headline}
-          </Text>
-          <Text variant="caption">{condition}</Text>
-        </View>
-      </View>
-
-      {/* Temperatura, szansa opadów i wiatr w najlepszym oknie – każda wartość z ikoną. */}
-      <View style={styles.metrics}>
-        {metrics.map((m) => (
-          <View key={m.label} style={styles.metric} accessible accessibilityLabel={m.label}>
-            <m.Icon size={16} weight="bold" color={c.textMuted} />
-            <Text variant="label">{m.value}</Text>
-          </View>
-        ))}
-      </View>
-
-      {/* Karta jest dodatkiem do treningu – tekst o stopień mniejszy niż w karcie treningu. */}
-      {advice ? (
-        <Text variant="caption" color="text">
-          {advice}
+    <View
+      style={standalone ? [styles.card, { backgroundColor: c.surface, borderColor: c.border }] : [styles.strip, { borderTopColor: c.border }]}>
+      <View style={styles.stripHead}>
+        <Text variant="caption" weight="semibold">
+          {t('weather.title')}
         </Text>
+        {standalone ? (
+          <Text variant="caption">{condition}</Text>
+        ) : hasDay ? (
+          <Pressable
+            onPress={() => setExpanded((v) => !v)}
+            hitSlop={{ top: 14, bottom: 14, left: 14, right: 8 }}
+            accessibilityRole="button"
+            accessibilityState={{ expanded: open }}
+            accessibilityLabel={t(open ? 'weather.allDayA11yHide' : 'weather.allDayA11yShow')}
+            style={({ pressed }) => [styles.toggle, { opacity: pressed ? 0.6 : 1 }]}>
+            <Text variant="label" color="textBrand">
+              {t(open ? 'weather.allDayHide' : 'weather.allDayShow')}
+            </Text>
+            {open ? <CaretUp size={14} weight="bold" color={c.textBrand} /> : <CaretDown size={14} weight="bold" color={c.textBrand} />}
+          </Pressable>
+        ) : null}
+      </View>
+
+      <View style={styles.stripMain} accessible accessibilityLabel={`${label}${showTime ? ` ${time}` : ''}, ${summary}`}>
+        <Text variant={standalone ? 'body' : 'caption'} color="text" style={standalone ? styles.stripBestBlock : styles.stripBest}>
+          {label}
+          {showTime ? (
+            <Text variant={standalone ? 'body' : 'caption'} weight="semibold" color="textBrand">
+              {` ${time}`}
+            </Text>
+          ) : null}
+        </Text>
+        <Text variant="caption">{temp}</Text>
+        {f.precipProb !== null ? <Text variant="caption">{t('weather.percent', { n: f.precipProb })}</Text> : null}
+        <Text variant="caption">{t('weather.speed', wind)}</Text>
+      </View>
+
+      {alert ? (
+        <View style={[styles.avoid, { backgroundColor: c.surfaceAccentSoft }]}>
+          <alert.Icon size={16} weight="bold" color={c.textAccentStrong} />
+          <Text variant="caption" weight="medium" color="textAccentStrong" style={styles.flex}>
+            {alert.text}
+          </Text>
+        </View>
       ) : null}
 
-      {f.avoid.map((a) => (
-        <View key={`${a.reason}-${a.from}`} style={[styles.avoid, { backgroundColor: c.surfaceAccentSoft }]}>
-          <WarningCircle size={18} weight="bold" color={c.textAccentStrong} />
-          <Text variant="caption" weight="medium" color="textAccentStrong" style={styles.flex}>
-            {t('weather.avoid', { from: a.from, to: a.to, reason: t(`weather.reason.${a.reason}`) })}
-          </Text>
-        </View>
-      ))}
+      {open ? (
+        <View style={styles.stripOpen}>
+          {columns.length > 0 ? (
+            <View style={styles.hours}>
+              {columns.map((h) => {
+                const next = f.day?.find((x) => x.hour === h.hour + 1);
+                const best = !f.allDay && !race && h.hour < to && h.hour + 2 > from;
+                const severe = !best && (h.severe !== null || (next?.severe ?? null) !== null);
+                const Icon = (h.isDay ? undefined : NIGHT_ICON[h.condition]) ?? DAY_ICON[h.condition];
+                const bg = best ? c.surfaceBrand : severe ? c.surfaceAccentSoft : 'transparent';
+                const main = best ? 'textOnBrand' : severe ? 'textAccentStrong' : 'text';
+                const dim = best ? 'textOnBrand' : severe ? 'textAccentStrong' : 'textMuted';
+                const iconColor = c[main];
+                return (
+                  <View
+                    key={h.hour}
+                    style={[styles.hour, { backgroundColor: bg }]}
+                    accessible
+                    accessibilityLabel={`${best ? `${t('weather.bestHour')}, ` : ''}${
+                      h.precipProb !== null
+                        ? t('weather.hourA11y', { hour: h.hour, temp: u.temp(h.tempC), n: h.precipProb })
+                        : t('weather.hourA11yNoRain', { hour: h.hour, temp: u.temp(h.tempC) })
+                    }`}>
+                    <Text variant="caption" color={dim} style={styles.small}>
+                      {h.hour}
+                    </Text>
+                    <Icon size={18} weight="bold" color={iconColor} />
+                    <Text variant="label" color={main}>
+                      {t('weather.temp', { n: u.temp(h.tempC) })}
+                    </Text>
+                    <Text variant="caption" color={dim} style={styles.small}>
+                      {h.precipProb !== null ? t('weather.percent', { n: h.precipProb }) : ' '}
+                    </Text>
+                  </View>
+                );
+              })}
+            </View>
+          ) : null}
 
-      {/* Dla jakiego miejsca jest prognoza – każdy trening może mieć własne (wyjazd, zawody). */}
-      {onChangePlace ? (
-        <Pressable
-          onPress={onChangePlace}
-          accessibilityRole="button"
-          accessibilityLabel={t('weather.location.a11y', { name: place ?? t('weather.location.here') })}
-          style={({ pressed }) => [styles.location, { borderTopColor: c.border, opacity: pressed ? 0.6 : 1 }]}>
-          <MapPin size={16} weight="bold" color={c.textMuted} />
-          <Text variant="label" color="textMuted" numberOfLines={1} style={styles.flex}>
-            {place ?? t('weather.location.here')}
-          </Text>
-          <Text variant="label" color="textBrand">
-            {t('weather.location.change')}
-          </Text>
-        </Pressable>
+          {advice ? (
+            <Text variant="caption" color="text">
+              {advice}
+            </Text>
+          ) : null}
+
+          {moreAvoid.map((a) => (
+            <View key={`${a.reason}-${a.from}`} style={[styles.avoid, { backgroundColor: c.surfaceAccentSoft }]}>
+              <WarningCircle size={16} weight="bold" color={c.textAccentStrong} />
+              <Text variant="caption" weight="medium" color="textAccentStrong" style={styles.flex}>
+                {t('weather.avoid', { from: a.from, to: a.to, reason: t(`weather.reason.${a.reason}`) })}
+              </Text>
+            </View>
+          ))}
+
+          {onChangePlace ? (
+            <Pressable
+              onPress={onChangePlace}
+              accessibilityRole="button"
+              accessibilityLabel={t('weather.location.a11y', { name: place ?? t('weather.location.here') })}
+              style={({ pressed }) => [styles.location, styles.stripLocation, { borderTopColor: c.border, opacity: pressed ? 0.6 : 1 }]}>
+              <MapPin size={16} weight="bold" color={c.textMuted} />
+              <Text variant="label" color="textMuted" numberOfLines={1} style={styles.flex}>
+                {place ?? t('weather.location.here')}
+              </Text>
+              <Text variant="label" color="textBrand">
+                {t('weather.location.change')}
+              </Text>
+            </Pressable>
+          ) : null}
+        </View>
       ) : null}
 
       {credit ? (
@@ -258,14 +370,28 @@ export function WeatherPrompt() {
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  skeletonLines: { gap: space[2] },
-  headline: { fontSize: font.size.md, lineHeight: 21 },
+  strip: {
+    gap: space[2],
+    borderTopWidth: StyleSheet.hairlineWidth,
+    marginHorizontal: -space[4],
+    marginBottom: -space[1],
+    paddingTop: space[3],
+    paddingHorizontal: space[4],
+  },
+  stripHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  toggle: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  stripMain: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'baseline', columnGap: space[3], rowGap: space[1] },
+  stripBest: { flexGrow: 1 },
+  // Sama karta: pora w swoim wierszu, liczby pod nią – inaczej ostatnia wartość zawija się samotnie.
+  stripBestBlock: { width: '100%' },
+  stripOpen: { gap: space[3] },
+  hours: { flexDirection: 'row', gap: 2 },
+  hour: { flex: 1, alignItems: 'center', gap: 2, paddingVertical: space[2], borderRadius: radius.button },
+  stripLocation: { marginBottom: 0 },
   small: { fontSize: font.size.xs, lineHeight: 17 },
   card: { gap: space[3], padding: space[4], borderRadius: radius.card, borderWidth: 1.5 },
   row: { flexDirection: 'row', alignItems: 'center', gap: space[3] },
   icon: { width: 40, height: 40, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center' },
-  metrics: { flexDirection: 'row', flexWrap: 'wrap', columnGap: space[5], rowGap: space[2] },
-  metric: { flexDirection: 'row', alignItems: 'center', gap: space[2] },
   location: {
     flexDirection: 'row',
     alignItems: 'center',

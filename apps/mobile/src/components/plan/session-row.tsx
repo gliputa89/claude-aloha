@@ -1,6 +1,7 @@
 import type { TranslationKey } from '@aloha/i18n';
 import { estimateDistanceM, stepsOf } from '@aloha/plan-engine';
 import { router } from 'expo-router';
+import type { ReactNode } from 'react';
 import { Check } from 'phosphor-react-native';
 import { Pressable, StyleSheet, View } from 'react-native';
 
@@ -48,8 +49,8 @@ export function useDetail(session: PlanSession) {
   }
 }
 
-/** Karta treningu: dzień, typ, długość i przebieg (słupki odcinków); tapnięcie otwiera arkusz ze szczegółami. */
-export function SessionRow({ session, today }: { session: PlanSession; today: boolean }) {
+/** Karta treningu: dzień, typ, długość i przebieg (słupki odcinków); tapnięcie otwiera arkusz ze szczegółami. `children` – dodatek na dole karty (pogoda). */
+export function SessionRow({ session, today, children }: { session: PlanSession; today: boolean; children?: ReactNode }) {
   const c = useColors();
   const t = useT();
   const u = useUnitFormat();
@@ -137,6 +138,7 @@ export function SessionRow({ session, today }: { session: PlanSession; today: bo
           <WorkoutChart steps={steps} />
         </View>
       ) : null}
+      {children}
     </Pressable>
   );
 }

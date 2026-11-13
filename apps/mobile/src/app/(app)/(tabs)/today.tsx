@@ -7,7 +7,7 @@ import { CheckInCard } from '@/components/checkin/check-in-card';
 import { MatchPrompts } from '@/components/strava/match-prompt';
 import { RaceCountdown } from '@/components/plan/race-countdown';
 import { SessionRow } from '@/components/plan/session-row';
-import { WeatherCard, WeatherPrompt } from '@/components/plan/weather-card';
+import { WeatherPrompt, WeatherStrip } from '@/components/plan/weather-card';
 import { Button } from '@/components/ui/button';
 import { FadeUp } from '@/components/ui/fade-up';
 import { InfoCard } from '@/components/ui/info-card';
@@ -90,9 +90,10 @@ export default function TodayScreen() {
             {todayRuns.length > 0 ? (
               todayRuns.map((s) => (
                 <View key={s.id} style={styles.section}>
-                  <SessionRow session={s} today />
+                  <SessionRow session={s} today>
+                    {modules.weather ? <WeatherStrip session={s} /> : null}
+                  </SessionRow>
                   {checkInFor?.id === s.id ? <CheckInCard session={s} today={today} onPlanChanged={reload} /> : null}
-                  {modules.weather ? <WeatherCard session={s} /> : null}
                 </View>
               ))
             ) : todays.length > 0 ? (
@@ -128,8 +129,9 @@ export default function TodayScreen() {
               <Text variant="heading" accessibilityRole="header">
                 {t('today.next')}
               </Text>
-              <SessionRow session={next} today={false} />
-              {modules.weather ? <WeatherCard session={next} /> : null}
+              <SessionRow session={next} today={false}>
+                {modules.weather ? <WeatherStrip session={next} /> : null}
+              </SessionRow>
             </FadeUp>
           ) : null}
 

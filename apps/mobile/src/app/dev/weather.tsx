@@ -1,15 +1,16 @@
+import type { DayHour } from '@aloha/plan-engine';
 import { Redirect } from 'expo-router';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { WeatherCardView } from '@/components/plan/weather-card';
+import { WeatherStripView } from '@/components/plan/weather-card';
 import { Text } from '@/components/ui/text';
-import { space } from '@/constants/theme';
+import { radius, space } from '@/constants/theme';
 import type { SessionForecast } from '@/features/weather/api';
 import { useColors } from '@/hooks/use-colors';
 
 /**
- * Podgląd karty pogody bez serwera, lokalizacji i AI – tylko w development buildzie.
+ * Podgląd pogody bez serwera, lokalizacji i AI – tylko w development buildzie.
  * Otwórz: aloha://dev/weather (albo `npx uri-scheme open aloha://dev/weather --ios`).
  * Etykiety scenariuszy są narzędziem deweloperskim, więc nie idą do słowników.
  */
@@ -31,11 +32,29 @@ const base: SessionForecast = {
   advice: null,
 };
 
+const DAY: DayHour[] = [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21].map((hour) => ({
+  hour,
+  tempC: 2 + Math.round((hour - 6) * 0.6),
+  precipProb: hour >= 12 && hour <= 15 ? 60 : 5,
+  condition: hour >= 12 && hour <= 15 ? 'rain' : hour === 6 ? 'cloudy' : 'partly',
+  isDay: hour >= 7 && hour <= 17,
+  severe: hour >= 13 && hour <= 14 ? 'rain' : null,
+}));
+
+const STRIPS: { label: string; race?: boolean; forecast: SessionForecast }[] = [
+  { label: 'Pasek: dobre okno, rozwijany dzień', forecast: { ...base, window: { from: '08:00', to: '10:00' }, day: DAY } },
+  { label: 'Pasek: smog w oknie', forecast: { ...base, window: { from: '08:00', to: '10:00' }, flags: ['smog'], day: DAY } },
+  { label: 'Pasek: lód rano, okno później', forecast: { ...base, window: { from: '11:00', to: '13:00' }, avoid: [{ from: '06:00', to: '09:00', reason: 'ice' }], day: DAY } },
+  { label: 'Pasek: cały dzień kiepski', forecast: { ...base, quality: 'poor', flags: ['ice'], window: { from: '12:00', to: '14:00' }, day: DAY } },
+  { label: 'Pasek: bez godzin (stary zapis)', forecast: { ...base } },
+];
+
 const SCENARIOS: { label: string; race?: boolean; forecast: SessionForecast }[] = [
   {
     label: 'Porada od AI, smog wieczorem',
     forecast: {
       ...base,
+      day: DAY,
       advice: 'Wyjdź koło południa – jest najcieplej i powietrze najczystsze. Wieczorem smog, więc lepiej nie zostawiaj biegu na po pracy.',
       avoid: [{ from: '18:00', to: '22:00', reason: 'smog' }],
     },
@@ -93,7 +112,25 @@ export default function WeatherPreview() {
           <Text variant="label" color="textMuted">
             {s.label}
           </Text>
-          <WeatherCardView forecast={s.forecast} race={s.race} credit={i === 0} place={i % 2 === 0 ? 'Warszawa' : null} onChangePlace={() => {}} />
+          <WeatherStripView
+            forecast={s.forecast}
+            race={s.race}
+            standalone
+            credit={i === 0}
+            place={i % 2 === 0 ? 'Warszawa' : null}
+            onChangePlace={() => {}}
+          />
+        </View>
+      ))}
+      {STRIPS.map((s) => (
+        <View key={s.label} style={styles.item}>
+          <Text variant="label" color="textMuted">
+            {s.label}
+          </Text>
+          <View style={[styles.stripCard, { backgroundColor: c.surfaceBrandSoft, borderColor: c.action }]}>
+            <Text weight="bold">Bieg spokojny</Text>
+            <WeatherStripView forecast={s.forecast} place="Kraków" onChangePlace={() => {}} />
+          </View>
         </View>
       ))}
     </ScrollView>
@@ -103,4 +140,5 @@ export default function WeatherPreview() {
 const styles = StyleSheet.create({
   content: { paddingHorizontal: space[5], gap: space[5] },
   item: { gap: space[2] },
+  stripCard: { gap: space[3], padding: space[4], borderRadius: radius.card, borderWidth: 1.5 },
 });

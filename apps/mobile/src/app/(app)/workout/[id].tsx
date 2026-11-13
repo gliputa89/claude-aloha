@@ -18,7 +18,7 @@ import Animated, { useReducedMotion } from 'react-native-reanimated';
 
 import { Mark } from '@/components/brand/mark';
 import { TYPE_COLOR, useDetail } from '@/components/plan/session-row';
-import { WeatherCard } from '@/components/plan/weather-card';
+import { WeatherStrip } from '@/components/plan/weather-card';
 import { WorkoutChart, WorkoutSteps } from '@/components/plan/workout-intervals';
 import { MatchPrompts } from '@/components/strava/match-prompt';
 import { ReviewBadge, useCountUp, type Celebration } from '@/components/review/review-celebration';
@@ -358,7 +358,7 @@ function Detail({ session }: { session: PlanSession }) {
       {/* Pogoda tylko przed treningiem – po biegu prognoza nie ma już znaczenia. */}
       {completed || !modules.weather ? null : (
         <FadeUp delay={hasSteps ? T.rest + 60 : T.stats + 80}>
-          <WeatherCard session={session} credit />
+          <WeatherStrip session={session} standalone credit />
         </FadeUp>
       )}
     </ScrollView>
