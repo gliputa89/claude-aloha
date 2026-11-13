@@ -1,6 +1,7 @@
 {
   "ios": {
     "NSLocationWhenInUseUsageDescription": "Aloha sprawdza pogodę w Twojej okolicy, żeby podpowiedzieć najlepszą porę na trening.",
-    "NSHealthShareUsageDescription": "Aloha czyta Twoje biegi z Apple Zdrowie (czas, dystans, tempo i tętno), żeby odhaczać treningi z planu i oceniać, jak poszły."
+    "NSHealthShareUsageDescription": "Aloha czyta Twoje biegi z Apple Zdrowie (czas, dystans, tempo i tętno), żeby odhaczać treningi z planu i oceniać, jak poszły.",
+    "NSHealthUpdateUsageDescription": "Aloha nie zapisuje nic w Apple Zdrowie – prosi tylko o odczyt Twoich biegów. Apple wymaga tego wyjaśnienia dla każdej aplikacji z dostępem do Zdrowia."
   }
 }
