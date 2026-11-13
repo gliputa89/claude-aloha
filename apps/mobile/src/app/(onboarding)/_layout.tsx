@@ -7,10 +7,10 @@ import { useColors } from '@/hooks/use-colors';
 import { useT } from '@/hooks/use-t';
 
 export const unstable_settings = {
-  anchor: 'goal',
+  anchor: 'hello',
 };
 
-/** Ankieta startowa (docs/PROJECT.md 4.2): 6 kroków, odpowiedzi w pamięci, zapis na końcu. */
+/** Ankieta startowa (docs/PROJECT.md 4.2): powitanie + 6 kroków, odpowiedzi w pamięci, zapis na końcu. */
 export default function OnboardingLayout() {
   const c = useColors();
   const t = useT();
@@ -29,7 +29,11 @@ export default function OnboardingLayout() {
           headerTitleStyle: { fontFamily: fontFamily.bold },
           contentStyle: { backgroundColor: c.background },
         }}>
-        <Stack.Screen name="goal" options={{ headerBackVisible: false, gestureEnabled: false }} />
+        <Stack.Screen
+          name="hello"
+          options={{ headerShown: false, gestureEnabled: false, statusBarStyle: brandStatusBar }}
+        />
+        <Stack.Screen name="goal" />
         <Stack.Screen name="level" />
         <Stack.Screen name="availability" />
         <Stack.Screen name="health" />

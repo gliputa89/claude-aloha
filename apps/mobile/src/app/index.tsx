@@ -7,5 +7,5 @@ export default function Index() {
   const { session } = useAuth();
   const onboarded = useOnboarded();
   if (!session) return <Redirect href="/welcome" />;
-  return <Redirect href={onboarded ? '/today' : '/goal'} />;
+  return <Redirect href={onboarded ? '/today' : '/hello'} />;
 }

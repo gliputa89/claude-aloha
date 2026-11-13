@@ -8,6 +8,15 @@ import { goalsToSave } from './goals';
 /** Wersja treści zgody na dane zdrowotne (zapisywana w public.consents). */
 export const HEALTH_CONSENT_VERSION = '2026-11';
 
+/** Imię do powitania (profiles.display_name, maks. 80 znaków) – np. dla konta z Apple bez imienia. */
+export async function saveDisplayName(userId: string, name: string) {
+  const { error } = await supabase
+    .from('profiles')
+    .update({ display_name: name.trim().slice(0, 80) })
+    .eq('id', userId);
+  if (error) throw error;
+}
+
 /** Zapisuje całą ankietę jednym wywołaniem (RPC public.complete_onboarding – jedna transakcja). */
 export async function completeOnboarding(draft: OnboardingDraft) {
   if (!draft.goal || !draft.level || draft.contraindications === null) {
