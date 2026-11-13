@@ -313,16 +313,24 @@ function Detail({ session }: { session: PlanSession }) {
               </Text>
             </View>
             <Text>{tip}</Text>
+            {/* Pytanie do trenera przed treningiem siedzi w tym samym boxie co rada. */}
+            {chatEnabled && session.type !== 'rest' ? (
+              <Button
+                variant="secondary"
+                label={t('chat.askBefore')}
+                onPress={() => router.push({ pathname: '/coach', params: { sessionId: session.id } })}
+              />
+            ) : null}
           </View>
         </FadeUp>
       )}
 
-      {/* Pytania do trenera o ten trening: przed (jak go pobiec) albo po (co wyszło). */}
-      {chatEnabled && session.type !== 'rest' ? (
+      {/* Po treningu pytanie o to, co wyszło, zostaje osobnym przyciskiem pod kafelkami. */}
+      {completed && chatEnabled && session.type !== 'rest' ? (
         <FadeUp delay={T.stats + 300}>
           <Button
             variant="secondary"
-            label={t(completed ? 'chat.askAfter' : 'chat.askBefore')}
+            label={t('chat.askAfter')}
             onPress={() => router.push({ pathname: '/coach', params: { sessionId: session.id } })}
           />
         </FadeUp>
