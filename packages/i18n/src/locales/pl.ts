@@ -338,7 +338,7 @@ export const pl = {
     goals: 'Cele',
   },
   chat: {
-    aiName: 'Keanu Biegała 🌺',
+    aiName: 'Pan Aloha',
     humanName: 'Trener',
     subtitle: 'Trener AI',
     chooseCoach: 'Z kim chcesz porozmawiać',
@@ -368,7 +368,7 @@ export const pl = {
     },
     placeholder: 'Napisz do trenera…',
     send: 'Wyślij',
-    typing: 'Keanu pisze…',
+    typing: 'Pan Aloha pisze…',
     humanWait: 'Wysłane. Trener odpisze, gdy tylko będzie mógł.',
     health: {
       title: 'To już temat zdrowia',
@@ -387,7 +387,7 @@ export const pl = {
     },
     error: {
       module_disabled: 'Ta rozmowa nie jest dostępna w Twoim pakiecie.',
-      no_coach: 'Nie ma teraz wolnego trenera. Spróbuj później albo napisz do Keanu.',
+      no_coach: 'Nie ma teraz wolnego trenera. Spróbuj później albo napisz do Pana Aloha.',
       limit: 'Na dziś to już dużo pytań – wróć jutro, pogadamy dalej.',
       ai_unavailable: 'Nie udało mi się odpowiedzieć. Spróbuj jeszcze raz za chwilę.',
       failed: 'Coś nie zadziałało. Sprawdź internet i spróbuj jeszcze raz.',
@@ -806,7 +806,7 @@ export const pl = {
     kindConsistencyDesc: 'Ile treningów w tygodniu i przez ile tygodni',
     kindVolume: 'Kilometry',
     kindVolumeDesc: 'np. {n} {unit} do końca grudnia',
-    askCoach: 'Nie wiesz, co wybrać? Napisz Keanu, co chcesz osiągnąć.',
+    askCoach: 'Nie wiesz, co wybrać? Napisz do Pana Aloha, co chcesz osiągnąć.',
     distanceLabel: 'Dystans',
     dateLabel: 'Data zawodów',
     timeOptional: 'Docelowy czas (opcjonalnie)',

@@ -111,7 +111,7 @@ export async function replyAsCoach(form: FormData) {
   if (!UUID.test(threadId) || !body) return;
   const db = createServiceClient();
   const thread = await db.from('chat_threads').select('id, user_id, coaches(kind)').eq('id', threadId).maybeSingle();
-  // Z panelu odpowiadamy tylko w wątkach trenerów-ludzi – za trenera AI (Keanu) odpowiada model.
+  // Z panelu odpowiadamy tylko w wątkach trenerów-ludzi – za Pana Aloha odpowiada model.
   if (!thread.data || (thread.data.coaches as unknown as { kind: string } | null)?.kind !== 'human') return;
   const { error } = await db.from('chat_messages').insert({ thread_id: threadId, user_id: thread.data.user_id, sender: 'coach', body });
   if (error) console.error('replyAsCoach failed', error.code, error.message);

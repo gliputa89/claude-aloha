@@ -41,7 +41,7 @@ export const AI_FUNCTIONS = {
   },
   'coach-chat': {
     module: 'coach_chat',
-    label: 'Rozmowa z trenerem AI (Keanu Biegała)',
+    label: 'Rozmowa z trenerem AI (Pan Aloha)',
     description: 'Czat: Claude odpowiada na pytania biegacza z kontekstem planu i może zaproponować jedną zmianę w planie.',
   },
   'race-forecast': {

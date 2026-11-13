@@ -51,7 +51,7 @@ function useKeyboardHeight() {
 const HUMAN_POLL_MS = 20_000;
 
 /**
- * Arkusz rozmowy z trenerem: Keanu Biegała (AI) albo prawdziwy trener (osobny pakiet). Bez parametrów – rozmowa
+ * Arkusz rozmowy z trenerem: Pan Aloha (AI) albo prawdziwy trener (osobny pakiet). Bez parametrów – rozmowa
  * ogólna; z `sessionId` – wątek przy treningu (pytania przed i po). Trener może zaproponować zmianę w planie –
  * biegacz ją akceptuje albo zostawia plan bez zmian.
  */

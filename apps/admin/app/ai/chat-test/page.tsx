@@ -20,7 +20,7 @@ async function ChatTest() {
         <h1 className="font-display text-2xl font-semibold tracking-tight">Test rozmowy z trenerem</h1>
         <p className="max-w-3xl text-sm text-text-muted">
           Kilkanaście wiadomości biegacza (pytania, prośby o zmianę planu, zdrowie, próby obejścia zasad) idzie przez prawdziwy
-          prompt trenera AI (Keanu) na planie wskazanego użytkownika. Propozycje sprawdzają reguły silnika – jak w aplikacji. Nic się nie
+          prompt Pana Aloha na planie wskazanego użytkownika. Propozycje sprawdzają reguły silnika – jak w aplikacji. Nic się nie
           zapisuje: ani wiadomości, ani zmiany w planie.
         </p>
       </div>

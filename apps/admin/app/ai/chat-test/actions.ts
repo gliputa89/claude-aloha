@@ -86,7 +86,7 @@ function todayIn(timeZone: string) {
 }
 
 /**
- * Puszcza scenariusze rozmów przez prawdziwy prompt trenera AI (Keanu) na planie wskazanego użytkownika i sprawdza
+ * Puszcza scenariusze rozmów przez prawdziwy prompt Pana Aloha na planie wskazanego użytkownika i sprawdza
  * propozycje regułami silnika – tak jak funkcja coach-chat. Niczego nie zapisuje (ani wiadomości, ani zmian w planie);
  * zostaje tylko log wywołań AI (źródło: tester). `ids` – wybrane scenariusze; puste = wszystkie.
  */

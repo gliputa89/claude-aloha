@@ -132,7 +132,7 @@ bez przebudowy kodu. Jedno źródło prawdy: `packages/plan-engine/src/core/modu
 | `strava` | połączenie konta, pobieranie biegów, odhaczanie, pytanie o przesunięty dzień | `strava/` | `strava-oauth`, `strava-sync` | `strava_connections`, `strava_activities` | `features/strava`, `components/strava` | – |
 | `review` | ocena biegu względem planu (werdykt, fakty, tętno) – wymaga `strava` | `review/` | `strava-sync` | `session_reviews` | `components/review` | – |
 | `coach` | notka trenera po treningu i na dzień bez biegu | `coach/` | `strava-sync`, `day-note` | `session_reviews.note`, `day_notes` | `features/coach` | `workout-review`, `day-note` |
-| `coach_chat` | czat z trenerem AI „Keanu Biegała”: pytania ogólne, przed i po treningu, propozycje zmian w planie | `chat/` | `coach-chat` | `coaches`, `chat_threads`, `chat_messages` | `features/chat`, `app/(app)/coach.tsx` | `coach-chat` |
+| `coach_chat` | czat z trenerem AI „Pan Aloha”: pytania ogólne, przed i po treningu, propozycje zmian w planie | `chat/` | `coach-chat` | `coaches`, `chat_threads`, `chat_messages` | `features/chat`, `app/(app)/coach.tsx` | `coach-chat` |
 | `coach_human` | czat z prawdziwym trenerem (osobny, płatny pakiet) | `chat/` | `coach-chat` | jak wyżej + `coach_assignments` | jak wyżej | – (odpowiada człowiek z panelu → „Trenerzy i rozmowy”) |
 
 Jak to działa:

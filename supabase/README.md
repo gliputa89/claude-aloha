@@ -57,7 +57,7 @@ Bez klucza `ANTHROPIC_API_KEY` albo przy błędzie modelu aplikacja pokazuje tek
 
 ## Rozmowa z trenerem
 
-`coach-chat` – czat z trenerem AI („Keanu Biegała”, moduł `coach_chat`) i z prawdziwym trenerem (moduł `coach_human`).
+`coach-chat` – czat z trenerem AI („Pan Aloha”, moduł `coach_chat`) i z prawdziwym trenerem (moduł `coach_human`).
 Akcje: `open` (wątek ogólny albo przy treningu), `send` (wiadomość; przy AI od razu z odpowiedzią), `answer` (akceptacja
 albo odrzucenie propozycji zmiany planu). Model (funkcja AI `coach-chat`, Sonnet) dostaje plan, oceny i historię wątku –
 bez danych osobowych – i może zwrócić jedną operację na planie; `packages/plan-engine/src/chat/chat.ts` sprawdza ją

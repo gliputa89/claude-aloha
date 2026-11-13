@@ -1,4 +1,4 @@
-// Edge Function: rozmowa z trenerem – czat z trenerem AI („Keanu Biegała”) i z prawdziwym trenerem.
+// Edge Function: rozmowa z trenerem – czat z trenerem AI („Pan Aloha”) i z prawdziwym trenerem.
 //
 //   POST { action: 'open', coach: 'ai' | 'human', sessionId? }  → { thread, coach, messages }
 //        wątek ogólny albo przy treningu (pytania przed / po); przy trenerze-człowieku przydziela trenera.
