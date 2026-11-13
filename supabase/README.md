@@ -104,9 +104,12 @@ aplikacja prosi o jednorazową zgodę i wysyła wiadomość ponownie.
   „Strava”): otwiera ekran zgody Stravy, po powrocie wymienia kod na tokeny i zapisuje połączenie; tokeny nie
   przechodzą przez telefon ani przeglądarkę. Obsługuje też rozłączenie (cofa dostęp w Stravie, usuwa pobrane biegi).
   Prosimy o zakres `activity:read_all`, żeby liczyły się też biegi ustawione jako prywatne.
-- **W ustawieniach aplikacji Stravy** pole „Authorization Callback Domain” musi mieć host projektu Supabase,
-  np. `<ref>.supabase.co` (bez `https://`). Strava przyjmuje jedną domenę na aplikację, więc staging i produkcja
-  potrzebują osobnych aplikacji Stravy albo wspólnej własnej domeny dla funkcji.
+- **W ustawieniach aplikacji Stravy** pole „Authorization Callback Domain” = host projektu PRODUKCYJNEGO,
+  np. `<prodref>.supabase.co` (bez `https://`). Strava przyjmuje jedną domenę na aplikację, więc staging korzysta z tej
+  samej aplikacji przez produkcję: na stagingu sekret `STRAVA_REDIRECT_URI=https://<prodref>.supabase.co/functions/v1/strava-oauth`,
+  na produkcji `STRAVA_FORWARD_URL=https://<stagingref>.supabase.co/functions/v1/strava-oauth`; `STRAVA_CLIENT_ID/SECRET`
+  takie same w obu. Produkcja przekazuje na staging powroty, których `state` nie podpisała. Na stagingu używaj osobnych
+  kont Stravy niż na produkcji (ten sam sportowiec w dwóch bazach unieważnia sobie tokeny).
 - Konto Stravy należy do jednego użytkownika naraz – nowe połączenie zabiera je poprzedniemu (razem z jego biegami).
 - Awaryjnie, bez ekranu zgody: w karcie „Strava” w panelu → „Ręcznie: wklej refresh token” (token z tej samej
   aplikacji Stravy co sekrety, z zakresem `activity:read`). Funkcja zapisuje zawsze najnowszy refresh token.

@@ -8,8 +8,13 @@
 //
 // Powrót ze Stravy przychodzi z przeglądarki bez tokenu Supabase, dlatego funkcja ma verify_jwt = false
 // (supabase/config.toml) i sama sprawdza: POST – token użytkownika albo klucz service_role, GET – podpisany `state`.
-// W ustawieniach aplikacji Stravy „Authorization Callback Domain” = host projektu Supabase (<ref>.supabase.co).
-// Sekrety: STRAVA_CLIENT_ID / STRAVA_CLIENT_SECRET.
+// W ustawieniach aplikacji Stravy „Authorization Callback Domain” = host projektu PRODUKCYJNEGO (<ref>.supabase.co).
+// Sekrety: STRAVA_CLIENT_ID / STRAVA_CLIENT_SECRET (te same w każdym środowisku).
+// Staging dzieli aplikację Stravy z produkcją:
+//   staging:   STRAVA_REDIRECT_URI = https://<prodref>.supabase.co/functions/v1/strava-oauth
+//   produkcja: STRAVA_FORWARD_URL  = https://<stagingref>.supabase.co/functions/v1/strava-oauth
+// Powrót ze Stravy ląduje na produkcji; jeśli `state` nie jest jej (nie przechodzi weryfikacji), przekazuje go (302)
+// na staging, który weryfikuje go swoim kluczem. Znacznik ?fwd=1 chroni przed pętlą.
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 
@@ -60,7 +65,9 @@ async function readState(text: string | null): Promise<State | null> {
   }
 }
 
-const callbackUrl = () => `${Deno.env.get('SUPABASE_URL')}/functions/v1/strava-oauth`;
+// Adres powrotu ze Stravy. Strava przyjmuje jedną domenę na aplikację, więc staging ustawia STRAVA_REDIRECT_URI
+// na funkcję produkcji, a produkcja (STRAVA_FORWARD_URL) odsyła tam powroty, których `state` nie jest jej.
+const callbackUrl = () => Deno.env.get('STRAVA_REDIRECT_URI') || `${Deno.env.get('SUPABASE_URL')}/functions/v1/strava-oauth`;
 
 function back(returnTo: string, result: string) {
   const url = new URL(returnTo);
@@ -77,6 +84,16 @@ Deno.serve(async (req) => {
   if (req.method === 'GET') {
     const query = new URL(req.url).searchParams;
     const state = await readState(query.get('state'));
+    if (!state) {
+      // `state` podpisany kluczem innego środowiska (staging przez produkcję) – oddajemy powrót jego właścicielowi.
+      const forward = Deno.env.get('STRAVA_FORWARD_URL');
+      if (forward && URL.canParse(forward) && !query.has('fwd')) {
+        const target = new URL(forward);
+        query.forEach((value, key) => target.searchParams.set(key, value));
+        target.searchParams.set('fwd', '1');
+        return new Response(null, { status: 302, headers: { Location: target.toString() } });
+      }
+    }
     if (!state) return new Response('Link wygasł – wróć do Aloha i połącz Stravę jeszcze raz.', { status: 400 });
     // Użytkownik kliknął „Anuluj” na ekranie zgody.
     if (query.get('error') || !query.get('code')) return back(state.r, 'cancelled');
