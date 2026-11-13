@@ -749,6 +749,7 @@ export const pl = {
       restrictedBody: 'Dodawanie treningów na zegarek jest zablokowane na tym iPhonie, np. przez Czas przed ekranem albo profil firmowy.',
       openWatch: 'Otwórz Watch',
       close: 'Zamknij',
+      pending: 'iPhone jeszcze nie potwierdził zgody na treningi, więc trening się nie zapisał. Tak bywa, gdy zegarek nie jest połączony – spróbuj ponownie, gdy Apple Watch będzie w pobliżu.',
       error: 'Nie udało się wysłać treningu. Sprawdź, czy zegarek jest sparowany, i spróbuj jeszcze raz.',
     },
   },

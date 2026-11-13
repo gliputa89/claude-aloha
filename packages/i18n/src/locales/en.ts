@@ -748,6 +748,7 @@ export const en: Dictionary = {
       restrictedBody: 'Adding workouts to your watch is blocked on this iPhone, for example by Screen Time or a work profile.',
       openWatch: 'Open Watch',
       close: 'Close',
+      pending: 'Your iPhone hasn’t confirmed the permission yet, so the workout wasn’t saved. This can happen when the watch isn’t connected – try again when your Apple Watch is nearby.',
       error: 'Couldn’t send the workout. Check that your watch is paired and try again.',
     },
   },

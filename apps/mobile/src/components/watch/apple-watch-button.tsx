@@ -10,6 +10,9 @@ import { useAppleWatch } from '@/features/watch/apple-watch';
 import { useColors } from '@/hooks/use-colors';
 import { useT } from '@/hooks/use-t';
 
+/** Wyjaśnienie przed prośbą iOS pokazujemy raz na uruchomienie – przy kolejnych próbach od razu wysyłamy. */
+let askedThisLaunch = false;
+
 /** Aplikacja Watch na iPhonie – tam, w ustawieniach Treningu, iOS trzyma zgodę na dodawanie treningów (WorkoutKit). */
 const WATCH_APP_URL = 'itms-watchs://';
 
@@ -22,7 +25,7 @@ const WATCH_APP_URL = 'itms-watchs://';
 export function AppleWatchButton({ session }: { session: PlanSession }) {
   const c = useColors();
   const t = useT();
-  const { available, state, authorization, send, preview } = useAppleWatch(session);
+  const { available, state, errorDetail, authorization, send, preview } = useAppleWatch(session);
   if (!available) return null;
 
   const showBlocked = (reason: 'denied' | 'restricted') =>
@@ -45,7 +48,8 @@ export function AppleWatchButton({ session }: { session: PlanSession }) {
   const onPress = async () => {
     const auth = await authorization();
     if (auth === 'denied' || auth === 'restricted') return showBlocked(auth);
-    if (auth !== 'notDetermined') return void sendNow();
+    if (auth !== 'notDetermined' || askedThisLaunch) return void sendNow();
+    askedThisLaunch = true;
     // Pierwszy raz: krótko, po co iOS zaraz zapyta – odmowa jest trudna do cofnięcia.
     Alert.alert(t('workoutDetail.watch.askTitle'), t('workoutDetail.watch.askBody'), [
       { text: t('workoutDetail.watch.askLater'), style: 'cancel' },
@@ -71,7 +75,13 @@ export function AppleWatchButton({ session }: { session: PlanSession }) {
         loading={state === 'sending'}
         onPress={onPress}
       />
-      {state === 'error' ? <Notice message={t('workoutDetail.watch.error')} /> : null}
+      {state === 'pending' ? (
+        <Notice message={__DEV__ && errorDetail ? `${t('workoutDetail.watch.pending')}\n\n${errorDetail}` : t('workoutDetail.watch.pending')} />
+      ) : null}
+      {state === 'error' ? (
+        // W buildzie deweloperskim dopisujemy techniczny powód – do diagnozy na telefonie, użytkownik go nie widzi.
+        <Notice message={__DEV__ && errorDetail ? `${t('workoutDetail.watch.error')}\n\n${errorDetail}` : t('workoutDetail.watch.error')} />
+      ) : null}
     </View>
   );
 }
